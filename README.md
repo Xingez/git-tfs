@@ -16,7 +16,7 @@ sync with that work.
 
 ## Quick start
 
-1. Install Git, `git-tfs.exe`, the .NET 10 Desktop Runtime, and a supported
+1. Install Git, `git-tfs.exe`, the .NET Framework 4.8 runtime, and a supported
    Visual Studio/TFS client installation.
 2. Edit `appsettings.json` next to `git-tfs.exe`:
 
@@ -58,8 +58,11 @@ guide for the supported authentication options.
 
 ### Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for building
 - Visual Studio 2022 with the required TFS client tooling
+
+The executable targets .NET Framework 4.8 because the TFVC client object model
+used by Visual Studio 2022 is not compatible with the .NET runtime.
 
 ### Build and test
 

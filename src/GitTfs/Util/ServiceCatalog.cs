@@ -16,8 +16,10 @@ namespace GitTfs.Util
 
         public void AddCommand(string name, Type implementationType)
         {
-            if (!_commands.TryAdd(name, implementationType))
+            if (_commands.ContainsKey(name))
                 throw new InvalidOperationException($"A command named '{name}' is already registered.");
+
+            _commands.Add(name, implementationType);
         }
 
         public void AddChangedFile(string status, Type implementationType) => _changedFiles[status] = implementationType;
@@ -37,7 +39,18 @@ namespace GitTfs.Util
             return string.Join(Environment.NewLine, registrations);
         }
 
-        public readonly record struct ServiceRegistration(string Name, Type ImplementationType);
+        public readonly struct ServiceRegistration
+        {
+            public ServiceRegistration(string name, Type implementationType)
+            {
+                Name = name;
+                ImplementationType = implementationType;
+            }
+
+            public string Name { get; }
+
+            public Type ImplementationType { get; }
+        }
     }
 
     public static class ServiceCollectionExtensions

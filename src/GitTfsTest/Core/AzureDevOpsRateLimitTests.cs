@@ -16,7 +16,8 @@ namespace GitTfs.Test.Core
                 { "X-RateLimit-Reset", "4102444800" }
             };
 
-            var delay = AzureDevOpsRateLimit.FromHeaders(headers, 429).GetServerDelay(DateTimeOffset.UnixEpoch);
+            var unixEpoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var delay = AzureDevOpsRateLimit.FromHeaders(headers, 429).GetServerDelay(unixEpoch);
 
             Assert.Equal(TimeSpan.FromSeconds(12), delay);
         }

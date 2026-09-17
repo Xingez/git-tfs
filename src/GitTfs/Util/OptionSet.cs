@@ -170,7 +170,7 @@ public abstract class Option
                 continue;
 
             var terminator = name[terminatorIndex];
-            names[index] = name[..terminatorIndex];
+            names[index] = name.Substring(0, terminatorIndex);
             if (valueType.HasValue && valueType.Value != terminator)
                 throw new ArgumentException("Conflicting option types in prototype.", "prototype");
             valueType = terminator;
@@ -213,7 +213,7 @@ public abstract class Option
                 case '}':
                     if (start < 0)
                         throw new ArgumentException($"Ill-formed name/value separator in '{name}'.", "prototype");
-                    separators.Add(name[start..index]);
+                    separators.Add(name.Substring(start, index - start));
                     start = -1;
                     break;
                 default:
@@ -375,17 +375,17 @@ public class OptionSet : Collection<Option>
 
     private bool ParseBooleanSuffix(string argument, string name, OptionContext context)
     {
-        if (name.Length < 2 || (name[^1] != '+' && name[^1] != '-'))
+        if (name.Length < 2 || (name[name.Length - 1] != '+' && name[name.Length - 1] != '-'))
             return false;
 
-        var baseName = name[..^1];
+        var baseName = name.Substring(0, name.Length - 1);
         if (!Contains(baseName))
             return false;
 
         var option = this[baseName];
         context.OptionName = argument;
         context.Option = option;
-        context.OptionValues.Add(name[^1] == '+' ? argument : null);
+        context.OptionValues.Add(name[name.Length - 1] == '+' ? argument : null);
         option.Invoke(context);
         return true;
     }
@@ -418,7 +418,7 @@ public class OptionSet : Collection<Option>
 
             context.OptionName = optionName;
             context.Option = option;
-            var inlineValue = value[(index + 1)..];
+            var inlineValue = value.Substring(index + 1);
             ParseValue(inlineValue.Length == 0 ? null : inlineValue, context);
             return true;
         }

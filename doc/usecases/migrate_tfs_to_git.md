@@ -14,8 +14,11 @@ migration:
 
 - Git
 - `git-tfs.exe`, available on `PATH`
-- .NET 10 Desktop Runtime
+- .NET Framework 4.8
 - A supported Visual Studio/TFS client installation
+
+The executable targets .NET Framework 4.8 because the TFVC client object model
+used by Visual Studio 2022 is not compatible with the .NET runtime.
 
 Configure the Git identity that will be written to imported commits:
 
