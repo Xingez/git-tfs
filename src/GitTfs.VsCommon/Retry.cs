@@ -27,7 +27,6 @@ namespace GitTfs.VsCommon
             for (int retry = 0; retry < retryCount; retry++)
             {
                 var attemptTimer = Stopwatch.StartNew();
-                Trace.WriteLine("Starting TFS request attempt " + (retry + 1) + "/" + retryCount + ".");
                 try
                 {
                     var result = action();
