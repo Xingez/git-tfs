@@ -14,6 +14,8 @@ namespace GitTfs.Core
     {
         public int? StatusCode { get; private set; }
         public string RetryAfter { get; private set; }
+        public string XAfter { get; private set; }
+        public string MsRetryAfter { get; private set; }
         public string Delay { get; private set; }
         public string Reset { get; private set; }
         public string Remaining { get; private set; }
@@ -21,9 +23,9 @@ namespace GitTfs.Core
         public string Resource { get; private set; }
         public string Cost { get; private set; }
 
-        public bool HasHeaders => RetryAfter != null || Delay != null || Reset != null || Remaining != null || Limit != null;
+        public bool HasHeaders => RetryAfter != null || XAfter != null || MsRetryAfter != null || Delay != null || Reset != null || Remaining != null || Limit != null || Resource != null || Cost != null;
 
-        public bool IsThrottled => StatusCode == 429 || StatusCode == 503 || RetryAfter != null;
+        public bool IsThrottled => StatusCode == 429 || StatusCode == 503 || RetryAfter != null || XAfter != null || MsRetryAfter != null;
 
         public static AzureDevOpsRateLimit FromHeaders(NameValueCollection headers, int? statusCode = null)
         {
@@ -42,6 +44,8 @@ namespace GitTfs.Core
             {
                 StatusCode = statusCode,
                 RetryAfter = HeaderValue(getHeader, "Retry-After"),
+                XAfter = HeaderValue(getHeader, "X-After"),
+                MsRetryAfter = HeaderValue(getHeader, "X-MS-Retry-After-MS"),
                 Delay = HeaderValue(getHeader, "X-RateLimit-Delay"),
                 Reset = HeaderValue(getHeader, "X-RateLimit-Reset"),
                 Remaining = HeaderValue(getHeader, "X-RateLimit-Remaining"),
@@ -55,11 +59,32 @@ namespace GitTfs.Core
         /// Gets the server-requested delay. Retry-After has precedence, followed by
         /// the reset time and then X-RateLimit-Delay, as recommended by Azure DevOps.
         /// </summary>
-        public TimeSpan? GetServerDelay(DateTimeOffset now)
+        public TimeSpan? GetServerDelay(DateTimeOffset now) => GetServerDelay(now, out _);
+
+        public TimeSpan? GetServerDelay(DateTimeOffset now, out string source)
         {
+            source = null;
+
             var retryAfter = ParseRetryAfter(RetryAfter, now);
             if (retryAfter.HasValue)
+            {
+                source = "Retry-After";
                 return retryAfter.Value;
+            }
+
+            var msRetryAfter = ParseMilliseconds(MsRetryAfter);
+            if (msRetryAfter.HasValue)
+            {
+                source = "X-MS-Retry-After-MS";
+                return msRetryAfter.Value;
+            }
+
+            var xAfter = ParseRetryAfter(XAfter, now);
+            if (xAfter.HasValue)
+            {
+                source = "X-After";
+                return xAfter.Value;
+            }
 
             if (long.TryParse(Reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out var resetEpoch))
             {
@@ -68,7 +93,10 @@ namespace GitTfs.Core
                     var resetAt = DateTimeOffset.FromUnixTimeSeconds(resetEpoch);
                     var resetDelay = resetAt - now;
                     if (resetDelay > TimeSpan.Zero)
+                    {
+                        source = "X-RateLimit-Reset";
                         return resetDelay;
+                    }
                 }
                 catch (ArgumentOutOfRangeException)
                 {
@@ -79,7 +107,10 @@ namespace GitTfs.Core
 
             if (double.TryParse(Delay, NumberStyles.Float, CultureInfo.InvariantCulture, out var delaySeconds)
                 && delaySeconds >= 0)
+            {
+                source = "X-RateLimit-Delay";
                 return TimeSpan.FromSeconds(delaySeconds);
+            }
 
             return null;
         }
@@ -89,6 +120,8 @@ namespace GitTfs.Core
             var values = new List<string>();
             if (StatusCode.HasValue) values.Add("status=" + StatusCode.Value.ToString(CultureInfo.InvariantCulture));
             if (RetryAfter != null) values.Add("Retry-After=" + RetryAfter);
+            if (XAfter != null) values.Add("X-After=" + XAfter);
+            if (MsRetryAfter != null) values.Add("X-MS-Retry-After-MS=" + MsRetryAfter);
             if (Delay != null) values.Add("X-RateLimit-Delay=" + Delay);
             if (Reset != null) values.Add("X-RateLimit-Reset=" + Reset);
             if (Remaining != null) values.Add("X-RateLimit-Remaining=" + Remaining);
@@ -96,6 +129,15 @@ namespace GitTfs.Core
             if (Resource != null) values.Add("X-RateLimit-Resource=" + Resource);
             if (Cost != null) values.Add("X-RateLimit-Cost=" + Cost);
             return string.Join(", ", values);
+        }
+
+        private static TimeSpan? ParseMilliseconds(string value)
+        {
+            if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var milliseconds)
+                || milliseconds < 0)
+                return null;
+
+            return TimeSpan.FromMilliseconds(milliseconds);
         }
 
         private static string HeaderValue(Func<string, string> getHeader, string name)

@@ -149,8 +149,16 @@ namespace GitTfs.Core
                 process.StandardOutput.Close();
             }
 
-            if (!process.WaitForExit((int)TimeSpan.FromSeconds(10).TotalMilliseconds))
+            var waitTimeout = TimeSpan.FromSeconds(10);
+            var waitTimer = Stopwatch.StartNew();
+            if (!process.WaitForExit((int)waitTimeout.TotalMilliseconds))
+            {
+                Trace.WriteLine("Git process wait timed out after " + waitTimer.Elapsed.ToString("c")
+                                + " (timeout " + waitTimeout.ToString("c") + ").");
                 throw new GitCommandException("Command did not terminate.", process);
+            }
+            Trace.WriteLine("Git process wait completed in " + waitTimer.Elapsed.ToString("c")
+                            + " (timeout " + waitTimeout.ToString("c") + ").");
             if (process.ExitCode != 0)
                 throw new GitCommandException($"Command exited with error code: {process.ExitCode}\n{process.StandardErrorString}", process);
         }

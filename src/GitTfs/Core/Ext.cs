@@ -283,17 +283,27 @@ namespace GitTfs.Core
                     {
                         if (i != 0)
                         {
+                            Trace.WriteLine("Waiting " + retryInterval.ToString("c") + " before retry "
+                                            + (i + 1) + "/" + retryCount + " for item " + item + ".");
+                            var waitTimer = Stopwatch.StartNew();
                             Thread.Sleep(retryInterval);
+                            Trace.WriteLine("Per-item retry wait completed in " + waitTimer.Elapsed.ToString("c")
+                                            + " (requested " + retryInterval.ToString("c") + ").");
                         }
 
+                        var actionTimer = Stopwatch.StartNew();
                         try
                         {
                             action(item);
+                            Trace.WriteLine("Per-item retry action " + (i + 1) + "/" + retryCount
+                                            + " completed in " + actionTimer.Elapsed.ToString("c") + " for item " + item + ".");
                             return;
                         }
                         catch (Exception e)
                         {
-                            Trace.TraceError("The action is failing: {0}", e.Message);
+                            Trace.TraceError("The per-item retry action " + (i + 1) + "/" + retryCount
+                                             + " failed after " + actionTimer.Elapsed.ToString("c") + " for item "
+                                             + item + ": " + e.Message);
 
                             if (exceptions == null)
                             {

@@ -34,6 +34,28 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void XAfterSecondsIsSupported()
+        {
+            var headers = new NameValueCollection { { "X-After", "7" } };
+
+            var delay = AzureDevOpsRateLimit.FromHeaders(headers, 503).GetServerDelay(DateTimeOffset.UtcNow, out var source);
+
+            Assert.Equal(TimeSpan.FromSeconds(7), delay);
+            Assert.Equal("X-After", source);
+        }
+
+        [TestMethod]
+        public void MicrosoftRetryAfterMillisecondsAreSupported()
+        {
+            var headers = new NameValueCollection { { "X-MS-Retry-After-MS", "250" } };
+
+            var delay = AzureDevOpsRateLimit.FromHeaders(headers, 429).GetServerDelay(DateTimeOffset.UtcNow, out var source);
+
+            Assert.Equal(TimeSpan.FromMilliseconds(250), delay);
+            Assert.Equal("X-MS-Retry-After-MS", source);
+        }
+
+        [TestMethod]
         public void ResetAndDecimalDelayAreParsed()
         {
             var now = DateTimeOffset.FromUnixTimeSeconds(4102444790);
@@ -72,6 +94,21 @@ namespace GitTfs.Test.Core
             StringAssert.Contains(result, "X-RateLimit-Limit=200");
             StringAssert.Contains(result, "X-RateLimit-Remaining=4");
             StringAssert.Contains(result, "X-RateLimit-Resource=vso.code");
+        }
+
+        [TestMethod]
+        public void LogsWaitHeaders()
+        {
+            var headers = new NameValueCollection
+            {
+                { "X-After", "7" },
+                { "X-MS-Retry-After-MS", "250" }
+            };
+
+            var result = AzureDevOpsRateLimit.FromHeaders(headers).ToLogString();
+
+            StringAssert.Contains(result, "X-After=7");
+            StringAssert.Contains(result, "X-MS-Retry-After-MS=250");
         }
     }
 }

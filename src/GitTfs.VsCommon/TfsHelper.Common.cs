@@ -1199,13 +1199,21 @@ namespace GitTfs.VsCommon
             var queuedBuild = buildServer.QueueBuild(buildRequest);
 
             Trace.TraceInformation("Waiting for gated check-in build result...");
+            var gatedWaitTimer = Stopwatch.StartNew();
+            var gatedPoll = 0;
             do
             {
+                gatedPoll++;
                 Console.Write(".");
-                System.Threading.Thread.Sleep(5000);
+                var pollWait = TimeSpan.FromSeconds(5);
+                Trace.TraceInformation("Gated build poll " + gatedPoll + ": waiting " + pollWait.ToString("c") + " before refresh.");
+                var pollTimer = Stopwatch.StartNew();
+                System.Threading.Thread.Sleep(pollWait);
+                Trace.TraceInformation("Gated build poll " + gatedPoll + " wait completed in " + pollTimer.Elapsed.ToString("c") + ".");
                 queuedBuild.Refresh(QueryOptions.Definitions);
             } while (queuedBuild.Build == null || !queuedBuild.Build.BuildFinished);
             Trace.TraceInformation(string.Empty);
+            Trace.TraceInformation("Gated build completed after " + gatedPoll + " polls in " + gatedWaitTimer.Elapsed.ToString("c") + ".");
 
             var build = GetSpecificBuildFromQueuedBuild(queuedBuild, shelvesetName);
             if (build.Status == BuildStatus.Succeeded)

@@ -2,6 +2,7 @@ using GitTfs.Core;
 using System.Collections;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Reflection;
 
@@ -25,23 +26,34 @@ namespace GitTfs.VsCommon
 
             for (int retry = 0; retry < retryCount; retry++)
             {
+                var attemptTimer = Stopwatch.StartNew();
+                Trace.WriteLine("Starting TFS request attempt " + (retry + 1) + "/" + retryCount + ".");
                 try
                 {
-                    return action();
+                    var result = action();
+                    Trace.WriteLine("TFS request attempt " + (retry + 1) + "/" + retryCount
+                                    + " completed in " + FormatDuration(attemptTimer.Elapsed) + ".");
+                    return result;
                 }
                 catch (Microsoft.TeamFoundation.TeamFoundationServerException ex)
                 {
                     exceptions.Add(ex);
+                    Trace.WriteLine("TFS request attempt " + (retry + 1) + "/" + retryCount
+                                    + " failed after " + FormatDuration(attemptTimer.Elapsed) + ": " + ex.Message);
                     WaitBeforeRetry(ex, retryInterval, retry, retryCount);
                 }
                 catch (WebException ex)
                 {
                     exceptions.Add(ex);
+                    Trace.WriteLine("TFS request attempt " + (retry + 1) + "/" + retryCount
+                                    + " failed after " + FormatDuration(attemptTimer.Elapsed) + ": " + ex.Message);
                     WaitBeforeRetry(ex, retryInterval, retry, retryCount);
                 }
                 catch (GitTfsException ex) // allows continue of catch (MappingConflictException e) throw as innerexception
                 {
                     exceptions.Add(ex);
+                    Trace.WriteLine("TFS request attempt " + (retry + 1) + "/" + retryCount
+                                    + " failed after " + FormatDuration(attemptTimer.Elapsed) + ": " + ex.Message);
                     WaitBeforeRetry(ex, retryInterval, retry, retryCount);
                 }
             }
@@ -52,24 +64,34 @@ namespace GitTfs.VsCommon
         private static void WaitBeforeRetry(Exception exception, TimeSpan retryInterval, int retry, int retryCount)
         {
             if (retry >= retryCount - 1)
+            {
+                Trace.WriteLine("Retry limit reached after attempt " + (retry + 1) + "/" + retryCount
+                                + "; no further wait will occur.");
                 return;
+            }
 
             var rateLimit = FindRateLimit(exception);
             // Preserve the existing retry cadence for ordinary TFS errors. When
             // Azure DevOps sends rate-limit metadata, the server-directed delay
             // below takes precedence and can be fractional or much longer.
-            var delay = rateLimit?.GetServerDelay(DateTimeOffset.UtcNow)
-                        ?? retryInterval;
+            string delaySource = null;
+            var serverDelay = rateLimit?.GetServerDelay(DateTimeOffset.UtcNow, out delaySource);
+            var delay = serverDelay ?? retryInterval;
+            delaySource ??= "default retry interval";
 
             if (delay < TimeSpan.Zero)
                 delay = TimeSpan.Zero;
 
-            var rateDescription = rateLimit == null || !rateLimit.HasHeaders
+            var rateDescription = rateLimit == null || (!rateLimit.HasHeaders && !rateLimit.StatusCode.HasValue)
                 ? string.Empty
-                : " [Azure DevOps headers: " + rateLimit.ToLogString() + "]";
-            Trace.WriteLine("Retrying TFS request (attempt " + (retry + 2) + "/" + retryCount + ") after "
-                            + delay.ToString() + rateDescription + ". Error: " + exception.Message);
+                : " [response: " + rateLimit.ToLogString() + "]";
+            Trace.WriteLine("Waiting " + FormatDuration(delay) + " before TFS retry attempt "
+                            + (retry + 2) + "/" + retryCount + " (source: " + delaySource + ")"
+                            + rateDescription + ". Error: " + exception.Message);
+            var waitTimer = Stopwatch.StartNew();
             Thread.Sleep(delay);
+            Trace.WriteLine("TFS retry wait completed in " + FormatDuration(waitTimer.Elapsed)
+                            + " (requested " + FormatDuration(delay) + ").");
         }
 
         private static AzureDevOpsRateLimit FindRateLimit(Exception exception)
@@ -193,13 +215,29 @@ namespace GitTfs.VsCommon
         public static void DoWhile(Func<bool> action, TimeSpan retryInterval, int retryCount = 10)
         {
             int count = 0;
+            var totalTimer = Stopwatch.StartNew();
             while (action())
             {
                 count++;
                 if (count > retryCount)
+                {
+                    Trace.WriteLine("Retry condition failed after " + count + " checks and "
+                                    + FormatDuration(totalTimer.Elapsed) + ".");
                     throw new GitTfsException("error: Action failed after " + retryCount + " retries!");
+                }
+
+                Trace.WriteLine("Retry condition is still pending after check " + count + "/" + retryCount
+                                + "; waiting " + FormatDuration(retryInterval) + ".");
+                var waitTimer = Stopwatch.StartNew();
                 Thread.Sleep(retryInterval);
+                Trace.WriteLine("Retry condition wait completed in " + FormatDuration(waitTimer.Elapsed)
+                                + " (requested " + FormatDuration(retryInterval) + ").");
             }
+
+            Trace.WriteLine("Retry condition completed after " + count + " waits and "
+                            + FormatDuration(totalTimer.Elapsed) + ".");
         }
+
+        private static string FormatDuration(TimeSpan duration) => duration.ToString("c", CultureInfo.InvariantCulture);
     }
 }
