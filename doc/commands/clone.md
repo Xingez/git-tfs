@@ -15,7 +15,6 @@ Configure the server in `appsettings.json` first:
   "TargetServer": "https://dev.azure.com/your-organization",
   "api-version": "7.1",
   "resumable": true,
-  "batch-size": 1,
   "no-parallel": true,
   "debug": true,
   "proxy": null

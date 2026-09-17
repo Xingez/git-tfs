@@ -10,7 +10,6 @@ The current short form of `git tfs clone` reads the TFS collection URL from
   "TargetServer": "https://dev.azure.com/your-organization",
   "api-version": "7.1",
   "resumable": true,
-  "batch-size": 1,
   "no-parallel": true,
   "debug": true,
   "proxy": null
@@ -37,7 +36,6 @@ The remaining values are applied automatically by `git tfs clone`:
 
 - `resumable`: keep the output repository so an interrupted clone can resume.
 - `api-version`: TFVC REST API version; the default is `7.1`.
-- `batch-size`: number of changesets fetched in one batch.
 - `no-parallel`: serialize requests to TFS.
 - `debug`: enable detailed console logging.
 - `proxy`: proxy URI for all TFS HTTP(S) requests; null, empty, or `none`

@@ -41,7 +41,6 @@ that contains the project:
   "TargetServer": "https://dev.azure.com/your-organization",
   "api-version": "7.1",
   "resumable": true,
-  "batch-size": 1,
   "no-parallel": true,
   "debug": true,
   "proxy": null
@@ -112,7 +111,7 @@ git tfs clone $/Project/Trunk C:\migration\Trunk --authors 'C:\migration\authors
 
 ### Clone settings
 
-The clone reads `resumable`, `batch-size`, `no-parallel`, `debug`, `proxy`, and
+The clone reads `resumable`, `no-parallel`, `debug`, `proxy`, and
 `api-version` from `appsettings.json`. The default proxy is disabled. Use a
 local drive for the output rather than a network share; no TFVC workspace path
 is needed.
