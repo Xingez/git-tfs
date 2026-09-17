@@ -71,6 +71,7 @@ namespace GitTfs.Core.RestTfs
 
                     while (true)
                     {
+                        var pageStartChangesetId = fromChangesetId;
                         var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize);
                         if (changesetReferences.Count == 0)
                             break;
@@ -104,7 +105,7 @@ namespace GitTfs.Core.RestTfs
                         }
 
                         var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
-                        if (lastReferenceId <= fromChangesetId)
+                        if (lastReferenceId <= pageStartChangesetId)
                             break;
                         fromChangesetId = lastReferenceId;
                     }

@@ -21,7 +21,7 @@ namespace GitTfs.Test.Core
                 {
                     var settings = new GitTfsSettings
                     {
-                        BatchSize = 2,
+                        BatchSize = 1,
                         NoParallel = true,
                         Resumable = true,
                         Proxy = "none",
@@ -152,9 +152,11 @@ namespace GitTfs.Test.Core
                     var fromId = GetQueryValue(uri, "searchCriteria.fromId");
                     if (fromId == "2")
                         return Json("{\"count\":0,\"value\":[]}");
-                    return Json("{\"count\":2,\"value\":["
-                        + "{\"changesetId\":1,\"createdDate\":\"2020-01-01T00:00:00Z\",\"comment\":\"first\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}},"
-                        + "{\"changesetId\":2,\"createdDate\":\"2020-01-02T00:00:00Z\",\"comment\":\"second\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
+                    if (fromId == "1")
+                        return Json("{\"count\":1,\"value\":["
+                            + "{\"changesetId\":2,\"createdDate\":\"2020-01-02T00:00:00Z\",\"comment\":\"second\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
+                    return Json("{\"count\":1,\"value\":["
+                        + "{\"changesetId\":1,\"createdDate\":\"2020-01-01T00:00:00Z\",\"comment\":\"first\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
                 }
 
                 if (path.EndsWith("/Project/_apis/tfvc/changesets/1", StringComparison.OrdinalIgnoreCase))
