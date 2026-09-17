@@ -58,14 +58,16 @@ namespace GitTfs.Core.RestTfs
             apiVersionField = string.IsNullOrWhiteSpace(apiVersion) ? "7.1" : apiVersion.Trim();
         }
 
-        public IReadOnlyList<RestChangesetReference> GetChangesets(string repositoryPath, int fromChangesetId, int batchSize)
+        public IReadOnlyList<RestChangesetReference> GetChangesets(string repositoryPath, int fromChangesetId,
+            int batchSize, bool filterByItemPath = true)
         {
             var query = new List<KeyValuePair<string, string>>
             {
-                new KeyValuePair<string, string>("searchCriteria.itemPath", repositoryPath),
                 new KeyValuePair<string, string>("$orderby", "id asc"),
                 new KeyValuePair<string, string>("$top", (batchSize > 0 ? batchSize : 100).ToString(CultureInfo.InvariantCulture)),
             };
+            if (filterByItemPath)
+                query.Insert(0, new KeyValuePair<string, string>("searchCriteria.itemPath", repositoryPath));
             if (fromChangesetId > 0)
                 query.Add(new KeyValuePair<string, string>("searchCriteria.fromId", fromChangesetId.ToString(CultureInfo.InvariantCulture)));
 

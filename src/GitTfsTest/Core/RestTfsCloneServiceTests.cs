@@ -150,8 +150,15 @@ namespace GitTfs.Test.Core
                 if (path.EndsWith("/Project/_apis/tfvc/changesets", StringComparison.OrdinalIgnoreCase))
                 {
                     var fromId = GetQueryValue(uri, "searchCriteria.fromId");
-                    if (fromId == "2")
+                    var itemPath = GetQueryValue(uri, "searchCriteria.itemPath");
+                    if (!string.IsNullOrWhiteSpace(itemPath))
+                        return Json("{\"count\":1,\"value\":["
+                            + "{\"changesetId\":1,\"createdDate\":\"2020-01-01T00:00:00Z\",\"comment\":\"first\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
+                    if (fromId == "3")
                         return Json("{\"count\":0,\"value\":[]}");
+                    if (fromId == "2")
+                        return Json("{\"count\":1,\"value\":["
+                            + "{\"changesetId\":3,\"createdDate\":\"2020-01-03T00:00:00Z\",\"comment\":\"outside\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
                     if (fromId == "1")
                         return Json("{\"count\":1,\"value\":["
                             + "{\"changesetId\":2,\"createdDate\":\"2020-01-02T00:00:00Z\",\"comment\":\"second\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
@@ -163,6 +170,8 @@ namespace GitTfs.Test.Core
                     return Json(ChangeSet(1, "first", "add"));
                 if (path.EndsWith("/Project/_apis/tfvc/changesets/2", StringComparison.OrdinalIgnoreCase))
                     return Json(ChangeSet(2, "second", "edit"));
+                if (path.EndsWith("/Project/_apis/tfvc/changesets/3", StringComparison.OrdinalIgnoreCase))
+                    return Json("{\"changesetId\":3,\"createdDate\":\"2020-01-03T00:00:00Z\",\"comment\":\"outside\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"},\"changes\":[{\"changeType\":\"edit\",\"item\":{\"path\":\"$/Project/Other/out.txt\",\"isFolder\":false}}]}");
                 if (path.EndsWith("/Project/_apis/tfvc/items", StringComparison.OrdinalIgnoreCase))
                 {
                     var version = GetQueryValue(uri, "versionDescriptor.version");

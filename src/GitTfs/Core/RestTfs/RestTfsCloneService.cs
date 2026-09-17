@@ -65,24 +65,39 @@ namespace GitTfs.Core.RestTfs
                     var fetchedChangesets = 0;
                     var newestCommit = parent;
                     var fromChangesetId = lastChangesetId;
+                    var lastScannedChangesetId = lastChangesetId;
 
                     Trace.TraceInformation("Using REST TFVC clone for " + repositoryPath + ".");
                     Trace.TraceInformation("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
+                    Trace.TraceInformation("Scanning project changesets and filtering changes under " + repositoryPath + ".");
 
                     while (true)
                     {
                         var pageStartChangesetId = fromChangesetId;
-                        var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize);
+                        var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize,
+                            filterByItemPath: false);
                         if (changesetReferences.Count == 0)
                             break;
 
+                        Trace.TraceInformation("Changeset scan after C" + pageStartChangesetId + " returned "
+                            + changesetReferences.Count + " reference(s), through C"
+                            + changesetReferences.Max(reference => reference.ChangesetId) + ".");
+
                         foreach (var changesetReference in changesetReferences.OrderBy(reference => reference.ChangesetId))
                         {
-                            if (changesetReference.ChangesetId <= lastChangesetId)
+                            if (changesetReference.ChangesetId <= lastScannedChangesetId)
                                 continue;
 
+                            lastScannedChangesetId = changesetReference.ChangesetId;
                             var changeset = client.GetChangeset(changesetReference.ChangesetId);
                             changeset.Changes ??= new List<RestChange>();
+                            if (!HasChangesWithinRepository(changeset, repositoryPath))
+                            {
+                                Trace.TraceInformation("C" + changeset.ChangesetId + ": skipped; no changes under "
+                                    + repositoryPath + ".");
+                                continue;
+                            }
+
                             var treeDefinition = newestCommit == null
                                 ? new TreeDefinition()
                                 : TreeDefinition.From(newestCommit.Tree);
@@ -106,7 +121,18 @@ namespace GitTfs.Core.RestTfs
 
                         var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
                         if (lastReferenceId <= pageStartChangesetId)
-                            break;
+                        {
+                            if (pageStartChangesetId == int.MaxValue)
+                                break;
+
+                            // Some TFVC-compatible servers treat fromId as inclusive even though
+                            // the Azure DevOps REST contract describes it as exclusive. Move past
+                            // the repeated result so a folder history cannot stop at its first page.
+                            fromChangesetId = pageStartChangesetId + 1;
+                            Trace.TraceInformation("Changeset scan page did not advance; retrying after C"
+                                + pageStartChangesetId + ".");
+                            continue;
+                        }
                         fromChangesetId = lastReferenceId;
                     }
 
@@ -145,7 +171,10 @@ namespace GitTfs.Core.RestTfs
         {
             var changes = changeset.Changes
                 .Where(change => change?.Item != null)
-                .Where(change => IsWithinRepository(change.Item.Path, repositoryPath))
+                .Where(change => IsWithinRepository(change.Item.Path, repositoryPath)
+                    || IsWithinRepository(change.SourceServerItem, repositoryPath)
+                    || (change.MergeSources ?? new List<RestMergeSource>())
+                        .Any(source => IsWithinRepository(source.ServerItem, repositoryPath)))
                 .ToArray();
             var filesToDownload = changes.Count(change => !IsDelete(change) && !change.Item.IsFolder);
             var downloaded = 0;
@@ -154,6 +183,9 @@ namespace GitTfs.Core.RestTfs
             foreach (var change in changes)
             {
                 RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
+                if (!IsWithinRepository(change.Item.Path, repositoryPath))
+                    continue;
+
                 var relativePath = ToRelativeGitPath(change.Item.Path, repositoryPath);
                 if (string.IsNullOrEmpty(relativePath) || change.Item.IsFolder)
                     continue;
@@ -184,6 +216,14 @@ namespace GitTfs.Core.RestTfs
             if (filesToDownload == 0)
                 Trace.TraceInformation("C" + changeset.ChangesetId + ": no file content to download.");
         }
+
+        private static bool HasChangesWithinRepository(RestChangeset changeset, string repositoryPath)
+            => (changeset.Changes ?? new List<RestChange>())
+                .Any(change => change?.Item != null
+                    && (IsWithinRepository(change.Item.Path, repositoryPath)
+                        || IsWithinRepository(change.SourceServerItem, repositoryPath)
+                        || (change.MergeSources ?? new List<RestMergeSource>())
+                            .Any(source => IsWithinRepository(source.ServerItem, repositoryPath))));
 
         private static void RemoveRenameSources(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
             RestChange change, string repositoryPath, string outputPath)

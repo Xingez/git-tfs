@@ -57,6 +57,25 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void CanListProjectChangesetsWithoutAnItemPathFilter()
+        {
+            var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"count\":0,\"value\":[]}", Encoding.UTF8, "application/json"),
+            });
+
+            using (var httpClient = new HttpClient(handler))
+            using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
+            {
+                client.GetChangesets("$/Project/Branch", 0, 100, filterByItemPath: false);
+
+                Assert.False(handler.Requests[0].RequestUri.Query.IndexOf("searchCriteria.itemPath", StringComparison.Ordinal) >= 0,
+                    "The project-wide changeset query must not include an item path filter.");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "%24top=100");
+            }
+        }
+
+        [TestMethod]
         public void UsesCollectionRouteForChangesetChangesPagination()
         {
             var handler = new QueueHandler(
