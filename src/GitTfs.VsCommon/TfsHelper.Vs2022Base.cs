@@ -22,9 +22,9 @@ using WindowsCredential = Microsoft.VisualStudio.Services.Common.WindowsCredenti
 namespace GitTfs.VsCommon
 {
     /// <summary>
-    /// Base class for TfsHelper targeting VS versions greater or equal to VS2017.
+    /// Base class for the Visual Studio 2022 TfsHelper.
     /// </summary>
-    public abstract class TfsHelperVS2017Base : TfsHelperBase
+    public abstract class TfsHelperVS2022Base : TfsHelperBase
     {
         private const string myPrivateAssembliesFolder =
             @"Common7\IDE\PrivateAssemblies";
@@ -56,7 +56,7 @@ namespace GitTfs.VsCommon
         /// </summary>
         private ExternalSettingsManager myExternalSettingsManager;
 
-        public TfsHelperVS2017Base(TfsApiBridge bridge, IServiceProvider services, Janitor janitor, ConfigProperties properties, int majorVersion)
+        public TfsHelperVS2022Base(TfsApiBridge bridge, IServiceProvider services, Janitor janitor, ConfigProperties properties, int majorVersion)
             : base(bridge, services, janitor, properties)
         {
             myMajorVersion = majorVersion;
@@ -112,7 +112,7 @@ namespace GitTfs.VsCommon
         /// Enumerates the list of installed VS instances and returns the first one
         /// matching <see cref="MajorVersion"/>. Right now there is no way for the user to influence
         /// which version to choose if multiple installed version have the same major,
-        /// e.g. VS2017 installed as Enterprise and Professional.
+        /// e.g. VS2022 installed as Enterprise and Professional.
         /// </summary>
         /// <returns>
         /// Path to the top level directory of the Visual studio installation directory,

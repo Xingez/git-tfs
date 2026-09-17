@@ -17,8 +17,8 @@
     <Compile Include="..\GitTfs.VsCommon\TfsHelper.Common.cs">
       <Link>TfsHelper.Common.cs</Link>
     </Compile>
-    <Compile Include="..\GitTfs.VsCommon\TfsHelper.VS2017Base.cs">
-      <Link>TfsHelper.VS2017Base.cs</Link>
+    <Compile Include="..\GitTfs.VsCommon\TfsHelper.Vs2022Base.cs">
+      <Link>TfsHelper.Vs2022Base.cs</Link>
     </Compile>
     <Compile Include="..\GitTfs.VsCommon\TfsPlugin.cs">
       <Link>TfsPlugin.cs</Link>
