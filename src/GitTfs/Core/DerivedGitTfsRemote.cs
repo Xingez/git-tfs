@@ -1,20 +1,20 @@
-using GitTfs.Core.TfsInterop;
-using GitTfs.Commands;
 
 namespace GitTfs.Core
 {
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Commands;
     internal class DerivedGitTfsRemote : IGitTfsRemote
     {
-        private readonly string _tfsUrl;
-        private readonly string _tfsRepositoryPath;
+        private readonly string tfsUrlField;
+        private readonly string tfsRepositoryPathField;
 
         public DerivedGitTfsRemote(string tfsUrl, string tfsRepositoryPath)
         {
-            _tfsUrl = tfsUrl;
-            _tfsRepositoryPath = tfsRepositoryPath;
+            tfsUrlField = tfsUrl;
+            tfsRepositoryPathField = tfsRepositoryPath;
         }
 
-        private GitTfsException DerivedRemoteException => new GitTfsException("Unable to locate a remote for <" + _tfsUrl + ">" + _tfsRepositoryPath)
+        private GitTfsException DerivedRemoteException => new GitTfsException("Unable to locate a remote for <" + tfsUrlField + ">" + tfsRepositoryPathField)
                     .WithRecommendation("Try using `git tfs bootstrap` to auto-init TFS remotes.")
                     .WithRecommendation("Try setting a legacy-url for an existing remote.");
 
@@ -22,7 +22,7 @@ namespace GitTfs.Core
 
         public string Id => "(derived)";
 
-        public string TfsUrl => _tfsUrl;
+        public string TfsUrl => tfsUrlField;
 
         public bool Autotag => throw DerivedRemoteException;
 
@@ -38,7 +38,7 @@ namespace GitTfs.Core
             set => throw DerivedRemoteException;
         }
 
-        public string TfsRepositoryPath => _tfsRepositoryPath;
+        public string TfsRepositoryPath => tfsRepositoryPathField;
 
         public string[] TfsSubtreePaths => throw DerivedRemoteException;
 
@@ -56,14 +56,14 @@ namespace GitTfs.Core
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return Equals(other._tfsUrl, _tfsUrl) && Equals(other._tfsRepositoryPath, _tfsRepositoryPath);
+            return Equals(other.tfsUrlField, tfsUrlField) && Equals(other.tfsRepositoryPathField, tfsRepositoryPathField);
         }
 
         public override int GetHashCode()
         {
             unchecked
             {
-                return ((_tfsUrl != null ? _tfsUrl.GetHashCode() : 0) * 397) ^ (_tfsRepositoryPath != null ? _tfsRepositoryPath.GetHashCode() : 0);
+                return ((tfsUrlField != null ? tfsUrlField.GetHashCode() : 0) * 397) ^ (tfsRepositoryPathField != null ? tfsRepositoryPathField.GetHashCode() : 0);
             }
         }
 

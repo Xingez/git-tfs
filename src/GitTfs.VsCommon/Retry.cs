@@ -1,13 +1,13 @@
-using GitTfs.Core;
-using System.Collections;
-using System.Collections.Specialized;
-using System.Diagnostics;
-using System.Globalization;
-using System.Net;
-using System.Reflection;
 
 namespace GitTfs.VsCommon
 {
+    using global::GitTfs.Core;
+    using global::System.Collections;
+    using global::System.Collections.Specialized;
+    using global::System.Diagnostics;
+    using global::System.Globalization;
+    using global::System.Net;
+    using global::System.Reflection;
     public static class Retry
     {
         public static void Do(Action action) => Do(action, TimeSpan.FromSeconds(1));

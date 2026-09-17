@@ -1,18 +1,18 @@
-using GitTfs.Commands;
-using GitTfs.Core;
-using Moq;
-using GitTfs.Test;
 
 namespace GitTfs.Test.Commands
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::Moq;
+    using global::GitTfs.Test;
     [TestClass]
     public class ShelveDeleteTest : BaseTest
     {
-        private readonly MoqAutoMocker<ShelveDelete> _mocks;
+        private readonly MoqAutoMocker<ShelveDelete> mocksField;
 
         public ShelveDeleteTest()
         {
-            _mocks = new MoqAutoMocker<ShelveDelete>();
+            mocksField = new MoqAutoMocker<ShelveDelete>();
         }
 
         private void InitMocks4Tests(out Mock<IGitRepository> gitRepositoryMock, out Mock<IGitTfsRemote> remoteMock)
@@ -20,10 +20,10 @@ namespace GitTfs.Test.Commands
             // mock git repository
             gitRepositoryMock = new Mock<IGitRepository>();
             gitRepositoryMock.Setup(r => r.HasRemote(It.IsAny<string>())).Returns(true);
-            _mocks.Get<Globals>().Repository = gitRepositoryMock.Object;
+            mocksField.Get<Globals>().Repository = gitRepositoryMock.Object;
 
             // mock tfs remote
-            _mocks.Get<Globals>().UserSpecifiedRemoteId = "default";
+            mocksField.Get<Globals>().UserSpecifiedRemoteId = "default";
             remoteMock = new Mock<IGitTfsRemote>();
             gitRepositoryMock.Setup(r => r.ReadTfsRemote(It.IsAny<string>())).Returns(remoteMock.Object);
         }
@@ -33,7 +33,7 @@ namespace GitTfs.Test.Commands
         {
             const string SHELVESET_NAME = "";
 
-            Assert.NotEqual(GitTfsExitCodes.OK, _mocks.ClassUnderTest.Run(SHELVESET_NAME));
+            Assert.NotEqual(GitTfsExitCodes.OK, mocksField.ClassUnderTest.Run(SHELVESET_NAME));
         }
 
         [TestMethod]
@@ -44,7 +44,7 @@ namespace GitTfs.Test.Commands
             InitMocks4Tests(out _, out var remote);
             remote.Setup(r => r.HasShelveset(NONEXISTENT_SHELVESET_NAME)).Returns(false);
 
-            Assert.NotEqual(GitTfsExitCodes.OK, _mocks.ClassUnderTest.Run(NONEXISTENT_SHELVESET_NAME));
+            Assert.NotEqual(GitTfsExitCodes.OK, mocksField.ClassUnderTest.Run(NONEXISTENT_SHELVESET_NAME));
         }
 
         [TestMethod]
@@ -54,7 +54,7 @@ namespace GitTfs.Test.Commands
             InitMocks4Tests(out var repository, out var remote);
             remote.Setup(r => r.HasShelveset(It.IsAny<string>())).Returns(true);
 
-            _mocks.ClassUnderTest.Run(SHELVESET_NAME);
+            mocksField.ClassUnderTest.Run(SHELVESET_NAME);
 
             remote.Verify(r => r.DeleteShelveset(SHELVESET_NAME), Times.Once);
         }

@@ -1,25 +1,25 @@
-using System.Diagnostics;
-
-using GitTfs.Core.TfsInterop;
-using GitTfs.Util;
 
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
+
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Util;
     public class TfsChangeset : ITfsChangeset
     {
-        private readonly ITfsHelper _tfs;
-        private readonly IChangeset _changeset;
-        private readonly AuthorsFile _authors;
+        private readonly ITfsHelper tfsField;
+        private readonly IChangeset changesetField;
+        private readonly AuthorsFile authorsField;
         public TfsChangesetInfo Summary { get; }
         public int BaseChangesetId { get; }
 
         public TfsChangeset(ITfsHelper tfs, IChangeset changeset, TfsChangesetInfo tfsChangesetInfo, AuthorsFile authors)
         {
-            _tfs = tfs;
-            _changeset = changeset;
-            _authors = authors;
+            tfsField = tfs;
+            changesetField = changeset;
+            authorsField = authors;
             Summary = tfsChangesetInfo;
-            BaseChangesetId = _changeset.Changes.Max(c => c.Item.ChangesetId) - 1;
+            BaseChangesetId = changesetField.Changes.Max(c => c.Item.ChangesetId) - 1;
         }
 
         public LogEntry Apply(string lastCommit, IGitTreeModifier treeBuilder, ITfsWorkspace workspace, IDictionary<string, GitObject> initialTree, Action<Exception> ignorableErrorHandler)
@@ -28,12 +28,12 @@ namespace GitTfs.Core
                 Summary.Remote.Repository.GetObjects(lastCommit, initialTree);
             var remoteRelativeLocalPath = GetPathRelativeToWorkspaceLocalPath(workspace);
             var resolver = new PathResolver(Summary.Remote, remoteRelativeLocalPath, initialTree);
-            var sieve = new ChangeSieve(_changeset, resolver);
+            var sieve = new ChangeSieve(changesetField, resolver);
             if (sieve.RenameBranchCommmit)
             {
                 IsRenameChangeset = true;
             }
-            _changeset.Get(workspace, sieve.GetChangesToFetch(), ignorableErrorHandler);
+            changesetField.Get(workspace, sieve.GetChangesToFetch(), ignorableErrorHandler);
             foreach (var change in sieve.GetChangesToApply())
             {
                 ignorableErrorHandler.Catch(() =>
@@ -75,13 +75,13 @@ namespace GitTfs.Core
             }
         }
 
-        private void Ignore(string pathInGitRepo) => Trace.TraceInformation($"C{_changeset.ChangesetId} ! No changes applied to '{pathInGitRepo}', file ignored");
+        private void Ignore(string pathInGitRepo) => Trace.TraceInformation($"C{changesetField.ChangesetId} ! No changes applied to '{pathInGitRepo}', file ignored");
 
         public IEnumerable<TfsTreeEntry> GetTree() => GetFullTree().Where(item => item.Item.ItemType == TfsItemType.File && !Summary.Remote.ShouldSkip(item.FullName));
 
-        public bool IsMergeChangeset => _changeset == null || _changeset.Changes == null || !_changeset.Changes.Any()
+        public bool IsMergeChangeset => changesetField == null || changesetField.Changes == null || !changesetField.Changes.Any()
                     ? false
-                    : _changeset.Changes.Any(c => c.ChangeType.IncludesOneOf(TfsChangeType.Merge));
+                    : changesetField.Changes.Any(c => c.ChangeType.IncludesOneOf(TfsChangeType.Merge));
 
         public IEnumerable<TfsTreeEntry> GetFullTree()
         {
@@ -91,11 +91,11 @@ namespace GitTfs.Core
             IItem[] tfsItems;
             if (Summary.Remote.TfsRepositoryPath != null)
             {
-                tfsItems = _changeset.VersionControlServer.GetItems(Summary.Remote.TfsRepositoryPath, _changeset.ChangesetId, TfsRecursionType.Full);
+                tfsItems = changesetField.VersionControlServer.GetItems(Summary.Remote.TfsRepositoryPath, changesetField.ChangesetId, TfsRecursionType.Full);
             }
             else
             {
-                tfsItems = Summary.Remote.TfsSubtreePaths.SelectMany(x => _changeset.VersionControlServer.GetItems(x, _changeset.ChangesetId, TfsRecursionType.Full)).ToArray();
+                tfsItems = Summary.Remote.TfsSubtreePaths.SelectMany(x => changesetField.VersionControlServer.GetItems(x, changesetField.ChangesetId, TfsRecursionType.Full)).ToArray();
             }
             var tfsItemsWithGitPaths = tfsItems.Select(item => new { item, gitPath = resolver.GetPathInGitRepo(item.ServerItem) });
             return tfsItemsWithGitPaths.Where(x => x.gitPath != null).Select(x => new TfsTreeEntry(x.gitPath, x.item));
@@ -109,11 +109,11 @@ namespace GitTfs.Core
             var tfsTreeEntries = GetTree().ToArray();
             if (tfsTreeEntries.Length == 0)
             {
-                maxChangesetId = _changeset.ChangesetId;
+                maxChangesetId = changesetField.ChangesetId;
             }
             else
             {
-                workspace.Get(_changeset.ChangesetId, tfsTreeEntries.Select(e => e.Item));
+                workspace.Get(changesetField.ChangesetId, tfsTreeEntries.Select(e => e.Item));
                 foreach (var entry in tfsTreeEntries)
                 {
                     Add(entry.Item, entry.FullName, treeBuilder, workspace);
@@ -127,7 +127,7 @@ namespace GitTfs.Core
                     }
                 }
             }
-            return MakeNewLogEntry(maxChangesetId == _changeset.ChangesetId ? _changeset : _tfs.GetChangeset(maxChangesetId));
+            return MakeNewLogEntry(maxChangesetId == changesetField.ChangesetId ? changesetField : tfsField.GetChangeset(maxChangesetId));
         }
 
         private void Add(IItem item, string pathInGitRepo, IGitTreeModifier treeBuilder, ITfsWorkspace workspace)
@@ -155,25 +155,25 @@ namespace GitTfs.Core
             return string.IsNullOrEmpty(Summary.Remote.TfsRepositoryPath) ? "" : Summary.Remote.Prefix;
         }
 
-        private LogEntry MakeNewLogEntry() => MakeNewLogEntry(_changeset, Summary.Remote);
+        private LogEntry MakeNewLogEntry() => MakeNewLogEntry(changesetField, Summary.Remote);
 
         private LogEntry MakeNewLogEntry(IChangeset changesetToLog, IGitTfsRemote remote = null)
         {
             IIdentity identity = null;
             try
             {
-                identity = _tfs.GetIdentity(changesetToLog.Committer);
+                identity = tfsField.GetIdentity(changesetToLog.Committer);
             }
             catch
             {
             }
             var name = changesetToLog.Committer;
             var email = changesetToLog.Committer;
-            bool foundInAuthorFile = _authors?.Authors?.ContainsKey(changesetToLog.Committer) ?? false;
+            bool foundInAuthorFile = authorsField?.Authors?.ContainsKey(changesetToLog.Committer) ?? false;
             if (foundInAuthorFile)
             {
-                name = _authors.Authors[changesetToLog.Committer].Name;
-                email = _authors.Authors[changesetToLog.Committer].Email;
+                name = authorsField.Authors[changesetToLog.Committer].Name;
+                email = authorsField.Authors[changesetToLog.Committer].Email;
             }
             else if (identity != null)
             {
@@ -209,11 +209,11 @@ namespace GitTfs.Core
             if (!foundInAuthorFile)
             {
                 string lookup = $"{name} <{email}>";
-                foundInAuthorFile = _authors?.Authors?.ContainsKey(lookup) ?? false;
+                foundInAuthorFile = authorsField?.Authors?.ContainsKey(lookup) ?? false;
                 if (foundInAuthorFile)
                 {
-                    name = _authors.Authors[lookup].Name;
-                    email = _authors.Authors[lookup].Email;
+                    name = authorsField.Authors[lookup].Name;
+                    email = authorsField.Authors[lookup].Email;
                 }
             }
             if (remote == null)

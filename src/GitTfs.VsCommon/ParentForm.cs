@@ -1,9 +1,9 @@
-﻿#if NETFRAMEWORK
-using System.Drawing;
-using System.Windows.Forms;
-
+﻿
 namespace GitTfs.VsCommon
 {
+#if NETFRAMEWORK
+using global::System.Drawing;
+using global::System.Windows.Forms;
     public class ParentForm : Form
     {
         public ParentForm()

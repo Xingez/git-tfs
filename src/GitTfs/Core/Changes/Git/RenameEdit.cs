@@ -7,11 +7,11 @@ namespace GitTfs.Core.Changes.Git
         public string PathTo { get; private set; }
         public string NewSha { get; private set; }
         public string Score { get; private set; }
-        public IGitRepository _repository { get; private set; }
+        public IGitRepository Repository { get; private set; }
 
         public RenameEdit(IGitRepository repository, GitChangeInfo changeInfo)
         {
-            _repository = repository;
+            Repository = repository;
             NewSha = changeInfo.newSha;
             Path = changeInfo.path;
             PathTo = changeInfo.pathTo;
@@ -23,7 +23,7 @@ namespace GitTfs.Core.Changes.Git
             workspace.Edit(Path);
             workspace.Rename(Path, PathTo, Score);
             var workspaceFile = workspace.GetLocalPath(PathTo);
-            _repository.CopyBlob(NewSha, workspaceFile);
+            Repository.CopyBlob(NewSha, workspaceFile);
         }
     }
 }

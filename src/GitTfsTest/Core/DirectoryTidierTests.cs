@@ -1,16 +1,16 @@
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using Moq;
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::Moq;
     [TestClass]
     public class DirectoryTidierTests : BaseTest, IDisposable
     {
         private readonly MockRepository mocks;
         private readonly ITfsWorkspaceModifier mockWorkspace;
         private readonly TfsTreeEntry[] initialTfsTree;
-        private DirectoryTidier _tidy;
+        private DirectoryTidier tidyField;
 
         public DirectoryTidierTests()
         {
@@ -42,11 +42,11 @@ namespace GitTfs.Test.Core
         {
             get
             {
-                if (_tidy == null)
+                if (tidyField == null)
                 {
-                    _tidy = new DirectoryTidier(mockWorkspace, () => initialTfsTree);
+                    tidyField = new DirectoryTidier(mockWorkspace, () => initialTfsTree);
                 }
-                return _tidy;
+                return tidyField;
             }
         }
 

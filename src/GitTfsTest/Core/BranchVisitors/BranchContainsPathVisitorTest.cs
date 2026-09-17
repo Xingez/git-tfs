@@ -1,9 +1,9 @@
-using GitTfs.Core.BranchVisitors;
-using GitTfs.Core.TfsInterop;
-using GitTfs.VsFake;
 
 namespace GitTfs.Test.Core.BranchVisitors
 {
+    using global::GitTfs.Core.BranchVisitors;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.VsFake;
     [TestClass]
     public class BranchContainsPathVisitorTest : BaseTest
     {

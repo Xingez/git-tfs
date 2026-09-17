@@ -1,17 +1,17 @@
-﻿using System.Reflection;
-
-using GitTfs.Commands;
-using GitTfs.Core;
-
+﻿
 namespace GitTfs.Util
 {
+    using global::System.Reflection;
+
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
     public class GitTfsCommandRunner
     {
-        private readonly IHelpHelper _help;
+        private readonly IHelpHelper helpField;
 
         public GitTfsCommandRunner(IHelpHelper help)
         {
-            _help = help;
+            helpField = help;
         }
 
         public int Run(GitTfsCommand command, IList<string> args)
@@ -26,7 +26,7 @@ namespace GitTfs.Util
                 var defaultRunMethod = runMethods.FirstOrDefault(m => m.Parameters.Length == 1 && m.Parameters[0].ParameterType.IsAssignableFrom(args.GetType()));
                 if (defaultRunMethod != null)
                     return (int)defaultRunMethod.Method.Invoke(command, new object[] { args });
-                return _help.ShowHelpForInvalidArguments(command);
+                return helpField.ShowHelpForInvalidArguments(command);
             }
             catch (TargetInvocationException e)
             {

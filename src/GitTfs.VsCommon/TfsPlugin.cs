@@ -1,7 +1,7 @@
-using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs
 {
+    using global::Microsoft.Extensions.DependencyInjection;
     internal class TfsPlugin : Core.TfsInterop.TfsPlugin
     {
         public override IEnumerable<System.Reflection.Assembly> GetServiceAssemblies() => base.GetServiceAssemblies();

@@ -1,7 +1,7 @@
-﻿using System.Text.RegularExpressions;
-
+﻿
 namespace GitTfs.Util
 {
+    using global::System.Text.RegularExpressions;
     /// <summary>
     /// Determines if an item is included or excluded from a set.
     /// By default, everything is excluded.

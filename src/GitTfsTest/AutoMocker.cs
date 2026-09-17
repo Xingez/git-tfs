@@ -1,18 +1,18 @@
-using GitTfs;
-using GitTfs.Util;
-using Microsoft.Extensions.DependencyInjection;
-using Moq;
 
 namespace GitTfs.Test
 {
+    using global::GitTfs;
+    using global::GitTfs.Util;
+    using global::Microsoft.Extensions.DependencyInjection;
+    using global::Moq;
     /// <summary>
     /// Small Moq-backed constructor injector used by unit tests. It keeps the
     /// tests independent of the application's runtime container.
     /// </summary>
     public sealed class MoqAutoMocker<T> where T : class
     {
-        private readonly Dictionary<Type, object> _objects = new();
-        private T _classUnderTest;
+        private readonly Dictionary<Type, object> objectsField = new();
+        private T classUnderTestField;
 
         public MoqAutoMocker()
         {
@@ -21,7 +21,7 @@ namespace GitTfs.Test
 
         public TestServiceProvider Container { get; }
 
-        public T ClassUnderTest => _classUnderTest ??= (T)ActivatorUtilities.CreateInstance(Container, typeof(T));
+        public T ClassUnderTest => classUnderTestField ??= (T)ActivatorUtilities.CreateInstance(Container, typeof(T));
 
         public TService Get<TService>() => (TService)Get(typeof(TService));
 
@@ -33,15 +33,15 @@ namespace GitTfs.Test
                 var mockedType = service.GetType().GetGenericArguments().FirstOrDefault() ?? typeof(object);
                 var objectProperty = GetObjectProperty(mock.GetType(), mockedType);
                 var mockedObject = objectProperty.GetValue(mock);
-                _objects[mockedType] = mockedObject;
-                _objects[serviceType] = service;
+                objectsField[mockedType] = mockedObject;
+                objectsField[serviceType] = service;
                 return;
             }
 
             if (service is not null)
             {
-                _objects[service.GetType()] = service;
-                _objects[serviceType] = service;
+                objectsField[service.GetType()] = service;
+                objectsField[serviceType] = service;
             }
         }
 
@@ -49,7 +49,7 @@ namespace GitTfs.Test
         {
             var catalog = Get<ServiceCatalog>();
             catalog.AddCommand(name, command.GetType());
-            _objects[command.GetType()] = command;
+            objectsField[command.GetType()] = command;
         }
 
         public void MockObjectFactory()
@@ -65,12 +65,12 @@ namespace GitTfs.Test
             if (serviceType == typeof(GitTfsCommandFactory))
             {
                 var factory = new GitTfsCommandFactory(Container, GetCatalog());
-                _objects[serviceType] = factory;
+                objectsField[serviceType] = factory;
                 return factory;
             }
-            if (serviceType == typeof(T) && _classUnderTest != null)
-                return _classUnderTest;
-            if (_objects.TryGetValue(serviceType, out var existing))
+            if (serviceType == typeof(T) && classUnderTestField != null)
+                return classUnderTestField;
+            if (objectsField.TryGetValue(serviceType, out var existing))
                 return existing;
 
             object value;
@@ -86,7 +86,7 @@ namespace GitTfs.Test
                 value = ActivatorUtilities.CreateInstance(Container, serviceType);
             }
 
-            _objects[serviceType] = value;
+            objectsField[serviceType] = value;
             return value;
         }
 
@@ -98,21 +98,21 @@ namespace GitTfs.Test
 
         private ServiceCatalog GetCatalog()
         {
-            if (!_objects.TryGetValue(typeof(ServiceCatalog), out var catalog))
+            if (!objectsField.TryGetValue(typeof(ServiceCatalog), out var catalog))
             {
                 catalog = new ServiceCatalog();
-                _objects[typeof(ServiceCatalog)] = catalog;
+                objectsField[typeof(ServiceCatalog)] = catalog;
             }
             return (ServiceCatalog)catalog;
         }
 
         public sealed class TestServiceProvider : IServiceProvider
         {
-            private readonly MoqAutoMocker<T> _owner;
+            private readonly MoqAutoMocker<T> ownerField;
 
-            internal TestServiceProvider(MoqAutoMocker<T> owner) => _owner = owner;
+            internal TestServiceProvider(MoqAutoMocker<T> owner) => ownerField = owner;
 
-            public object GetService(Type serviceType) => _owner.GetForProvider(serviceType);
+            public object GetService(Type serviceType) => ownerField.GetForProvider(serviceType);
         }
 
         private object GetForProvider(Type serviceType)
@@ -121,8 +121,8 @@ namespace GitTfs.Test
                 return Container;
             if (serviceType == typeof(ServiceCatalog))
                 return GetCatalog();
-            if (serviceType == typeof(T) && _classUnderTest != null)
-                return _classUnderTest;
+            if (serviceType == typeof(T) && classUnderTestField != null)
+                return classUnderTestField;
             return Get(serviceType);
         }
     }

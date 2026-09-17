@@ -1,26 +1,26 @@
-﻿using System.Text.RegularExpressions;
-using GitTfs.Core;
-using System.Diagnostics;
-
+﻿
 namespace GitTfs.Util
 {
+    using global::System.Text.RegularExpressions;
+    using global::GitTfs.Core;
+    using global::System.Diagnostics;
     public class Author
     {
         public Author(string tfsUserId, string name, string email)
         {
             TfsUserId = tfsUserId;
-            _gitAuthor = new Tuple<string, string>(name, email);
-            _gitUserId = BuildGitUserId(_gitAuthor);
+            gitAuthorField = new Tuple<string, string>(name, email);
+            gitUserIdField = BuildGitUserId(gitAuthorField);
         }
 
-        public string Name => _gitAuthor.Item1;
+        public string Name => gitAuthorField.Item1;
 
 
-        public string Email => _gitAuthor.Item2;
+        public string Email => gitAuthorField.Item2;
 
         public string TfsUserId { get; set; }
 
-        public string GitUserId => _gitUserId;
+        public string GitUserId => gitUserIdField;
 
         // we only use the trimmed email address as identity
         // (dictionary key) to avoid mismatches because of
@@ -30,16 +30,16 @@ namespace GitTfs.Util
         public static string BuildGitUserId(Tuple<string, string> gitUser) => BuildGitUserId(gitUser.Item2);
 
         #region (private)
-        private readonly Tuple<string, string> _gitAuthor;
-        private readonly string _gitUserId;
+        private readonly Tuple<string, string> gitAuthorField;
+        private readonly string gitUserIdField;
         #endregion
     }
 
     [SingletonService]
     public class AuthorsFile
     {
-        private readonly Dictionary<string, Author> _authorsByTfsUserId = new Dictionary<string, Author>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, Author> _authorsByGitUserId = new Dictionary<string, Author>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Author> authorsByTfsUserIdField = new Dictionary<string, Author>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Author> authorsByGitUserIdField = new Dictionary<string, Author>(StringComparer.OrdinalIgnoreCase);
 
         public AuthorsFile()
         { }
@@ -48,17 +48,17 @@ namespace GitTfs.Util
 
         public static string GitTfsCachedAuthorsFileName = "git-tfs_authors";
 
-        public Dictionary<string, Author> Authors => _authorsByTfsUserId;
+        public Dictionary<string, Author> Authors => authorsByTfsUserIdField;
 
 
-        public Dictionary<string, Author> AuthorsByGitUserId => _authorsByGitUserId;
+        public Dictionary<string, Author> AuthorsByGitUserId => authorsByGitUserIdField;
 
 
         public Author FindAuthor(Tuple<string, string> gitUser)
         {
             string key = Author.BuildGitUserId(gitUser);
             Author a;
-            return _authorsByGitUserId.TryGetValue(key, out a) ? a : null;
+            return authorsByGitUserIdField.TryGetValue(key, out a) ? a : null;
         }
 
 
@@ -68,8 +68,8 @@ namespace GitTfs.Util
             if (authorsFileStream == null)
                 return false;
 
-            _authorsByTfsUserId.Clear();
-            _authorsByGitUserId.Clear();
+            authorsByTfsUserIdField.Clear();
+            authorsByGitUserIdField.Clear();
             int lineCount = 0;
             string line = authorsFileStream.ReadLine();
             while (line != null)
@@ -94,11 +94,11 @@ namespace GitTfs.Util
 
                         Author a = new Author(tfsUserId, name, email);
 
-                        if (!_authorsByTfsUserId.ContainsKey(a.TfsUserId))
-                            _authorsByTfsUserId.Add(a.TfsUserId, a);
+                        if (!authorsByTfsUserIdField.ContainsKey(a.TfsUserId))
+                            authorsByTfsUserIdField.Add(a.TfsUserId, a);
 
-                        if (!_authorsByGitUserId.ContainsKey(a.GitUserId))
-                            _authorsByGitUserId.Add(a.GitUserId, a);
+                        if (!authorsByGitUserIdField.ContainsKey(a.GitUserId))
+                            authorsByGitUserIdField.Add(a.GitUserId, a);
                     }
                 }
                 line = authorsFileStream.ReadLine();

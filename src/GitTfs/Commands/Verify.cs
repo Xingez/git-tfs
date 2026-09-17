@@ -1,28 +1,28 @@
-using System.Security.Cryptography;
-using GitTfs.Util;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using System.ComponentModel;
-using System.Diagnostics;
 
 namespace GitTfs.Commands
 {
+    using global::System.Security.Cryptography;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
     [Pluggable("verify")]
     [RequiresValidGitRepository]
     [Description("verify [options] [commitish]\n   ex: git-tfs verify\n       git-tfs verify 889ad74c162\n       git-tfs verify tfs/mybranch\n       git-tfs verify --all")]
     public class Verify : GitTfsCommand
     {
-        private readonly RemoteOptions _remoteOptions;
-        private readonly Help _helper;
-        private readonly Globals _globals;
-        private readonly TreeVerifier _verifier;
+        private readonly RemoteOptions remoteOptionsField;
+        private readonly Help helperField;
+        private readonly Globals globalsField;
+        private readonly TreeVerifier verifierField;
 
         public Verify(Globals globals, TreeVerifier verifier, Help helper, RemoteOptions remoteOptions)
         {
-            _globals = globals;
-            _verifier = verifier;
-            _helper = helper;
-            _remoteOptions = remoteOptions;
+            globalsField = globals;
+            verifierField = verifier;
+            helperField = helper;
+            remoteOptionsField = remoteOptions;
         }
 
         public OptionSet OptionSet => new OptionSet()
@@ -31,7 +31,7 @@ namespace GitTfs.Commands
                         v => IgnorePathCaseMismatch = v != null },
                     { "all", "Verify all the tfs remotes",
                         v => VerifyAllRemotes = v != null },
-                }.Merge(_remoteOptions.OptionSet);
+                }.Merge(remoteOptionsField.OptionSet);
 
         public bool VerifyAllRemotes { get; set; }
 
@@ -42,7 +42,7 @@ namespace GitTfs.Commands
             if (!VerifyAllRemotes)
                 return Run("HEAD");
             int foundDiff = GitTfsExitCodes.OK;
-            foreach (var remote in _globals.Repository.ReadAllTfsRemotes())
+            foreach (var remote in globalsField.Repository.ReadAllTfsRemotes())
             {
                 Trace.TraceInformation("Verifying remote '{0}' => '{1}' ...", remote.Id, remote.TfsRepositoryPath);
                 foundDiff = Math.Max(foundDiff, RunFromCommitish(remote.RemoteRef));
@@ -54,7 +54,7 @@ namespace GitTfs.Commands
         {
             if (VerifyAllRemotes)
             {
-                _helper.Run(this);
+                helperField.Run(this);
                 return GitTfsExitCodes.Help;
             }
             return RunFromCommitish(commitish);
@@ -64,13 +64,13 @@ namespace GitTfs.Commands
         {
             // Warn, based on core.autocrlf or core.safecrlf value?
             //  -- autocrlf=true or safecrlf=true: TFS may have CRLF where git has LF
-            var parents = _globals.Repository.GetLastParentTfsCommits(commitish);
+            var parents = globalsField.Repository.GetLastParentTfsCommits(commitish);
             if (parents.IsEmpty())
                 throw new GitTfsException("No TFS parents found to compare!");
             int foundDiff = GitTfsExitCodes.OK;
             foreach (var parent in parents)
             {
-                foundDiff = Math.Max(foundDiff, _verifier.Verify(parent, IgnorePathCaseMismatch));
+                foundDiff = Math.Max(foundDiff, verifierField.Verify(parent, IgnorePathCaseMismatch));
             }
             return foundDiff;
         }
@@ -78,11 +78,11 @@ namespace GitTfs.Commands
 
     public class TreeVerifier
     {
-        private readonly ITfsHelper _tfs;
+        private readonly ITfsHelper tfsField;
 
         public TreeVerifier(ITfsHelper tfs)
         {
-            _tfs = tfs;
+            tfsField = tfs;
         }
 
         public int Verify(TfsChangesetInfo changeset, bool ignorePathCaseMismatch)

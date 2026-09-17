@@ -1,18 +1,18 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::System.Text.RegularExpressions;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("labels")]
     [Description("labels [options] [tfsRemoteId]\n ex : git tfs labels\n      git tfs labels -i myRemoteBranche\n      git tfs labels --all")]
     [RequiresValidGitRepository]
     public class Labels : GitTfsCommand
     {
-        private readonly Globals _globals;
-        private readonly AuthorsFile _authors;
+        private readonly Globals globalsField;
+        private readonly AuthorsFile authorsField;
 
         public string TfsUsername { get; set; }
         public string TfsPassword { get; set; }
@@ -22,8 +22,8 @@ namespace GitTfs.Commands
 
         public Labels(Globals globals, AuthorsFile authors)
         {
-            _globals = globals;
-            _authors = authors;
+            globalsField = globals;
+            authorsField = authors;
         }
 
         public OptionSet OptionSet => new OptionSet
@@ -39,7 +39,7 @@ namespace GitTfs.Commands
 
         private int Run(string remoteId)
         {
-            var tfsRemote = _globals.Repository.ReadTfsRemote(remoteId);
+            var tfsRemote = globalsField.Repository.ReadTfsRemote(remoteId);
             if (tfsRemote == null)
                 throw new GitTfsException("error: No git-tfs repository found. Please try to clone first...\n");
 
@@ -50,10 +50,10 @@ namespace GitTfs.Commands
         {
             if (!LabelAllBranches)
             {
-                return Run(_globals.RemoteId);
+                return Run(globalsField.RemoteId);
             }
 
-            var allRemotes = _globals.Repository.ReadAllTfsRemotes();
+            var allRemotes = globalsField.Repository.ReadAllTfsRemotes();
 
             foreach (var tfsRemote in allRemotes)
             {
@@ -85,7 +85,7 @@ namespace GitTfs.Commands
 
                 Trace.WriteLine("LabelId:" + label.Id + "/ChangesetId:" + label.ChangesetId + "/LabelName:" + label.Name + "/Owner:" + label.Owner);
                 Trace.WriteLine("Try to find changeset in git repository...");
-                string sha1TagCommit = _globals.Repository.FindCommitHashByChangesetId(label.ChangesetId);
+                string sha1TagCommit = globalsField.Repository.FindCommitHashByChangesetId(label.ChangesetId);
                 if (string.IsNullOrWhiteSpace(sha1TagCommit))
                 {
                     Trace.WriteLine("This label does not match an existing commit...");
@@ -95,9 +95,9 @@ namespace GitTfs.Commands
 
                 string ownerName;
                 string ownerEmail;
-                if (_authors.Authors.ContainsKey(label.Owner))
+                if (authorsField.Authors.ContainsKey(label.Owner))
                 {
-                    var author = _authors.Authors[label.Owner];
+                    var author = authorsField.Authors[label.Owner];
                     ownerName = author.Name;
                     ownerEmail = author.Email;
                 }
@@ -108,7 +108,7 @@ namespace GitTfs.Commands
                 }
                 var labelName = (label.IsTransBranch ? label.Name + "(" + tfsRemote.Id + ")" : label.Name).ToGitRefName();
                 Trace.TraceInformation("Writing label '" + labelName + "'...");
-                _globals.Repository.CreateTag(labelName, sha1TagCommit, label.Comment, ownerName, ownerEmail, label.Date);
+                globalsField.Repository.CreateTag(labelName, sha1TagCommit, label.Comment, ownerName, ownerEmail, label.Date);
             }
             return GitTfsExitCodes.OK;
         }

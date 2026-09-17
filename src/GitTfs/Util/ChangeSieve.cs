@@ -1,12 +1,12 @@
-﻿using System.Diagnostics;
-
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-
-using Mode = LibGit2Sharp.Mode;
-
+﻿
 namespace GitTfs.Util
 {
+    using global::System.Diagnostics;
+
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+
+    using Mode = global::LibGit2Sharp.Mode;
     public enum ChangeType
     {
         Update,
@@ -29,21 +29,21 @@ namespace GitTfs.Util
 
     public class ChangeSieve
     {
-        private readonly PathResolver _resolver;
-        private readonly IEnumerable<NamedChange> _namedChanges;
+        private readonly PathResolver resolverField;
+        private readonly IEnumerable<NamedChange> namedChangesField;
 
         public ChangeSieve(IChangeset changeset, PathResolver resolver)
         {
-            _resolver = resolver;
+            resolverField = resolver;
 
-            _namedChanges = changeset.Changes.Select(c => new NamedChange
+            namedChangesField = changeset.Changes.Select(c => new NamedChange
             {
-                Info = _resolver.GetGitObject(c.Item.ServerItem),
+                Info = resolverField.GetGitObject(c.Item.ServerItem),
                 Change = c,
             });
         }
 
-        private bool? _renameBranchCommmit;
+        private bool? renameBranchCommmitField;
         /// <summary>
         /// Is the top-level folder deleted or renamed?
         /// </summary>
@@ -51,14 +51,14 @@ namespace GitTfs.Util
         {
             get
             {
-                if (!_renameBranchCommmit.HasValue)
+                if (!renameBranchCommmitField.HasValue)
                 {
-                    _renameBranchCommmit = NamedChanges.Any(c =>
+                    renameBranchCommmitField = NamedChanges.Any(c =>
                         c.Change.Item.ItemType == TfsItemType.Folder
                             && c.GitPath == string.Empty
                             && c.Change.ChangeType.IncludesOneOf(TfsChangeType.Delete, TfsChangeType.Rename));
                 }
-                return _renameBranchCommmit.Value;
+                return renameBranchCommmitField.Value;
             }
         }
 
@@ -102,7 +102,7 @@ namespace GitTfs.Util
 
                     if (change.Change.ChangeType.IncludesOneOf(TfsChangeType.Rename))
                     {
-                        var oldInfo = _resolver.GetGitObject(GetPathBeforeRename(change.Change.Item));
+                        var oldInfo = resolverField.GetGitObject(GetPathBeforeRename(change.Change.Item));
                         if (oldInfo != null)
                         {
                             compartments.Deleted.Add(ApplicableChange.Delete(oldInfo.Path));
@@ -126,20 +126,20 @@ namespace GitTfs.Util
             return compartments.Deleted.Concat(compartments.Updated).Concat(compartments.Ignored);
         }
 
-        private bool? _deletesProject;
+        private bool? deletesProjectField;
         private bool DeletesProject
         {
             get
             {
-                if (!_deletesProject.HasValue)
+                if (!deletesProjectField.HasValue)
                 {
-                    _deletesProject =
+                    deletesProjectField =
                         NamedChanges.Any(change =>
                             change.Change.Item.ItemType == TfsItemType.Folder
                                && change.GitPath == string.Empty
                                && change.Change.ChangeType.IncludesOneOf(TfsChangeType.Delete));
                 }
-                return _deletesProject.Value;
+                return deletesProjectField.Value;
             }
         }
 
@@ -150,14 +150,14 @@ namespace GitTfs.Util
             public string GitPath => Info.Try(x => x.Path);
         }
 
-        private IEnumerable<NamedChange> NamedChanges => _namedChanges;
+        private IEnumerable<NamedChange> NamedChanges => namedChangesField;
 
         private bool IncludeInFetch(NamedChange change) => !IsIgnorable(change)
                 && !IsGitPathMissing(change)
                 && !IsGitPathInDotGit(change)
                 && !IsGitPathIgnored(change);
 
-        private bool IsIgnorable(NamedChange change) => IgnorableChangeType(change.Change.ChangeType) && _resolver.Contains(change.GitPath);
+        private bool IsIgnorable(NamedChange change) => IgnorableChangeType(change.Change.ChangeType) && resolverField.Contains(change.GitPath);
 
         private bool IgnorableChangeType(TfsChangeType changeType)
         {
@@ -170,11 +170,11 @@ namespace GitTfs.Util
 
         private bool IsGitPathInDotGit(NamedChange change) => IsInDotGit(change.GitPath);
 
-        private bool IsInDotGit(string path) => _resolver.IsInDotGit(path);
+        private bool IsInDotGit(string path) => resolverField.IsInDotGit(path);
 
         private bool IsGitPathIgnored(NamedChange change) => IsIgnored(change.GitPath);
 
-        private bool IsIgnored(string path) => _resolver.IsIgnored(path);
+        private bool IsIgnored(string path) => resolverField.IsIgnored(path);
 
         private bool IsItemDeleted(NamedChange change) => IsDeleted(change.Change.Item);
 

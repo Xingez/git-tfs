@@ -1,8 +1,8 @@
-using System.Text.RegularExpressions;
-using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
+    using global::System.Text.RegularExpressions;
+    using global::GitTfs.Util;
     [SingletonService]
     public class CheckinOptions
     {
@@ -36,9 +36,9 @@ namespace GitTfs.Commands
                         v => AddMissingItems = v != null },
                 };
 
-        private readonly List<string> _workItemsToAssociate = new List<string>();
-        private readonly List<string> _workItemsToResolve = new List<string>();
-        private readonly Dictionary<string, string> _checkinNotes = new Dictionary<string, string>();
+        private readonly List<string> workItemsToAssociateField = new List<string>();
+        private readonly List<string> workItemsToResolveField = new List<string>();
+        private readonly Dictionary<string, string> checkinNotesField = new Dictionary<string, string>();
 
         public string CheckinComment { get; set; }
         // This can be extended to checkin when the $EDITOR is invoked.
@@ -47,9 +47,9 @@ namespace GitTfs.Commands
         public string OverrideReason { get; set; }
         public bool Force { get; set; }
         public bool OverrideGatedCheckIn { get; set; }
-        public List<string> WorkItemsToAssociate => _workItemsToAssociate;
-        public List<string> WorkItemsToResolve => _workItemsToResolve;
-        public Dictionary<string, string> CheckinNotes => _checkinNotes;
+        public List<string> WorkItemsToAssociate => workItemsToAssociateField;
+        public List<string> WorkItemsToResolve => workItemsToResolveField;
+        public Dictionary<string, string> CheckinNotes => checkinNotesField;
 
         public string AuthorTfsUserId { get; set; }
         public Regex WorkItemAssociateRegex { get; set; }

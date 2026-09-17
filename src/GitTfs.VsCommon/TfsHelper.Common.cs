@@ -1,43 +1,43 @@
-﻿using System.Diagnostics;
-using System.Net;
-using System.Reflection;
-using Microsoft.TeamFoundation.Client;
-using Microsoft.TeamFoundation.VersionControl.Client;
-using Microsoft.TeamFoundation.WorkItemTracking.Client;
-using Microsoft.Win32;
-using GitTfs.Commands;
-using GitTfs;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using GitTfs.Extensions;
-using GitTfs.Util;
-using Microsoft.Extensions.DependencyInjection;
-using ChangeType = Microsoft.TeamFoundation.VersionControl.Client.ChangeType;
-using IdentityNotFoundException = Microsoft.TeamFoundation.VersionControl.Client.IdentityNotFoundException;
-using Microsoft.TeamFoundation.Build.Client;
-
+﻿
 namespace GitTfs.VsCommon
 {
+    using global::System.Diagnostics;
+    using global::System.Net;
+    using global::System.Reflection;
+    using global::Microsoft.TeamFoundation.Client;
+    using global::Microsoft.TeamFoundation.VersionControl.Client;
+    using global::Microsoft.TeamFoundation.WorkItemTracking.Client;
+    using global::Microsoft.Win32;
+    using global::GitTfs.Commands;
+    using global::GitTfs;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Extensions;
+    using global::GitTfs.Util;
+    using global::Microsoft.Extensions.DependencyInjection;
+    using ChangeType = global::Microsoft.TeamFoundation.VersionControl.Client.ChangeType;
+    using IdentityNotFoundException = global::Microsoft.TeamFoundation.VersionControl.Client.IdentityNotFoundException;
+    using global::Microsoft.TeamFoundation.Build.Client;
     public abstract class TfsHelperBase : ITfsHelper
     {
-        protected readonly TfsApiBridge _bridge;
-        private readonly IServiceProvider _services;
-        protected TfsTeamProjectCollection _server;
-        private static bool _resolverInstalled;
-        private AuthorsFile _authorsFile;
-        private Uri _lastAuthenticatedUri;
+        protected readonly TfsApiBridge bridgeField;
+        private readonly IServiceProvider servicesField;
+        protected TfsTeamProjectCollection serverField;
+        private static bool resolverInstalledField;
+        private AuthorsFile authorsFileField;
+        private Uri lastAuthenticatedUriField;
 
         public TfsHelperBase(TfsApiBridge bridge, IServiceProvider services, Janitor janitor, ConfigProperties properties)
         {
-            _bridge = bridge;
-            _services = services;
-            _authorsFile = _services.GetRequiredService<AuthorsFile>();
+            bridgeField = bridge;
+            servicesField = services;
+            authorsFileField = servicesField.GetRequiredService<AuthorsFile>();
             Janitor = janitor;
             this.properties = properties;
-            if (!_resolverInstalled)
+            if (!resolverInstalledField)
             {
                 AppDomain.CurrentDomain.AssemblyResolve += LoadFromVsFolder;
-                _resolverInstalled = true;
+                resolverInstalledField = true;
             }
         }
 
@@ -59,7 +59,7 @@ namespace GitTfs.VsCommon
         {
             if (string.IsNullOrEmpty(Url))
             {
-                _server = null;
+                serverField = null;
             }
             else
             {
@@ -81,11 +81,11 @@ namespace GitTfs.VsCommon
                 // Only authenticate if the TFS Server Uri is different to the last authenticated Uri,
                 // avoiding useless authentication attempts on an already authenticated server.
                 // This covers only the common case that the remotes are on the same TFS server.
-                if (_lastAuthenticatedUri?.ToString() != uri.ToString())
+                if (lastAuthenticatedUriField?.ToString() != uri.ToString())
                 {
-                    _server = GetTfsCredential(uri);
-                    _server.EnsureAuthenticated();
-                    _lastAuthenticatedUri = uri;
+                    serverField = GetTfsCredential(uri);
+                    serverField.EnsureAuthenticated();
+                    lastAuthenticatedUriField = uri;
                 }
             }
         }
@@ -110,21 +110,21 @@ namespace GitTfs.VsCommon
 
         protected T GetService<T>()
         {
-            if (_server == null) EnsureAuthenticated();
-            return (T)_server.GetService(typeof(T));
+            if (serverField == null) EnsureAuthenticated();
+            return (T)serverField.GetService(typeof(T));
         }
 
-        private VersionControlServer _versionControl;
+        private VersionControlServer versionControlField;
         protected VersionControlServer VersionControl
         {
             get
             {
-                if (_versionControl != null)
-                    return _versionControl;
-                _versionControl = GetService<VersionControlServer>();
-                _versionControl.NonFatalError += NonFatalError;
-                _versionControl.Getting += Getting;
-                return _versionControl;
+                if (versionControlField != null)
+                    return versionControlField;
+                versionControlField = GetService<VersionControlServer>();
+                versionControlField.NonFatalError += NonFatalError;
+                versionControlField.Getting += Getting;
+                return versionControlField;
             }
         }
 
@@ -146,9 +146,9 @@ namespace GitTfs.VsCommon
 
         private void Getting(object sender, GettingEventArgs e) => Trace.WriteLine("get [C" + e.Version + "]" + e.ServerItem);
 
-        private TswaClientHyperlinkService _hyperLinkService;
+        private TswaClientHyperlinkService hyperLinkServiceField;
 
-        private TswaClientHyperlinkService HyperlinkService => _hyperLinkService ?? (_hyperLinkService = GetService<TswaClientHyperlinkService>());
+        private TswaClientHyperlinkService HyperlinkService => hyperLinkServiceField ?? (hyperLinkServiceField = GetService<TswaClientHyperlinkService>());
 
         public int BatchCount => properties.BatchSize;
 
@@ -209,8 +209,8 @@ namespace GitTfs.VsCommon
         {
             var branches = AllTfsBranchObjects;
             if (getAlsoDeletedBranches)
-                return _bridge.Wrap<WrapperForBranchObject, BranchObject>(branches);
-            return _bridge.Wrap<WrapperForBranchObject, BranchObject>(branches.Where(b => !b.Properties.RootItem.IsDeleted));
+                return bridgeField.Wrap<WrapperForBranchObject, BranchObject>(branches);
+            return bridgeField.Wrap<WrapperForBranchObject, BranchObject>(branches.Where(b => !b.Properties.RootItem.IsDeleted));
         }
 
         public IList<RootBranch> GetRootChangesetForBranch(string tfsPathBranchToCreate, int lastChangesetIdToCheck = -1, string tfsPathParentBranch = null)
@@ -332,30 +332,30 @@ namespace GitTfs.VsCommon
             }
         }
 
-        private BranchObject[] _allTfsBranchObjects;
+        private BranchObject[] allTfsBranchObjectsField;
         private BranchObject[] AllTfsBranchObjects
         {
             get
             {
-                if (_allTfsBranchObjects != null)
-                    return _allTfsBranchObjects;
+                if (allTfsBranchObjectsField != null)
+                    return allTfsBranchObjectsField;
                 Trace.WriteLine("Looking for all branches...");
-                _allTfsBranchObjects = VersionControl.QueryRootBranchObjects(RecursionType.Full);
-                return _allTfsBranchObjects;
+                allTfsBranchObjectsField = VersionControl.QueryRootBranchObjects(RecursionType.Full);
+                return allTfsBranchObjectsField;
             }
         }
-        private IDictionary<string, string> _allTfsBranches;
+        private IDictionary<string, string> allTfsBranchesField;
         private IDictionary<string, string> AllTfsBranches
         {
             get
             {
-                if (_allTfsBranches != null)
-                    return _allTfsBranches;
-                _allTfsBranches = AllTfsBranchObjects
+                if (allTfsBranchesField != null)
+                    return allTfsBranchesField;
+                allTfsBranchesField = AllTfsBranchObjects
                     .ToDictionary(b => b.Properties.RootItem.Item,
                         b => b.Properties.ParentBranch != null ? b.Properties.ParentBranch.Item : null,
                         (StringComparer.OrdinalIgnoreCase));
-                return _allTfsBranches;
+                return allTfsBranchesField;
             }
         }
 
@@ -523,7 +523,7 @@ namespace GitTfs.VsCommon
         protected ITfsChangeset BuildTfsChangeset(Changeset changeset, IGitTfsRemote remote)
         {
             var tfsChangesetInfo = new TfsChangesetInfo { ChangesetId = changeset.ChangesetId, Remote = remote };
-            ITfsChangeset tfsChangeset = new TfsChangeset(this, _bridge.Wrap<WrapperForChangeset, Changeset>(changeset), tfsChangesetInfo, _authorsFile);
+            ITfsChangeset tfsChangeset = new TfsChangeset(this, bridgeField.Wrap<WrapperForChangeset, Changeset>(changeset), tfsChangesetInfo, authorsFileField);
 
             tfsChangeset.Summary.Workitems = changeset.AssociatedWorkItems.Select(wi => new TfsWorkitem
             {
@@ -541,24 +541,24 @@ namespace GitTfs.VsCommon
             return tfsChangeset;
         }
 
-        private readonly Dictionary<string, Workspace> _workspaces = new Dictionary<string, Workspace>();
+        private readonly Dictionary<string, Workspace> workspacesField = new Dictionary<string, Workspace>();
 
         public void WithWorkspace(string localDirectory, IGitTfsRemote remote, IEnumerable<Tuple<string, string>> mappings, TfsChangesetInfo versionToFetch, Action<ITfsWorkspace> action)
         {
             Workspace workspace;
-            if (!_workspaces.TryGetValue(remote.Id, out workspace))
+            if (!workspacesField.TryGetValue(remote.Id, out workspace))
             {
                 Trace.WriteLine("Setting up a TFS workspace with subtrees at " + localDirectory);
                 mappings = mappings.ToList(); // avoid iterating through the mappings more than once, and don't retry when this iteration raises an error.
-                _workspaces.Add(remote.Id, workspace = Retry.Do(() =>
+                workspacesField.Add(remote.Id, workspace = Retry.Do(() =>
                 {
                     var workingFolders = mappings.Select(x => new WorkingFolder(x.Item1, Path.Combine(localDirectory, x.Item2)));
                     return GetWorkspace(workingFolders.ToArray());
                 }));
                 Janitor.CleanThisUpWhenWeClose(() => TryToDeleteWorkspace(workspace));
             }
-            var tfsWorkspace = _services.CreateInstance<TfsWorkspace>(
-                _bridge.Wrap<WrapperForWorkspace, Workspace>(workspace), localDirectory, versionToFetch, remote, this);
+            var tfsWorkspace = servicesField.CreateInstance<TfsWorkspace>(
+                bridgeField.Wrap<WrapperForWorkspace, Workspace>(workspace), localDirectory, versionToFetch, remote, this);
             action(tfsWorkspace);
         }
 
@@ -568,8 +568,8 @@ namespace GitTfs.VsCommon
             var workspace = Retry.Do(() => GetWorkspace(new WorkingFolder(remote.TfsRepositoryPath, localDirectory)));
             try
             {
-                var tfsWorkspace = _services.CreateInstance<TfsWorkspace>(
-                    _bridge.Wrap<WrapperForWorkspace, Workspace>(workspace), localDirectory, versionToFetch, remote, this);
+                var tfsWorkspace = servicesField.CreateInstance<TfsWorkspace>(
+                    bridgeField.Wrap<WrapperForWorkspace, Workspace>(workspace), localDirectory, versionToFetch, remote, this);
                 action(tfsWorkspace);
             }
             finally
@@ -615,9 +615,9 @@ namespace GitTfs.VsCommon
 
         private string GenerateWorkspaceName() => "git-tfs-" + Guid.NewGuid();
 
-        public int ShowCheckinDialog(IWorkspace workspace, IPendingChange[] pendingChanges, IEnumerable<IWorkItemCheckedInfo> checkedInfos, string checkinComment) => ShowCheckinDialog(_bridge.Unwrap<Workspace>(workspace),
-                                     pendingChanges.Select(p => _bridge.Unwrap<PendingChange>(p)).ToArray(),
-                                     checkedInfos.Select(c => _bridge.Unwrap<WorkItemCheckedInfo>(c)).ToArray(),
+        public int ShowCheckinDialog(IWorkspace workspace, IPendingChange[] pendingChanges, IEnumerable<IWorkItemCheckedInfo> checkedInfos, string checkinComment) => ShowCheckinDialog(bridgeField.Unwrap<Workspace>(workspace),
+                                     pendingChanges.Select(p => bridgeField.Unwrap<PendingChange>(p)).ToArray(),
+                                     checkedInfos.Select(c => bridgeField.Unwrap<WorkItemCheckedInfo>(c)).ToArray(),
                                      checkinComment);
 
         private int ShowCheckinDialog(Workspace workspace, PendingChange[] pendingChanges,
@@ -741,9 +741,9 @@ namespace GitTfs.VsCommon
                     .WithRecommendation("Try to apply the shelveset on another remote.");
             }
             var wrapperForVersionControlServer =
-                _bridge.Wrap<WrapperForVersionControlServer, VersionControlServer>(VersionControl);
-            var fakeChangeset = new Unshelveable(shelveset, change, wrapperForVersionControlServer, _bridge);
-            var tfsChangeset = new TfsChangeset(remote.Tfs, fakeChangeset, new TfsChangesetInfo { Remote = remote }, _authorsFile);
+                bridgeField.Wrap<WrapperForVersionControlServer, VersionControlServer>(VersionControl);
+            var fakeChangeset = new Unshelveable(shelveset, change, wrapperForVersionControlServer, bridgeField);
+            var tfsChangeset = new TfsChangeset(remote.Tfs, fakeChangeset, new TfsChangesetInfo { Remote = remote }, authorsFileField);
             return tfsChangeset;
         }
 
@@ -822,32 +822,32 @@ namespace GitTfs.VsCommon
 
         private class Unshelveable : IChangeset
         {
-            private readonly Shelveset _shelveset;
-            private readonly PendingSet _pendingSet;
-            private readonly IVersionControlServer _versionControlServer;
-            private readonly TfsApiBridge _bridge;
-            private readonly IChange[] _changes;
+            private readonly Shelveset shelvesetField;
+            private readonly PendingSet pendingSetField;
+            private readonly IVersionControlServer versionControlServerField;
+            private readonly TfsApiBridge bridgeField;
+            private readonly IChange[] changesField;
 
             public Unshelveable(Shelveset shelveset, PendingSet pendingSet, IVersionControlServer versionControlServer, TfsApiBridge bridge)
             {
-                _shelveset = shelveset;
-                _versionControlServer = versionControlServer;
-                _bridge = bridge;
-                _pendingSet = pendingSet;
-                _changes = _pendingSet.PendingChanges.Select(x => new UnshelveChange(x, _bridge, versionControlServer)).Cast<IChange>().ToArray();
+                shelvesetField = shelveset;
+                versionControlServerField = versionControlServer;
+                bridgeField = bridge;
+                pendingSetField = pendingSet;
+                changesField = pendingSetField.PendingChanges.Select(x => new UnshelveChange(x, bridgeField, versionControlServer)).Cast<IChange>().ToArray();
             }
 
-            public IChange[] Changes => _changes;
+            public IChange[] Changes => changesField;
 
-            public string Committer => _pendingSet.OwnerName;
+            public string Committer => pendingSetField.OwnerName;
 
-            public DateTime CreationDate => _shelveset.CreationDate;
+            public DateTime CreationDate => shelvesetField.CreationDate;
 
-            public string Comment => _shelveset.Comment;
+            public string Comment => shelvesetField.Comment;
 
             public int ChangesetId => -1;
 
-            public IVersionControlServer VersionControlServer => _versionControlServer;
+            public IVersionControlServer VersionControlServer => versionControlServerField;
 
             public void Get(ITfsWorkspace workspace, IEnumerable<IChange> changes, Action<Exception> ignorableErrorHandler)
             {
@@ -864,57 +864,57 @@ namespace GitTfs.VsCommon
 
         private class UnshelveChange : IChange
         {
-            private readonly PendingChange _pendingChange;
-            private readonly TfsApiBridge _bridge;
-            private readonly UnshelveItem _fakeItem;
+            private readonly PendingChange pendingChangeField;
+            private readonly TfsApiBridge bridgeField;
+            private readonly UnshelveItem fakeItemField;
 
             public UnshelveChange(PendingChange pendingChange, TfsApiBridge bridge, IVersionControlServer versionControlServer)
             {
-                _pendingChange = pendingChange;
-                _bridge = bridge;
-                _fakeItem = new UnshelveItem(_pendingChange, _bridge, versionControlServer);
+                pendingChangeField = pendingChange;
+                bridgeField = bridge;
+                fakeItemField = new UnshelveItem(pendingChangeField, bridgeField, versionControlServer);
             }
 
-            public TfsChangeType ChangeType => _bridge.Convert<TfsChangeType>(_pendingChange.ChangeType);
+            public TfsChangeType ChangeType => bridgeField.Convert<TfsChangeType>(pendingChangeField.ChangeType);
 
-            public IItem Item => _fakeItem;
+            public IItem Item => fakeItemField;
         }
 
         private class UnshelveItem : IItem
         {
-            private readonly PendingChange _pendingChange;
-            private readonly TfsApiBridge _bridge;
-            private readonly IVersionControlServer _versionControlServer;
-            private long _contentLength = -1;
+            private readonly PendingChange pendingChangeField;
+            private readonly TfsApiBridge bridgeField;
+            private readonly IVersionControlServer versionControlServerField;
+            private long contentLengthField = -1;
 
             public UnshelveItem(PendingChange pendingChange, TfsApiBridge bridge, IVersionControlServer versionControlServer)
             {
-                _pendingChange = pendingChange;
-                _bridge = bridge;
-                _versionControlServer = versionControlServer;
+                pendingChangeField = pendingChange;
+                bridgeField = bridge;
+                versionControlServerField = versionControlServer;
             }
 
-            public IVersionControlServer VersionControlServer => _versionControlServer;
+            public IVersionControlServer VersionControlServer => versionControlServerField;
 
             public int ChangesetId =>
                     // some operations like applying rename gets previous item state
                     // via looking at version of item minus 1. So will try to emulate
                     // that this shelve is real revision.
-                    _pendingChange.Version + 1;
+                    pendingChangeField.Version + 1;
 
-            public string ServerItem => _pendingChange.ServerItem;
+            public string ServerItem => pendingChangeField.ServerItem;
 
-            public int DeletionId => _pendingChange.DeletionId;
+            public int DeletionId => pendingChangeField.DeletionId;
 
-            public TfsItemType ItemType => _bridge.Convert<TfsItemType>(_pendingChange.ItemType);
+            public TfsItemType ItemType => bridgeField.Convert<TfsItemType>(pendingChangeField.ItemType);
 
-            public int ItemId => _pendingChange.ItemId;
+            public int ItemId => pendingChangeField.ItemId;
 
             public long ContentLength
             {
                 get
                 {
-                    if (_contentLength < 0)
+                    if (contentLengthField < 0)
                         throw new InvalidOperationException("You can't query ContentLength before downloading the file");
                     // It is not great solution, but at least makes the contract explicit.
                     // We can't actually save downloaded file in this class, because if nobody asks
@@ -924,27 +924,27 @@ namespace GitTfs.VsCommon
                     // if we delete them as soon as they are not used - only current file will remain. Otherwise
                     // all of them.
                     // With this exception at least it would be evident asap that something went wrong, so we could fix it.
-                    return _contentLength;
+                    return contentLengthField;
                 }
             }
 
             public TemporaryFile DownloadFile()
             {
                 var temp = new TemporaryFile();
-                _pendingChange.DownloadShelvedFile(temp);
-                _contentLength = new FileInfo(temp).Length;
+                pendingChangeField.DownloadShelvedFile(temp);
+                contentLengthField = new FileInfo(temp).Length;
                 return temp;
             }
 
-            public void Get(ITfsWorkspace workspace) => _pendingChange.DownloadShelvedFile(workspace.GetLocalItemForServerItem(_pendingChange.ServerItem));
+            public void Get(ITfsWorkspace workspace) => pendingChangeField.DownloadShelvedFile(workspace.GetLocalItemForServerItem(pendingChangeField.ServerItem));
         }
 
 #endregion
 
         public IShelveset CreateShelveset(IWorkspace workspace, string shelvesetName)
         {
-            var shelveset = new Shelveset(_bridge.Unwrap<Workspace>(workspace).VersionControlServer, shelvesetName, workspace.OwnerName);
-            return _bridge.Wrap<WrapperForShelveset, Shelveset>(shelveset);
+            var shelveset = new Shelveset(bridgeField.Unwrap<Workspace>(workspace).VersionControlServer, shelvesetName, workspace.OwnerName);
+            return bridgeField.Wrap<WrapperForShelveset, Shelveset>(shelveset);
         }
 
         public Changeset GetLatestChangeset(IGitTfsRemote remote, bool includeChanges)
@@ -963,7 +963,7 @@ namespace GitTfs.VsCommon
 
         public int GetLatestChangesetId(IGitTfsRemote remote) => GetLatestChangeset(remote, false).ChangesetId;
 
-        public IChangeset GetChangeset(int changesetId) => _bridge.Wrap<WrapperForChangeset, Changeset>(VersionControl.GetChangeset(changesetId));
+        public IChangeset GetChangeset(int changesetId) => bridgeField.Wrap<WrapperForChangeset, Changeset>(VersionControl.GetChangeset(changesetId));
 
         public ITfsChangeset GetChangeset(int changesetId, IGitTfsRemote remote) => BuildTfsChangeset(VersionControl.GetChangeset(changesetId), remote);
 
@@ -987,7 +987,7 @@ namespace GitTfs.VsCommon
                 values[index++] = new CheckinNoteFieldValue(pair.Key, pair.Value);
             }
 
-            return _bridge.Wrap<WrapperForCheckinNote, CheckinNote>(new CheckinNote(values));
+            return bridgeField.Wrap<WrapperForCheckinNote, CheckinNote>(new CheckinNote(values));
         }
 
         private IEnumerable<TInterface> GetWorkItemInfosHelper<TInterface, TWrapper, TInstance>(
@@ -996,8 +996,8 @@ namespace GitTfs.VsCommon
             Func<string, WorkItemCheckinAction, TInstance> func
             )
             where TWrapper : class => (from workItem in workItems
-                                       select _bridge.Wrap<TWrapper, TInstance>(
-                                           func(workItem, _bridge.Convert<WorkItemCheckinAction>(checkinAction))))
+                                       select bridgeField.Wrap<TWrapper, TInstance>(
+                                           func(workItem, bridgeField.Convert<WorkItemCheckinAction>(checkinAction))))
                 .Cast<TInterface>();
 
         private WorkItemCheckinInfo GetWorkItemInfo(string workItem, WorkItemCheckinAction checkinAction) => new WorkItemCheckinInfo(WorkItems.GetWorkItem(Convert.ToInt32(workItem)), checkinAction);
@@ -1188,7 +1188,7 @@ namespace GitTfs.VsCommon
 
         public int QueueGatedCheckinBuild(Uri buildDefinitionUri, string buildDefinitionName, string shelvesetName, string checkInTicket)
         {
-            var buildServer = (IBuildServer)_server.GetService(typeof(IBuildServer));
+            var buildServer = (IBuildServer)serverField.GetService(typeof(IBuildServer));
 
             var buildRequest = buildServer.CreateBuildRequest(buildDefinitionUri);
             buildRequest.ShelvesetName = shelvesetName;

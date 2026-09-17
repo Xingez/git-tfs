@@ -1,7 +1,7 @@
-using System.Diagnostics;
 
 namespace GitTfs.Core.TfsInterop
 {
+    using global::System.Diagnostics;
     [DebuggerDisplay("{DebuggerDisplay}")]
     public class RootBranch
     {

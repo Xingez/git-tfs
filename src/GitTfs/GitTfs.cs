@@ -1,80 +1,80 @@
-using System.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
-using GitTfs.Commands;
-using GitTfs.Core;
-using GitTfs.Util;
 
 namespace GitTfs
 {
+    using global::System.Diagnostics;
+    using global::Microsoft.Extensions.DependencyInjection;
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::GitTfs.Util;
     public class GitTfs
     {
-        private readonly IGitTfsVersionProvider _gitTfsVersionProvider;
-        private readonly GitTfsCommandFactory _commandFactory;
-        private readonly IHelpHelper _help;
-        private readonly IServiceProvider _services;
-        private readonly GitTfsCommandRunner _runner;
-        private readonly Globals _globals;
-        private readonly Bootstrapper _bootstrapper;
-        private readonly AuthorsFile _authorsFileHelper;
+        private readonly IGitTfsVersionProvider gitTfsVersionProviderField;
+        private readonly GitTfsCommandFactory commandFactoryField;
+        private readonly IHelpHelper helpField;
+        private readonly IServiceProvider servicesField;
+        private readonly GitTfsCommandRunner runnerField;
+        private readonly Globals globalsField;
+        private readonly Bootstrapper bootstrapperField;
+        private readonly AuthorsFile authorsFileHelperField;
 
         public GitTfs(GitTfsCommandFactory commandFactory, IHelpHelper help, IServiceProvider services,
             IGitTfsVersionProvider gitTfsVersionProvider, GitTfsCommandRunner runner, Globals globals, Bootstrapper bootstrapper, AuthorsFile authorsFileHelper)
         {
-            _commandFactory = commandFactory;
-            _help = help;
-            _services = services;
-            _gitTfsVersionProvider = gitTfsVersionProvider;
-            _runner = runner;
-            _globals = globals;
-            _bootstrapper = bootstrapper;
-            _authorsFileHelper = authorsFileHelper;
+            commandFactoryField = commandFactory;
+            helpField = help;
+            servicesField = services;
+            gitTfsVersionProviderField = gitTfsVersionProvider;
+            runnerField = runner;
+            globalsField = globals;
+            bootstrapperField = bootstrapper;
+            authorsFileHelperField = authorsFileHelper;
         }
 
         public int Run(IList<string> args)
         {
             InitializeGlobals();
-            _globals.CommandLineRun = "git tfs " + string.Join(" ", args);
+            globalsField.CommandLineRun = "git tfs " + string.Join(" ", args);
             var command = ExtractCommand(args);
             var unparsedArgs = ParseOptions(command, args);
             UpdateLoggerOnDebugging();
-            Trace.WriteLine("Command run:" + _globals.CommandLineRun);
+            Trace.WriteLine("Command run:" + globalsField.CommandLineRun);
             if (RequiresValidGitRepository(command)) AssertValidGitRepository();
             bool willCreateRepository = command.GetType() == typeof(Clone) || command.GetType() == typeof(QuickClone) || command.GetType() == typeof(Init);
             ParseAuthorsAndSave(!willCreateRepository);
             var exitCode = Main(command, unparsedArgs);
             if (willCreateRepository)
             {
-                _authorsFileHelper.SaveAuthorFileInRepository(_globals.AuthorsFilePath, _globals.GitDir);
+                authorsFileHelperField.SaveAuthorFileInRepository(globalsField.AuthorsFilePath, globalsField.GitDir);
             }
             return exitCode;
         }
 
         private void UpdateLoggerOnDebugging()
         {
-            if (_globals.DebugOutput)
+            if (globalsField.DebugOutput)
                 Program.EnableDebugLogging();
         }
 
         public int Main(GitTfsCommand command, IList<string> unparsedArgs)
         {
-            Trace.WriteLine(_gitTfsVersionProvider.GetVersionString());
-            if (_globals.ShowHelp)
+            Trace.WriteLine(gitTfsVersionProviderField.GetVersionString());
+            if (globalsField.ShowHelp)
             {
-                return _help.ShowHelp(command);
+                return helpField.ShowHelp(command);
             }
-            if (_globals.ShowVersion)
+            if (globalsField.ShowVersion)
             {
-                Trace.TraceInformation(_gitTfsVersionProvider.GetVersionString());
+                Trace.TraceInformation(gitTfsVersionProviderField.GetVersionString());
                 Trace.TraceInformation(GitTfsConstants.MessageForceVersion);
                 return GitTfsExitCodes.OK;
             }
             try
             {
-                return _runner.Run(command, unparsedArgs);
+                return runnerField.Run(command, unparsedArgs);
             }
             finally
             {
-                _services.GetRequiredService<Janitor>().Dispose();
+                servicesField.GetRequiredService<Janitor>().Dispose();
             }
         }
 
@@ -84,43 +84,43 @@ namespace GitTfs
         {
             try
             {
-            _services.GetRequiredService<AuthorsFile>().Parse(_globals.AuthorsFilePath, _globals.GitDir, couldSaveAuthorFile);
+            servicesField.GetRequiredService<AuthorsFile>().Parse(globalsField.AuthorsFilePath, globalsField.GitDir, couldSaveAuthorFile);
             }
             catch (Exception ex)
             {
                 Trace.WriteLine("Error when parsing author file:" + ex);
-                if (!string.IsNullOrEmpty(_globals.AuthorsFilePath))
+                if (!string.IsNullOrEmpty(globalsField.AuthorsFilePath))
                     throw;
                 Trace.TraceWarning("warning: author file ignored due to a problem occuring when reading it :\n\t" + ex.Message);
-                Trace.TraceWarning("         Verify the file :" + Path.Combine(_globals.GitDir, AuthorsFile.GitTfsCachedAuthorsFileName));
+                Trace.TraceWarning("         Verify the file :" + Path.Combine(globalsField.GitDir, AuthorsFile.GitTfsCachedAuthorsFileName));
             }
         }
 
         public void InitializeGlobals()
         {
-            _globals.DebugOutput = true;
-            if (_globals.GitDir != null)
+            globalsField.DebugOutput = true;
+            if (globalsField.GitDir != null)
             {
-                _globals.GitDirSetByUser = true;
+                globalsField.GitDirSetByUser = true;
             }
             else
             {
-                _globals.GitDir = ".git";
+                globalsField.GitDir = ".git";
             }
-            _globals.Bootstrapper = _bootstrapper;
+            globalsField.Bootstrapper = bootstrapperField;
         }
 
         public void AssertValidGitRepository()
         {
-            var git = _services.GetRequiredService<IGitHelpers>();
-            if (!Directory.Exists(_globals.GitDir))
+            var git = servicesField.GetRequiredService<IGitHelpers>();
+            if (!Directory.Exists(globalsField.GitDir))
             {
-                if (_globals.GitDirSetByUser)
+                if (globalsField.GitDirSetByUser)
                 {
-                    throw new Exception("This command must be run inside a git repository!\nGIT_DIR=" + _globals.GitDir + " explicitly set, but it is not a directory.");
+                    throw new Exception("This command must be run inside a git repository!\nGIT_DIR=" + globalsField.GitDir + " explicitly set, but it is not a directory.");
                 }
-                var gitDir = _globals.GitDir;
-                _globals.GitDir = null;
+                var gitDir = globalsField.GitDir;
+                globalsField.GitDir = null;
                 string cdUp = null;
                 git.WrapGitCommandErrors("This command must be run inside a git repository!\nAlready at top level, but " + gitDir + " not found.",
                                          () =>
@@ -138,25 +138,25 @@ namespace GitTfs
                 {
                     throw new Exception("This command must be run inside a git repository!\n" + gitDir + " still not found after going to " + cdUp);
                 }
-                _globals.GitDir = gitDir;
+                globalsField.GitDir = gitDir;
             }
-            _globals.Repository = git.MakeRepository(_globals.GitDir);
+            globalsField.Repository = git.MakeRepository(globalsField.GitDir);
         }
 
         public GitTfsCommand ExtractCommand(IList<string> args)
         {
             for (int i = 0; i < args.Count; i++)
             {
-                var command = _commandFactory.GetCommand(args[i]);
+                var command = commandFactoryField.GetCommand(args[i]);
                 if (command != null)
                 {
                     args.RemoveAt(i);
                     return command;
                 }
             }
-            return _services.GetRequiredService<Commands.Help>();
+            return servicesField.GetRequiredService<Commands.Help>();
         }
 
-        public IList<string> ParseOptions(GitTfsCommand command, IList<string> args) => command.GetAllOptions(_services).Parse(args);
+        public IList<string> ParseOptions(GitTfsCommand command, IList<string> args) => command.GetAllOptions(servicesField).Parse(args);
     }
 }

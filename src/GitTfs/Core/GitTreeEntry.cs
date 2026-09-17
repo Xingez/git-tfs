@@ -1,25 +1,25 @@
-﻿using LibGit2Sharp;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::LibGit2Sharp;
     public class GitTreeEntry : ITreeEntry
     {
-        private readonly TreeEntry _entry;
+        private readonly TreeEntry entryField;
 
         public GitTreeEntry(TreeEntry entry)
         {
-            _entry = entry;
+            entryField = entry;
         }
 
-        public TreeEntry Entry => _entry;
+        public TreeEntry Entry => entryField;
 
-        public string FullName => _entry.Path;
+        public string FullName => entryField.Path;
 
         public Stream OpenRead()
         {
-            if (_entry.TargetType == TreeEntryTargetType.Blob)
+            if (entryField.TargetType == TreeEntryTargetType.Blob)
             {
-                return ((Blob)_entry.Target).GetContentStream();
+                return ((Blob)entryField.Target).GetContentStream();
             }
             throw new InvalidOperationException("Invalid object type");
         }

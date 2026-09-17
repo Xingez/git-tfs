@@ -1,12 +1,12 @@
-using GitTfs.Core.Changes.Git;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using GitTfs.Util;
-using GitTfs.VsFake;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs.Test
 {
+    using global::GitTfs.Core.Changes.Git;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Util;
+    using global::GitTfs.VsFake;
+    using global::Microsoft.Extensions.DependencyInjection;
     internal static class TestServices
     {
         public static IServiceProvider Create()

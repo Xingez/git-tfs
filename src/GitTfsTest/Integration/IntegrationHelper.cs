@@ -1,45 +1,45 @@
-using System.Text;
-using LibGit2Sharp;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using GitTfs.VsFake;
 
 namespace GitTfs.Test.Integration
 {
+    using global::System.Text;
+    using global::LibGit2Sharp;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.VsFake;
     internal class IntegrationHelper : IDisposable
     {
         #region manage the work directory
 
-        private string _workdir;
+        private string workdirField;
 
         public string Workdir
         {
             get
             {
-                if (_workdir == null)
+                if (workdirField == null)
                 {
-                    _workdir = Path.GetTempFileName();
-                    File.Delete(_workdir);
-                    Directory.CreateDirectory(_workdir);
+                    workdirField = Path.GetTempFileName();
+                    File.Delete(workdirField);
+                    Directory.CreateDirectory(workdirField);
                 }
-                return _workdir;
+                return workdirField;
             }
         }
 
         public void Dispose()
         {
-            while (!_repositories.Empty())
+            while (!repositoriesField.Empty())
             {
-                var repo = _repositories.First();
+                var repo = repositoriesField.First();
                 repo.Value.Dispose();
-                _repositories.Remove(repo.Key);
+                repositoriesField.Remove(repo.Key);
             }
-            if (_workdir != null)
+            if (workdirField != null)
             {
                 try
                 {
-                    Directory.Delete(_workdir);
-                    _workdir = null;
+                    Directory.Delete(workdirField);
+                    workdirField = null;
                 }
                 catch (Exception)
                 {
@@ -47,13 +47,13 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        private readonly Dictionary<string, Repository> _repositories = new Dictionary<string, Repository>();
+        private readonly Dictionary<string, Repository> repositoriesField = new Dictionary<string, Repository>();
         public Repository Repository(string path)
         {
             path = Path.Combine(Workdir, path);
-            if (!_repositories.ContainsKey(path))
-                _repositories.Add(path, new Repository(path));
-            return _repositories[path];
+            if (!repositoriesField.ContainsKey(path))
+                repositoriesField.Add(path, new Repository(path));
+            return repositoriesField[path];
         }
 
         #endregion
@@ -75,37 +75,37 @@ namespace GitTfs.Test.Integration
 
         public class RepoBuilder
         {
-            private readonly Repository _repo;
+            private readonly Repository repoField;
 
             public RepoBuilder(Repository repo)
             {
-                _repo = repo;
+                repoField = repo;
             }
 
             private Signature GetCommitter() => new Signature("Test User", "test@example.com", new DateTimeOffset(DateTime.Now));
 
             public string Commit(string message, string filename = "README.txt")
             {
-                File.WriteAllText(Path.Combine(_repo.Info.WorkingDirectory, filename), message);
-                LibGit2Sharp.Commands.Stage(_repo, filename);
+                File.WriteAllText(Path.Combine(repoField.Info.WorkingDirectory, filename), message);
+                LibGit2Sharp.Commands.Stage(repoField, filename);
                 var committer = GetCommitter();
-                return _repo.Commit(message, committer, committer, new CommitOptions() { AllowEmptyCommit = true }).Id.Sha;
+                return repoField.Commit(message, committer, committer, new CommitOptions() { AllowEmptyCommit = true }).Id.Sha;
             }
 
-            public void CreateBranch(string branchName) => LibGit2Sharp.Commands.Checkout(_repo, _repo.CreateBranch(branchName));
+            public void CreateBranch(string branchName) => LibGit2Sharp.Commands.Checkout(repoField, repoField.CreateBranch(branchName));
 
-            public void Checkout(string commitishName) => LibGit2Sharp.Commands.Checkout(_repo, commitishName);
+            public void Checkout(string commitishName) => LibGit2Sharp.Commands.Checkout(repoField, commitishName);
 
             public string Merge(string branch)
             {
-                var mergeResult = _repo.Merge(_repo.Branches[branch].Commits.First(), GetCommitter());
+                var mergeResult = repoField.Merge(repoField.Branches[branch].Commits.First(), GetCommitter());
                 return mergeResult.Commit.Sha;
             }
 
             public string Amend(string message)
             {
                 var committer = GetCommitter();
-                return _repo.Commit(message, committer, committer, new CommitOptions() { AmendPreviousCommit = true }).Id.Sha;
+                return repoField.Commit(message, committer, committer, new CommitOptions() { AmendPreviousCommit = true }).Id.Sha;
             }
         }
 
@@ -119,10 +119,10 @@ namespace GitTfs.Test.Integration
 
         public class FakeHistoryBuilder
         {
-            private readonly Script _script;
+            private readonly Script scriptField;
             public FakeHistoryBuilder(Script script)
             {
-                _script = script;
+                scriptField = script;
             }
 
             public string FakeCommiter;
@@ -137,7 +137,7 @@ namespace GitTfs.Test.Integration
                     IsMergeChangeset = false,
                     Committer = FakeCommiter,
                 };
-                _script.Changesets.Add(changeset);
+                scriptField.Changesets.Add(changeset);
                 return new FakeChangesetBuilder(changeset);
             }
 
@@ -158,7 +158,7 @@ namespace GitTfs.Test.Integration
                         ParentBranch = fromBranch
                     }
                 };
-                _script.Changesets.Add(branchChangeset);
+                scriptField.Changesets.Add(branchChangeset);
                 return new FakeChangesetBuilder(branchChangeset);
             }
 
@@ -179,27 +179,27 @@ namespace GitTfs.Test.Integration
                         MergeIntoBranch = intoBranch
                     }
                 };
-                _script.Changesets.Add(mergeChangeset);
+                scriptField.Changesets.Add(mergeChangeset);
                 return new FakeChangesetBuilder(mergeChangeset);
             }
 
-            public void SetRootBranch(string rootBranchPath) => _script.RootBranches.Add(new ScriptedRootBranch() { BranchPath = rootBranchPath });
+            public void SetRootBranch(string rootBranchPath) => scriptField.RootBranches.Add(new ScriptedRootBranch() { BranchPath = rootBranchPath });
         }
 
         public class FakeChangesetBuilder
         {
-            private readonly ScriptedChangeset _changeset;
+            private readonly ScriptedChangeset changesetField;
 
             public FakeChangesetBuilder(ScriptedChangeset changeset)
             {
-                _changeset = changeset;
+                changesetField = changeset;
             }
 
             public FakeChangesetBuilder Change(TfsChangeType changeType, TfsItemType itemType, string tfsPath, string contents, int? itemId = null) => Change(changeType, itemType, tfsPath, Encoding.UTF8.GetBytes(contents), itemId);
 
             public FakeChangesetBuilder Change(TfsChangeType changeType, TfsItemType itemType, string tfsPath, byte[] contents = null, int? itemId = null)
             {
-                _changeset.Changes.Add(new ScriptedChange
+                changesetField.Changes.Add(new ScriptedChange
                 {
                     ChangeType = changeType,
                     ItemType = itemType,
@@ -215,8 +215,8 @@ namespace GitTfs.Test.Integration
 
         #region run git-tfs
 
-        private string _tfsUrl = "http://does/not/matter";
-        public string TfsUrl { get => _tfsUrl; set => _tfsUrl = value; }
+        private string tfsUrlField = "http://does/not/matter";
+        public string TfsUrl { get => tfsUrlField; set => tfsUrlField = value; }
 
         public int Run(params string[] args) => RunIn(".", args);
 

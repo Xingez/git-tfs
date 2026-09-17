@@ -1,30 +1,30 @@
-using System.ComponentModel;
-using GitTfs.Util;
-using GitTfs.Core;
-using System.Diagnostics;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::System.Diagnostics;
     [Pluggable("cleanup-workspaces")]
     [Description("cleanup-workspaces [tfs-remote-id]...")]
     [RequiresValidGitRepository]
     public class CleanupWorkspaces : GitTfsCommand
     {
-        private readonly Globals _globals;
-        private readonly CleanupOptions _cleanupOptions;
+        private readonly Globals globalsField;
+        private readonly CleanupOptions cleanupOptionsField;
 
         public CleanupWorkspaces(Globals globals, CleanupOptions cleanupOptions)
         {
-            _globals = globals;
-            _cleanupOptions = cleanupOptions;
+            globalsField = globals;
+            cleanupOptionsField = cleanupOptions;
         }
 
-        public OptionSet OptionSet => _cleanupOptions.OptionSet;
+        public OptionSet OptionSet => cleanupOptionsField.OptionSet;
 
         public int Run()
         {
-            _cleanupOptions.Init();
-            foreach (var remote in _globals.Repository.ReadAllTfsRemotes())
+            cleanupOptionsField.Init();
+            foreach (var remote in globalsField.Repository.ReadAllTfsRemotes())
             {
                 Cleanup(remote);
             }
@@ -33,10 +33,10 @@ namespace GitTfs.Commands
 
         public int Run(IList<string> remoteIds)
         {
-            _cleanupOptions.Init();
+            cleanupOptionsField.Init();
             foreach (var remoteId in remoteIds)
             {
-                var remote = _globals.Repository.ReadTfsRemote(remoteId);
+                var remote = globalsField.Repository.ReadTfsRemote(remoteId);
                 Cleanup(remote);
             }
             return GitTfsExitCodes.OK;

@@ -1,7 +1,7 @@
-﻿using System.Diagnostics.Contracts;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics.Contracts;
     public class ExportWorkItem : IExportWorkItem
     {
         public ExportWorkItem(ITfsWorkitem wi = null)

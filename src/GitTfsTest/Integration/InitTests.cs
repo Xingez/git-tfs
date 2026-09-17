@@ -1,8 +1,8 @@
-using GitTfs.Core.TfsInterop;
 
 
 namespace GitTfs.Test.Integration
 {
+    using global::GitTfs.Core.TfsInterop;
     [TestClass]
     public class InitTests : BaseTest, IDisposable
     {

@@ -1,28 +1,28 @@
-using System.ComponentModel;
-using GitTfs.Util;
-using GitTfs.Core;
-using System.Diagnostics;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::System.Diagnostics;
     [Pluggable("shelve")]
     [Description("shelve [options] shelveset-name [ref-to-shelve]")]
     [RequiresValidGitRepository]
     public class Shelve : GitTfsCommand
     {
-        private readonly CheckinOptions _checkinOptions;
-        private readonly CheckinOptionsFactory _checkinOptionsFactory;
-        private readonly TfsWriter _writer;
-        private readonly Globals _globals;
+        private readonly CheckinOptions checkinOptionsField;
+        private readonly CheckinOptionsFactory checkinOptionsFactoryField;
+        private readonly TfsWriter writerField;
+        private readonly Globals globalsField;
 
         private bool EvaluateCheckinPolicies { get; set; }
 
         public Shelve(CheckinOptions checkinOptions, TfsWriter writer, Globals globals)
         {
-            _globals = globals;
-            _checkinOptions = checkinOptions;
-            _checkinOptionsFactory = new CheckinOptionsFactory(_globals);
-            _writer = writer;
+            globalsField = globals;
+            checkinOptionsField = checkinOptions;
+            checkinOptionsFactoryField = new CheckinOptionsFactory(globalsField);
+            writerField = writer;
         }
 
         public OptionSet OptionSet => new OptionSet
@@ -30,33 +30,33 @@ namespace GitTfs.Commands
                     { "p|evaluate-policies", "Evaluate checkin policies (default: false)",
                         v => EvaluateCheckinPolicies = v != null },
                     { "f|force", "Force a shelve, and overwrite an existing shelveset",
-                        v => { _checkinOptions.Force = true; } },
-                }.Merge(_checkinOptions.OptionSet);
+                        v => { checkinOptionsField.Force = true; } },
+                }.Merge(checkinOptionsField.OptionSet);
 
         public int Run(string shelvesetName) => Run(shelvesetName, "HEAD");
 
-        public int Run(string shelvesetName, string refToShelve) => _writer.Write(refToShelve, (changeset, referenceToShelve) =>
+        public int Run(string shelvesetName, string refToShelve) => writerField.Write(refToShelve, (changeset, referenceToShelve) =>
                                                                              {
-                                                                                 if (!_checkinOptions.Force && changeset.Remote.HasShelveset(shelvesetName))
+                                                                                 if (!checkinOptionsField.Force && changeset.Remote.HasShelveset(shelvesetName))
                                                                                  {
                                                                                      Trace.TraceInformation("Shelveset \"" + shelvesetName + "\" already exists. Use -f to replace it.");
                                                                                      return GitTfsExitCodes.ForceRequired;
                                                                                  }
 
-                                                                                 var commit = _globals.Repository.GetCommit(refToShelve);
+                                                                                 var commit = globalsField.Repository.GetCommit(refToShelve);
                                                                                  var message = commit != null // this is only null in the unit tests
-                                                                                     ? BuildCommitMessage(commit, !_checkinOptions.NoGenerateCheckinComment,
+                                                                                     ? BuildCommitMessage(commit, !checkinOptionsField.NoGenerateCheckinComment,
                                                                                          changeset.Remote.MaxCommitHash)
                                                                                      : string.Empty;
 
-                                                                                 var shelveSpecificCheckinOptions = _checkinOptionsFactory.BuildShelveSetSpecificCheckinOptions(_checkinOptions, message);
+                                                                                 var shelveSpecificCheckinOptions = checkinOptionsFactoryField.BuildShelveSetSpecificCheckinOptions(checkinOptionsField, message);
 
                                                                                  changeset.Remote.Shelve(shelvesetName, referenceToShelve, changeset, shelveSpecificCheckinOptions, EvaluateCheckinPolicies);
                                                                                  return GitTfsExitCodes.OK;
                                                                              });
 
         public string BuildCommitMessage(GitCommit commit, bool generateCheckinComment, string latest) => generateCheckinComment
-                               ? _globals.Repository.GetCommitMessage(commit.Sha, latest)
-                               : _globals.Repository.GetCommit(commit.Sha).Message;
+                               ? globalsField.Repository.GetCommitMessage(commit.Sha, latest)
+                               : globalsField.Repository.GetCommit(commit.Sha).Message;
     }
 }

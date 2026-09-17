@@ -1,8 +1,8 @@
-using System.Collections.Specialized;
-using GitTfs.Core;
 
 namespace GitTfs.Test.Core
 {
+    using global::System.Collections.Specialized;
+    using global::GitTfs.Core;
     [TestClass]
     public class AzureDevOpsRateLimitTests : BaseTest
     {

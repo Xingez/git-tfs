@@ -1,23 +1,23 @@
-﻿using GitTfs.Util;
-
-using System.Diagnostics;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::GitTfs.Util;
+
+    using global::System.Diagnostics;
     [SingletonService]
     public class Janitor : IDisposable
     {
-        private readonly Queue<Action> _actions = new Queue<Action>();
+        private readonly Queue<Action> actionsField = new Queue<Action>();
 
-        public void CleanThisUpWhenWeClose(Action action) => _actions.Enqueue(action);
+        public void CleanThisUpWhenWeClose(Action action) => actionsField.Enqueue(action);
 
         public void Dispose()
         {
-            while (_actions.Count > 0)
+            while (actionsField.Count > 0)
             {
                 try
                 {
-                    _actions.Dequeue()();
+                    actionsField.Dequeue()();
                 }
                 catch (Exception e)
                 {

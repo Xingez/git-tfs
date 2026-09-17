@@ -1,17 +1,17 @@
-using GitTfs.Commands; // ToGitRefName() and RemoteOptions
-using System.Diagnostics;
 
 namespace GitTfs.Core
 {
+    using global::GitTfs.Commands; // ToGitRefName() and RemoteOptions
+    using global::System.Diagnostics;
     public class Bootstrapper
     {
-        private readonly Globals _globals;
-        private readonly RemoteOptions _remoteOptions;
+        private readonly Globals globalsField;
+        private readonly RemoteOptions remoteOptionsField;
 
         public Bootstrapper(Globals globals, RemoteOptions remoteOptions)
         {
-            _globals = globals;
-            _remoteOptions = remoteOptions;
+            globalsField = globals;
+            remoteOptionsField = remoteOptions;
         }
 
         public IGitTfsRemote CreateRemote(TfsChangesetInfo changeset)
@@ -20,12 +20,12 @@ namespace GitTfs.Core
             if (changeset.Remote.IsDerived)
             {
                 var remoteId = GetRemoteId(changeset);
-                remote = _globals.Repository.CreateTfsRemote(new RemoteInfo
+                remote = globalsField.Repository.CreateTfsRemote(new RemoteInfo
                 {
                     Id = remoteId,
                     Url = changeset.Remote.TfsUrl,
                     Repository = changeset.Remote.TfsRepositoryPath,
-                    RemoteOptions = _remoteOptions,
+                    RemoteOptions = remoteOptionsField,
                 });
                 remote.UpdateTfsHead(changeset.GitCommit, changeset.ChangesetId);
                 Trace.TraceInformation("-> new remote '" + remote.Id + "'");
@@ -36,7 +36,7 @@ namespace GitTfs.Core
                 if (changeset.Remote.MaxChangesetId < changeset.ChangesetId)
                 {
                     int oldChangeset = changeset.Remote.MaxChangesetId;
-                    _globals.Repository.MoveTfsRefForwardIfNeeded(changeset.Remote);
+                    globalsField.Repository.MoveTfsRefForwardIfNeeded(changeset.Remote);
                     Trace.TraceInformation("-> existing remote {0} (updated from changeset {1})", changeset.Remote.Id, oldChangeset);
                 }
                 else
@@ -68,6 +68,6 @@ namespace GitTfs.Core
             return remoteId;
         }
 
-        private bool IsAvailable(string remoteName) => !_globals.Repository.HasRemote(remoteName);
+        private bool IsAvailable(string remoteName) => !globalsField.Repository.HasRemote(remoteName);
     }
 }

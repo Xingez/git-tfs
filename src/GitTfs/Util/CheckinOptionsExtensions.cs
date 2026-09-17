@@ -1,10 +1,10 @@
-﻿using System.Text.RegularExpressions;
-using GitTfs.Commands;
-using GitTfs.Core;
-using System.Diagnostics;
-
+﻿
 namespace GitTfs.Util
 {
+    using global::System.Text.RegularExpressions;
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::System.Diagnostics;
     public static class CheckinOptionsExtensions
     {
         public static CheckinOptions Clone(this CheckinOptions source, Globals globals)

@@ -1,26 +1,26 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("fetch")]
     [Description("fetch [options] [tfs-remote-id]...")]
     [RequiresValidGitRepository]
     public class Fetch : GitTfsCommand
     {
-        private readonly RemoteOptions _remoteOptions;
-        private readonly Globals _globals;
-        private readonly ConfigProperties _properties;
-        private readonly Labels _labels;
+        private readonly RemoteOptions remoteOptionsField;
+        private readonly Globals globalsField;
+        private readonly ConfigProperties propertiesField;
+        private readonly Labels labelsField;
 
         public Fetch(Globals globals, ConfigProperties properties, RemoteOptions remoteOptions, Labels labels)
         {
-            _globals = globals;
-            _properties = properties;
-            _remoteOptions = remoteOptions;
-            _labels = labels;
+            globalsField = globals;
+            propertiesField = properties;
+            remoteOptionsField = remoteOptions;
+            labelsField = labels;
             upToChangeSet = -1;
             BranchStrategy = BranchStrategy = BranchStrategy.Auto;
         }
@@ -43,7 +43,7 @@ namespace GitTfs.Commands
                 int batchSize;
                 if (!int.TryParse(value, out batchSize))
                     throw new GitTfsException("error: batch size parameter should be an integer.");
-                _properties.BatchSize = batchSize;
+                propertiesField.BatchSize = batchSize;
             }
         }
 
@@ -101,24 +101,24 @@ namespace GitTfs.Commands
                         v => IgnoreNotInitBranches = v != null },
                     { "ignore-restricted-changesets", "Ignore restricted changesets",
                         v => IgnoreRestrictedChangesets = v != null }
-                }.Merge(_remoteOptions.OptionSet);
+                }.Merge(remoteOptionsField.OptionSet);
 
-        public int Run() => Run(_globals.RemoteId);
+        public int Run() => Run(globalsField.RemoteId);
 
-        public void Run(bool stopOnFailMergeCommit) => Run(stopOnFailMergeCommit, _globals.RemoteId);
+        public void Run(bool stopOnFailMergeCommit) => Run(stopOnFailMergeCommit, globalsField.RemoteId);
 
         public int Run(params string[] args) => Run(false, args);
 
         private int Run(bool stopOnFailMergeCommit, params string[] args)
         {
-            UseTheGitIgnoreFile(_remoteOptions.GitIgnorePath);
+            UseTheGitIgnoreFile(remoteOptionsField.GitIgnorePath);
 
             if (!FetchAll && BranchStrategy == BranchStrategy.None)
-                _globals.Repository.SetConfig(GitTfsConstants.IgnoreBranches, true);
+                globalsField.Repository.SetConfig(GitTfsConstants.IgnoreBranches, true);
 
             if(!string.IsNullOrEmpty(IgnoreBranchesRegex))
-                _globals.Repository.SetConfig(GitTfsConstants.IgnoreBranchesRegex, IgnoreBranchesRegex);
-            _globals.Repository.SetConfig(GitTfsConstants.IgnoreNotInitBranches, IgnoreNotInitBranches);
+                globalsField.Repository.SetConfig(GitTfsConstants.IgnoreBranchesRegex, IgnoreBranchesRegex);
+            globalsField.Repository.SetConfig(GitTfsConstants.IgnoreNotInitBranches, IgnoreNotInitBranches);
 
             var remotesToFetch = GetRemotesToFetch(args).ToList();
             foreach (var remote in remotesToFetch)
@@ -135,17 +135,17 @@ namespace GitTfs.Commands
                 Trace.WriteLine("No .gitignore file specified to use...");
                 return;
             }
-            _globals.Repository.UseGitIgnore(pathToGitIgnoreFile);
+            globalsField.Repository.UseGitIgnore(pathToGitIgnoreFile);
         }
 
         private void FetchRemote(bool stopOnFailMergeCommit, IGitTfsRemote remote)
         {
             Trace.TraceInformation("Fetching from TFS remote '{0}'...", remote.Id);
             DoFetch(remote, stopOnFailMergeCommit);
-            if (_labels != null && FetchLabels)
+            if (labelsField != null && FetchLabels)
             {
                 Trace.TraceInformation("Fetching labels from TFS remote '{0}'...", remote.Id);
-                _labels.Run(remote);
+                labelsField.Run(remote);
             }
         }
 
@@ -178,7 +178,7 @@ namespace GitTfs.Commands
                     new[] { "Remove ahead commits and retry", "use the --force option (ahead commits will be lost!)" });
             }
 
-            var metadataExportInitializer = new ExportMetadatasInitializer(_globals);
+            var metadataExportInitializer = new ExportMetadatasInitializer(globalsField);
             bool shouldExport = ExportMetadatas || remote.Repository.GetConfig(GitTfsConstants.ExportMetadatasConfigKey) == "true";
 
             if (ExportMetadatas)
@@ -192,8 +192,8 @@ namespace GitTfs.Commands
             {
                 if (InitialChangeset.HasValue)
                 {
-                    _properties.InitialChangeset = InitialChangeset.Value;
-                    _properties.PersistAllOverrides();
+                    propertiesField.InitialChangeset = InitialChangeset.Value;
+                    propertiesField.PersistAllOverrides();
                     remote.QuickFetch(InitialChangeset.Value, IgnoreRestrictedChangesets);
                     remote.Fetch(stopOnFailMergeCommit, upToChangeSet);
                 }
@@ -216,11 +216,11 @@ namespace GitTfs.Commands
         {
             IEnumerable<IGitTfsRemote> remotesToFetch;
             if (FetchParents)
-                remotesToFetch = _globals.Repository.GetLastParentTfsCommits("HEAD").Select(commit => commit.Remote);
+                remotesToFetch = globalsField.Repository.GetLastParentTfsCommits("HEAD").Select(commit => commit.Remote);
             else if (FetchAll)
-                remotesToFetch = _globals.Repository.ReadAllTfsRemotes();
+                remotesToFetch = globalsField.Repository.ReadAllTfsRemotes();
             else
-                remotesToFetch = args.Select(arg => _globals.Repository.ReadTfsRemote(arg));
+                remotesToFetch = args.Select(arg => globalsField.Repository.ReadTfsRemote(arg));
             return remotesToFetch;
         }
     }

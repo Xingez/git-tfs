@@ -1,21 +1,21 @@
-﻿using System.Diagnostics;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
     public class TfsWriter
     {
-        private readonly Globals _globals;
+        private readonly Globals globalsField;
 
         public TfsWriter(Globals globals)
         {
-            _globals = globals;
+            globalsField = globals;
         }
 
         public int Write(string refToWrite, Func<TfsChangesetInfo, string, int> write)
         {
-            var tfsParents = _globals.Repository.GetLastParentTfsCommits(refToWrite);
-            if (_globals.RemoteId != null)
-                tfsParents = tfsParents.Where(changeset => changeset.Remote.Id == _globals.RemoteId);
+            var tfsParents = globalsField.Repository.GetLastParentTfsCommits(refToWrite);
+            if (globalsField.RemoteId != null)
+                tfsParents = tfsParents.Where(changeset => changeset.Remote.Id == globalsField.RemoteId);
 
             return WriteWith(tfsParents, refToWrite, write);
         }
@@ -38,7 +38,7 @@ namespace GitTfs.Core
                         //we are in the main history line and not a subtree line.
                         var lastChangeSet = tfsParents.OrderByDescending(x => x.ChangesetId).First();
                         if (lastChangeSet.Remote.IsSubtree)
-                            lastChangeSet.Remote = _globals.Repository.ReadTfsRemote(lastChangeSet.Remote.OwningRemoteId);
+                            lastChangeSet.Remote = globalsField.Repository.ReadTfsRemote(lastChangeSet.Remote.OwningRemoteId);
                         Trace.TraceInformation("Basing from parent '{0}:{1}', use -i to override", lastChangeSet.Remote.Id, lastChangeSet.ChangesetId);
                         return write(lastChangeSet, refToWrite);
                     }

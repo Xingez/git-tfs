@@ -1,25 +1,25 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("info")]
     [Description("info")]
     [RequiresValidGitRepository]
     public class Info : GitTfsCommand
     {
-        private readonly Globals _globals;
-        private readonly IGitTfsVersionProvider _versionProvider;
+        private readonly Globals globalsField;
+        private readonly IGitTfsVersionProvider versionProviderField;
 
         public Info(Globals globals, IGitTfsVersionProvider versionProvider)
         {
-            _globals = globals;
-            _versionProvider = versionProvider;
+            globalsField = globals;
+            versionProviderField = versionProvider;
         }
 
-        public OptionSet OptionSet => _globals.OptionSet;
+        public OptionSet OptionSet => globalsField.OptionSet;
 
         public int Run()
         {
@@ -27,7 +27,7 @@ namespace GitTfs.Commands
 
             DescribeGitTfs();
 
-            var tfsRemotes = _globals.Repository.ReadAllTfsRemotes();
+            var tfsRemotes = globalsField.Repository.ReadAllTfsRemotes();
             foreach (var remote in tfsRemotes)
             {
                 DescribeTfsRemotes(remote);
@@ -40,14 +40,14 @@ namespace GitTfs.Commands
         {
             DisplayReadabilityLineJump();
 
-            Trace.TraceInformation(_globals.GitVersion);
+            Trace.TraceInformation(globalsField.GitVersion);
         }
 
         private void DescribeGitTfs()
         {
             DisplayReadabilityLineJump();
-            Trace.TraceInformation(_versionProvider.GetVersionString());
-            Trace.TraceInformation(" " + _versionProvider.GetPathToGitTfsExecutable());
+            Trace.TraceInformation(versionProviderField.GetVersionString());
+            Trace.TraceInformation(" " + versionProviderField.GetPathToGitTfsExecutable());
 
             Trace.TraceInformation(GitTfsConstants.MessageForceVersion);
 
@@ -58,7 +58,7 @@ namespace GitTfs.Commands
         {
             try
             {
-                var repoDescription = File.ReadAllLines(Path.Combine(_globals.GitDir, "description"));
+                var repoDescription = File.ReadAllLines(Path.Combine(globalsField.GitDir, "description"));
                 if (repoDescription.Length == 0 || !repoDescription[0].StartsWith("$/"))
                     return;
 

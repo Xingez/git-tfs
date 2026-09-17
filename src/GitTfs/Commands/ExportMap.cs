@@ -1,24 +1,24 @@
-using System.ComponentModel;
-
-using GitTfs.Core;
-
-using GitTfs.Util;
 
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+
+    using global::GitTfs.Core;
+
+    using global::GitTfs.Util;
     [Pluggable("exportmap")]
     [Description("exportmap -f <file>")]
     [RequiresValidGitRepository]
     public class ExportMap : GitTfsCommand
     {
-        private readonly Globals _globals;
-        private readonly Help _helper;
+        private readonly Globals globalsField;
+        private readonly Help helperField;
 
         public ExportMap(Globals globals, Help helper)
         {
-            _globals = globals;
-            _helper = helper;
+            globalsField = globals;
+            helperField = helper;
         }
 
         public string FilePath { get; set; }
@@ -33,10 +33,10 @@ namespace GitTfs.Commands
         {
             if (string.IsNullOrWhiteSpace(FilePath))
             {
-                return _helper.Run(this);
+                return helperField.Run(this);
             }
 
-            var commits = _globals.Repository.GetCommitChangeSetPairs();
+            var commits = globalsField.Repository.GetCommitChangeSetPairs();
             File.WriteAllLines(FilePath, commits.Select(map => $"{map.Key}-{map.Value}"));
 
             return 0;

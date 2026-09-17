@@ -1,38 +1,38 @@
-using GitTfs.Commands;
-using GitTfs.Core;
-
-using LibGit2Sharp;
 
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+
+    using global::LibGit2Sharp;
     [TestClass]
     public class RemoteConfigConverterTests : BaseTest
     {
         [TestClass]
         public class DumpTests : BaseTest
         {
-            private readonly RemoteConfigConverter _dumper = new RemoteConfigConverter();
+            private readonly RemoteConfigConverter dumperField = new RemoteConfigConverter();
 
             [TestMethod]
             public void DumpsNothingWithNoId()
             {
                 var remote = new RemoteInfo { Url = "http://server/path", Repository = "$/Project" };
-                Assert.Empty(_dumper.Dump(remote));
+                Assert.Empty(dumperField.Dump(remote));
             }
 
             [TestMethod]
             public void DumpsNothingWithBlankId()
             {
                 var remote = new RemoteInfo { Id = "  ", Url = "http://server/path", Repository = "$/Project" };
-                Assert.Empty(_dumper.Dump(remote));
+                Assert.Empty(dumperField.Dump(remote));
             }
 
             [TestMethod]
             public void DumpsMinimalRemote()
             {
                 var remote = new RemoteInfo { Id = "default", Url = "http://server/path", Repository = "$/Project" };
-                var config = _dumper.Dump(remote);
+                var config = dumperField.Dump(remote);
                 AssertContainsConfig("tfs-remote.default.url", "http://server/path", config);
                 AssertContainsConfig("tfs-remote.default.repository", "$/Project", config);
                 AssertContainsConfig("tfs-remote.default.username", null, config);
@@ -60,7 +60,7 @@ namespace GitTfs.Test.Core
                     Aliases = new string[] { "http://abc", "http://def" },
                     NoParallel = true,
                 };
-                var config = _dumper.Dump(remote);
+                var config = dumperField.Dump(remote);
                 AssertContainsConfig("tfs-remote.default.url", "http://server/path", config);
                 AssertContainsConfig("tfs-remote.default.repository", "$/Project", config);
                 AssertContainsConfig("tfs-remote.default.username", "user", config);
@@ -96,7 +96,7 @@ namespace GitTfs.Test.Core
                     Autotag = true,
                     Aliases = new[] { "http://abc", "http://def" },
                 };
-                var config = _dumper.Dump(remote);
+                var config = dumperField.Dump(remote);
                 AssertContainsConfig("tfs-remote.default.url", "http://server/path", config);
                 AssertContainsConfig("tfs-remote.default.repository", "$/Project", config);
                 AssertContainsConfig("tfs-remote.default.username", "user", config);
@@ -146,14 +146,14 @@ namespace GitTfs.Test.Core
 
         public class LoadTests : BaseTest
         {
-            private readonly RemoteConfigConverter _loader = new RemoteConfigConverter();
+            private readonly RemoteConfigConverter loaderField = new RemoteConfigConverter();
 
-            private IEnumerable<RemoteInfo> Load(params ConfigurationEntry<string>[] configs) => _loader.Load(configs);
+            private IEnumerable<RemoteInfo> Load(params ConfigurationEntry<string>[] configs) => loaderField.Load(configs);
 
             [TestMethod]
             public void NoConfig()
             {
-                var remotes = _loader.Load(Enumerable.Empty<ConfigurationEntry<string>>());
+                var remotes = loaderField.Load(Enumerable.Empty<ConfigurationEntry<string>>());
                 Assert.Empty(remotes);
             }
 
@@ -221,7 +221,7 @@ namespace GitTfs.Test.Core
             }
         }
 
-        private readonly RemoteConfigConverter _converter = new RemoteConfigConverter();
+        private readonly RemoteConfigConverter converterField = new RemoteConfigConverter();
 
         [TestMethod]
         public void MultipleRemotes()
@@ -229,9 +229,9 @@ namespace GitTfs.Test.Core
             var remote1 = new RemoteInfo { Id = "a", Url = "http://a", Repository = "$/a" };
             var remote2 = new RemoteInfo { Id = "b", Url = "http://b", Repository = "$/b" };
             var config = new List<KeyValuePair<string, string>>();
-            config.AddRange(_converter.Dump(remote1));
-            config.AddRange(_converter.Dump(remote2));
-            var remotes = _converter.Load(magic(config));
+            config.AddRange(converterField.Dump(remote1));
+            config.AddRange(converterField.Dump(remote2));
+            var remotes = converterField.Load(magic(config));
             Assert.Equal(2, remotes.Count());
             Assert.Equal(new string[] { "a", "b" }, remotes.Select(r => r.Id).OrderBy(s => s));
         }
@@ -241,11 +241,11 @@ namespace GitTfs.Test.Core
         {
             var originalRemote = new RemoteInfo { Id = "has.dots.in.it", Url = "http://do/not/care", Repository = "$/do/not/care" };
 
-            var config = _converter.Dump(originalRemote);
+            var config = converterField.Dump(originalRemote);
             foreach (var entry in config)
                 Assert.True(entry.Key.StartsWith("tfs-remote.has.dots.in.it."), entry.Key + " should start with tfs-remote.has.dots.in.it");
 
-            var remotes = _converter.Load(magic(config));
+            var remotes = converterField.Load(magic(config));
             Assert.Single(remotes);
             Assert.Equal("has.dots.in.it", remotes.First().Id);
         }
@@ -256,16 +256,16 @@ namespace GitTfs.Test.Core
 
         private class TestConfigurationEntry : ConfigurationEntry<string>
         {
-            private readonly string _key;
-            private readonly string _value;
+            private readonly string keyField;
+            private readonly string valueField;
 
-            public override string Key => _key;
-            public override string Value => _value;
+            public override string Key => keyField;
+            public override string Value => valueField;
 
             public TestConfigurationEntry(string key, string value)
             {
-                _key = key;
-                _value = value;
+                keyField = key;
+                valueField = value;
             }
         }
     }

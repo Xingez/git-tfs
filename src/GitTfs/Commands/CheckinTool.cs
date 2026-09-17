@@ -1,9 +1,9 @@
-using System.ComponentModel;
-using GitTfs.Core;
-using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Core;
+    using global::GitTfs.Util;
     [PluggableWithAliases("checkintool", "ct")]
     [Description("checkintool [options] [ref-to-checkin]")]
     [RequiresValidGitRepository]

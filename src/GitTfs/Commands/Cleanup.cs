@@ -1,24 +1,24 @@
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("cleanup")]
     [RequiresValidGitRepository]
     public class Cleanup : GitTfsCommand
     {
-        private readonly CleanupWorkspaces _cleanupWorkspaces;
-        private readonly CleanupWorkspaceLocal _cleanupWorkspaceLocal;
+        private readonly CleanupWorkspaces cleanupWorkspacesField;
+        private readonly CleanupWorkspaceLocal cleanupWorkspaceLocalField;
 
         public Cleanup(CleanupWorkspaces cleanupWorkspaces, CleanupWorkspaceLocal cleanupWorkspaceLocal)
         {
-            _cleanupWorkspaces = cleanupWorkspaces;
-            _cleanupWorkspaceLocal = cleanupWorkspaceLocal;
+            cleanupWorkspacesField = cleanupWorkspaces;
+            cleanupWorkspaceLocalField = cleanupWorkspaceLocal;
         }
 
-        public OptionSet OptionSet => _cleanupWorkspaces.OptionSet;
+        public OptionSet OptionSet => cleanupWorkspacesField.OptionSet;
 
-        public int Run() => RunAll(_cleanupWorkspaces.Run, _cleanupWorkspaceLocal.Run);
+        public int Run() => RunAll(cleanupWorkspacesField.Run, cleanupWorkspaceLocalField.Run);
 
         private int RunAll(params Func<int>[] cleaners)
         {

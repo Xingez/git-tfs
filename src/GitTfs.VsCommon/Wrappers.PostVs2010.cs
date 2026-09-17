@@ -1,30 +1,30 @@
-using Microsoft.TeamFoundation.VersionControl.Client;
-using GitTfs.Core.TfsInterop;
-
 namespace GitTfs.VsCommon
 {
+    using global::Microsoft.TeamFoundation.VersionControl.Client;
+    using global::GitTfs.Core.TfsInterop;
+
     public class WrapperForBranchObject : WrapperFor<BranchObject>, IBranchObject
     {
-        BranchObject _branch;
+        BranchObject branchField;
 
         public WrapperForBranchObject(BranchObject branch) : base(branch)
         {
-            _branch = branch;
+            branchField = branch;
         }
 
         public string Path
         {
-            get { return _branch.Properties.RootItem.Item; }
+            get { return branchField.Properties.RootItem.Item; }
         }
 
         public bool IsRoot
         {
-            get { return _branch.Properties.ParentBranch == null; }
+            get { return branchField.Properties.ParentBranch == null; }
         }
 
         public string ParentPath
         {
-            get { return _branch.Properties.ParentBranch.Item; }
+            get { return branchField.Properties.ParentBranch.Item; }
         }
     }
 }

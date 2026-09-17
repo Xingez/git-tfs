@@ -1,7 +1,7 @@
-using GitTfs.Core.TfsInterop;
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Core.TfsInterop;
     public class StubbedCheckinEvaluationResult : ICheckinEvaluationResult
     {
         private readonly HashSet<ICheckinConflict> conflicts;

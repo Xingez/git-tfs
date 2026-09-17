@@ -1,40 +1,40 @@
-using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs.Util
 {
+    using global::System.Reflection;
+    using global::Microsoft.Extensions.DependencyInjection;
     /// <summary>
     /// Contains the application-specific metadata needed for command and changed-file resolution.
     /// </summary>
     public sealed class ServiceCatalog
     {
-        private readonly Dictionary<string, Type> _commands = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, Type> _changedFiles = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Type> commandsField = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Type> changedFilesField = new(StringComparer.OrdinalIgnoreCase);
 
         public IEnumerable<ServiceRegistration> Commands =>
-            _commands.OrderBy(pair => pair.Key).Select(pair => new ServiceRegistration(pair.Key, pair.Value));
+            commandsField.OrderBy(pair => pair.Key).Select(pair => new ServiceRegistration(pair.Key, pair.Value));
 
         public void AddCommand(string name, Type implementationType)
         {
-            if (_commands.ContainsKey(name))
+            if (commandsField.ContainsKey(name))
                 throw new InvalidOperationException($"A command named '{name}' is already registered.");
 
-            _commands.Add(name, implementationType);
+            commandsField.Add(name, implementationType);
         }
 
-        public void AddChangedFile(string status, Type implementationType) => _changedFiles[status] = implementationType;
+        public void AddChangedFile(string status, Type implementationType) => changedFilesField[status] = implementationType;
 
-        public Type GetCommandType(string name) => _commands.TryGetValue(name, out var type) ? type : null;
+        public Type GetCommandType(string name) => commandsField.TryGetValue(name, out var type) ? type : null;
 
         public Type GetChangedFileType(string status) =>
-            _changedFiles.TryGetValue(status, out var type)
+            changedFilesField.TryGetValue(status, out var type)
                 ? type
                 : throw new InvalidOperationException($"No changed-file handler is registered for status '{status}'.");
 
         public string Describe()
         {
             var registrations = Commands.Select(command => $"{command.Name}: {command.ImplementationType.FullName}")
-                .Concat(_changedFiles.OrderBy(pair => pair.Key)
+                .Concat(changedFilesField.OrderBy(pair => pair.Key)
                     .Select(pair => $"IGitChangedFile[{pair.Key}]: {pair.Value.FullName}"));
             return string.Join(Environment.NewLine, registrations);
         }

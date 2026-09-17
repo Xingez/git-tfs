@@ -1,10 +1,10 @@
-using System.Text;
-
-using GitTfs.Core;
 
 
 namespace GitTfs.Test.Core
 {
+    using global::System.Text;
+
+    using global::GitTfs.Core;
     [TestClass]
     public class DelimitedReaderTests : BaseTest
     {

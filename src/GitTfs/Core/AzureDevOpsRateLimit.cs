@@ -1,8 +1,8 @@
-using System.Collections.Specialized;
-using System.Globalization;
 
 namespace GitTfs.Core
 {
+    using global::System.Collections.Specialized;
+    using global::System.Globalization;
     /// <summary>
     /// The rate-limit information returned by Azure DevOps.
     /// Azure DevOps communicates throttling through response headers rather than a

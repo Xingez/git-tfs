@@ -1,7 +1,7 @@
-using GitTfs.Core.BranchVisitors;
 
 namespace GitTfs.Core.TfsInterop
 {
+    using global::GitTfs.Core.BranchVisitors;
     public interface IBranchObject
     {
         string Path { get; }

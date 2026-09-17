@@ -1,9 +1,9 @@
-using LibGit2Sharp;
-
-using Branch = LibGit2Sharp.Branch;
 
 namespace GitTfs.Core
 {
+    using global::LibGit2Sharp;
+
+    using Branch = global::LibGit2Sharp.Branch;
     public interface IGitRepository : IGitHelpers
     {
         string GitDir { get; }

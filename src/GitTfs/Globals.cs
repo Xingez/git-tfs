@@ -1,9 +1,9 @@
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs
 {
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [SingletonService]
     public class Globals
     {
@@ -31,13 +31,13 @@ namespace GitTfs
 
         public string UserSpecifiedRemoteId { get; set; }
 
-        private string _remoteId = null;
+        private string remoteIdField = null;
         public string RemoteId
         {
             get
             {
-                if (!string.IsNullOrEmpty(_remoteId))
-                    return _remoteId;
+                if (!string.IsNullOrEmpty(remoteIdField))
+                    return remoteIdField;
 
                 if (!string.IsNullOrEmpty(UserSpecifiedRemoteId))
                     return UserSpecifiedRemoteId;
@@ -52,25 +52,25 @@ namespace GitTfs
                         foundRemote = Bootstrapper.CreateRemote(changesetsWithRemote.First());
                     }
 
-                    _remoteId = foundRemote.Id;
-                    Trace.TraceInformation("Working with tfs remote: " + _remoteId + " => " + foundRemote.TfsRepositoryPath);
-                    return _remoteId;
+                    remoteIdField = foundRemote.Id;
+                    Trace.TraceInformation("Working with tfs remote: " + remoteIdField + " => " + foundRemote.TfsRepositoryPath);
+                    return remoteIdField;
                 }
 
                 var allRemotes = Repository.ReadAllTfsRemotes();
                 //Case where the repository is cloned
                 if (!allRemotes.Any())
-                    return _remoteId = GitTfsConstants.DefaultRepositoryId;
+                    return remoteIdField = GitTfsConstants.DefaultRepositoryId;
 
                 if (allRemotes.Count() == 1)
                 {
                     //Case where the repository is just initialised
                     var foundRemote = allRemotes.First();
-                    _remoteId = foundRemote.Id;
-                    if (_remoteId == GitTfsConstants.DefaultRepositoryId)
+                    remoteIdField = foundRemote.Id;
+                    if (remoteIdField == GitTfsConstants.DefaultRepositoryId)
                     {
-                        Trace.TraceInformation("Working with tfs remote: " + _remoteId + " => " + foundRemote.TfsRepositoryPath);
-                        return _remoteId;
+                        Trace.TraceInformation("Working with tfs remote: " + remoteIdField + " => " + foundRemote.TfsRepositoryPath);
+                        return remoteIdField;
                     }
                 }
                 //We could no choose for the user which remote is the good one (if, eventualy we found one...)
@@ -91,16 +91,16 @@ namespace GitTfs
 
         public int GcCountdown { get; set; }
 
-        private string _gitVersion;
+        private string gitVersionField;
         public string GitVersion
         {
             get
             {
-                if (_gitVersion != null)
-                    return _gitVersion;
+                if (gitVersionField != null)
+                    return gitVersionField;
                 if (Repository == null)
                     return null;
-                return _gitVersion = Repository.CommandOneline("--version");
+                return gitVersionField = Repository.CommandOneline("--version");
             }
         }
 

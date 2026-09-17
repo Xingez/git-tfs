@@ -1,9 +1,9 @@
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace GitTfs.Util;
+using global::System.Collections.ObjectModel;
+using global::System.ComponentModel;
+using global::System.Text;
+using global::System.Text.RegularExpressions;
 
 public enum OptionValueType
 {
@@ -16,60 +16,60 @@ public delegate void OptionAction<TKey, TValue>(TKey key, TValue value);
 
 public sealed class OptionValueCollection : IList<string>
 {
-    private readonly List<string> _values = new();
-    private readonly OptionContext _context;
+    private readonly List<string> valuesField = new();
+    private readonly OptionContext contextField;
 
-    internal OptionValueCollection(OptionContext context) => _context = context;
+    internal OptionValueCollection(OptionContext context) => contextField = context;
 
     public string this[int index]
     {
         get
         {
-            if (_context.Option == null)
+            if (contextField.Option == null)
                 throw new InvalidOperationException("OptionContext.Option is null.");
-            if (index >= _context.Option.MaxValueCount)
+            if (index >= contextField.Option.MaxValueCount)
                 throw new ArgumentOutOfRangeException(nameof(index));
-            if (_context.Option.OptionValueType == OptionValueType.Required && index >= _values.Count)
+            if (contextField.Option.OptionValueType == OptionValueType.Required && index >= valuesField.Count)
                 throw new OptionException(
-                    $"Missing required value for option '{_context.OptionName}'.",
-                    _context.OptionName);
-            return index >= _values.Count ? null : _values[index];
+                    $"Missing required value for option '{contextField.OptionName}'.",
+                    contextField.OptionName);
+            return index >= valuesField.Count ? null : valuesField[index];
         }
-        set => _values[index] = value;
+        set => valuesField[index] = value;
     }
 
-    public int Count => _values.Count;
+    public int Count => valuesField.Count;
     public bool IsReadOnly => false;
-    public void Add(string item) => _values.Add(item);
-    public void Clear() => _values.Clear();
-    public bool Contains(string item) => _values.Contains(item);
-    public void CopyTo(string[] array, int arrayIndex) => _values.CopyTo(array, arrayIndex);
-    public IEnumerator<string> GetEnumerator() => _values.GetEnumerator();
-    public int IndexOf(string item) => _values.IndexOf(item);
-    public void Insert(int index, string item) => _values.Insert(index, item);
-    public bool Remove(string item) => _values.Remove(item);
-    public void RemoveAt(int index) => _values.RemoveAt(index);
+    public void Add(string item) => valuesField.Add(item);
+    public void Clear() => valuesField.Clear();
+    public bool Contains(string item) => valuesField.Contains(item);
+    public void CopyTo(string[] array, int arrayIndex) => valuesField.CopyTo(array, arrayIndex);
+    public IEnumerator<string> GetEnumerator() => valuesField.GetEnumerator();
+    public int IndexOf(string item) => valuesField.IndexOf(item);
+    public void Insert(int index, string item) => valuesField.Insert(index, item);
+    public bool Remove(string item) => valuesField.Remove(item);
+    public void RemoveAt(int index) => valuesField.RemoveAt(index);
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public List<string> ToList() => new(_values);
-    public string[] ToArray() => _values.ToArray();
-    public override string ToString() => string.Join(", ", _values);
+    public List<string> ToList() => new(valuesField);
+    public string[] ToArray() => valuesField.ToArray();
+    public override string ToString() => string.Join(", ", valuesField);
 }
 
 public sealed class OptionContext
 {
-    private readonly OptionSet _set;
+    private readonly OptionSet setField;
 
     public OptionContext(OptionSet set)
     {
-        _set = set;
+        setField = set;
         OptionValues = new OptionValueCollection(this);
     }
 
     public Option Option { get; set; }
     public string OptionName { get; set; }
     public int OptionIndex { get; set; }
-    public OptionSet OptionSet => _set;
+    public OptionSet OptionSet => setField;
     public OptionValueCollection OptionValues { get; }
 }
 
@@ -89,8 +89,8 @@ public class OptionException : Exception
 public abstract class Option
 {
     private static readonly char[] NameTerminators = { '=', ':' };
-    private readonly string[] _names;
-    private readonly string[] _valueSeparators;
+    private readonly string[] namesField;
+    private readonly string[] valueSeparatorsField;
 
     protected Option(string prototype, string description, int maxValueCount)
     {
@@ -104,8 +104,8 @@ public abstract class Option
         Prototype = prototype;
         Description = description;
         MaxValueCount = maxValueCount;
-        _names = prototype.Split('|');
-        OptionValueType = ParsePrototype(_names, maxValueCount, out _valueSeparators);
+        namesField = prototype.Split('|');
+        OptionValueType = ParsePrototype(namesField, maxValueCount, out valueSeparatorsField);
 
         if (maxValueCount == 0 && OptionValueType != OptionValueType.None)
             throw new ArgumentException("An option without values cannot have a value type.", nameof(maxValueCount));
@@ -121,11 +121,11 @@ public abstract class Option
     public OptionValueType OptionValueType { get; }
     public int MaxValueCount { get; }
 
-    public string[] GetNames() => (string[])_names.Clone();
-    public string[] GetValueSeparators() => _valueSeparators == null ? Array.Empty<string>() : (string[])_valueSeparators.Clone();
+    public string[] GetNames() => (string[])namesField.Clone();
+    public string[] GetValueSeparators() => valueSeparatorsField == null ? Array.Empty<string>() : (string[])valueSeparatorsField.Clone();
 
-    internal string[] Names => _names;
-    internal string[] ValueSeparators => _valueSeparators;
+    internal string[] Names => namesField;
+    internal string[] ValueSeparators => valueSeparatorsField;
 
     internal void Invoke(OptionContext context)
     {
@@ -230,14 +230,14 @@ public abstract class Option
 
 public class OptionSet : Collection<Option>
 {
-    private readonly Converter<string, string> _localizer;
+    private readonly Converter<string, string> localizerField;
 
     public OptionSet()
         : this(value => value) { }
 
-    public OptionSet(Converter<string, string> localizer) => _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
+    public OptionSet(Converter<string, string> localizer) => localizerField = localizer ?? throw new ArgumentNullException(nameof(localizer));
 
-    public Converter<string, string> MessageLocalizer => _localizer;
+    public Converter<string, string> MessageLocalizer => localizerField;
 
     public new OptionSet Add(Option option)
     {
@@ -473,33 +473,33 @@ public class OptionSet : Collection<Option>
 
     private sealed class ActionOption : Option
     {
-        private readonly Action<string> _action;
+        private readonly Action<string> actionField;
 
         public ActionOption(string prototype, string description, Action<string> action)
-            : base(prototype, description, 1) => _action = action ?? throw new ArgumentNullException(nameof(action));
+            : base(prototype, description, 1) => actionField = action ?? throw new ArgumentNullException(nameof(action));
 
-        protected override void OnParseComplete(OptionContext context) => _action(context.OptionValues[0]);
+        protected override void OnParseComplete(OptionContext context) => actionField(context.OptionValues[0]);
     }
 
     private sealed class ConvertedActionOption<T> : Option
     {
-        private readonly Action<T> _action;
+        private readonly Action<T> actionField;
 
         public ConvertedActionOption(string prototype, string description, Action<T> action)
-            : base(prototype, description, 1) => _action = action ?? throw new ArgumentNullException(nameof(action));
+            : base(prototype, description, 1) => actionField = action ?? throw new ArgumentNullException(nameof(action));
 
         protected override void OnParseComplete(OptionContext context)
-            => _action(Parse<T>(context.OptionValues[0], context));
+            => actionField(Parse<T>(context.OptionValues[0], context));
     }
 
     private sealed class ConvertedActionOption<TKey, TValue> : Option
     {
-        private readonly OptionAction<TKey, TValue> _action;
+        private readonly OptionAction<TKey, TValue> actionField;
 
         public ConvertedActionOption(string prototype, string description, OptionAction<TKey, TValue> action)
-            : base(prototype, description, 2) => _action = action ?? throw new ArgumentNullException(nameof(action));
+            : base(prototype, description, 2) => actionField = action ?? throw new ArgumentNullException(nameof(action));
 
         protected override void OnParseComplete(OptionContext context)
-            => _action(Parse<TKey>(context.OptionValues[0], context), Parse<TValue>(context.OptionValues[1], context));
+            => actionField(Parse<TKey>(context.OptionValues[0], context), Parse<TValue>(context.OptionValues[1], context));
     }
 }

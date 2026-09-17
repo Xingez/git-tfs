@@ -1,7 +1,7 @@
-using GitTfs.Commands;
 
 namespace GitTfs.Core.TfsInterop
 {
+    using global::GitTfs.Commands;
     public interface ITfsHelper
     {
         string TfsClientLibraryVersion { get; }

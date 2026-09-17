@@ -1,11 +1,11 @@
-using GitTfs.Core;
-using GitTfs.Core.Changes.Git;
-
-using Moq;
 
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.Changes.Git;
+
+    using global::Moq;
     [TestClass]
     public class GitChangeInfoTests : BaseTest
     {

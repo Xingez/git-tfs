@@ -1,8 +1,8 @@
-using GitTfs.Core.TfsInterop;
-using GitTfs.Commands;
 
 namespace GitTfs.Core
 {
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Commands;
     public interface IFetchResult : IRenameResult
     {
         bool IsSuccess { get; set; }

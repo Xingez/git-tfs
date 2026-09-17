@@ -1,26 +1,26 @@
-using System.Diagnostics;
-using System.Reflection;
-using System.Runtime.InteropServices;
-
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using GitTfs;
-
-using Microsoft.TeamFoundation.Build.Client;
-using Microsoft.TeamFoundation.Client;
-using Microsoft.TeamFoundation.Common;
-using Microsoft.TeamFoundation.Server;
-using Microsoft.VisualStudio.Services.Client;
-using Microsoft.VisualStudio.Services.Common;
-using Microsoft.VisualStudio.Settings;
-using Microsoft.VisualStudio.Setup.Configuration;
-
-using Microsoft.Extensions.DependencyInjection;
-
-using WindowsCredential = Microsoft.VisualStudio.Services.Common.WindowsCredential;
 
 namespace GitTfs.VsCommon
 {
+    using global::System.Diagnostics;
+    using global::System.Reflection;
+    using global::System.Runtime.InteropServices;
+
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs;
+
+    using global::Microsoft.TeamFoundation.Build.Client;
+    using global::Microsoft.TeamFoundation.Client;
+    using global::Microsoft.TeamFoundation.Common;
+    using global::Microsoft.TeamFoundation.Server;
+    using global::Microsoft.VisualStudio.Services.Client;
+    using global::Microsoft.VisualStudio.Services.Common;
+    using global::Microsoft.VisualStudio.Settings;
+    using global::Microsoft.VisualStudio.Setup.Configuration;
+
+    using global::Microsoft.Extensions.DependencyInjection;
+
+    using WindowsCredential = global::Microsoft.VisualStudio.Services.Common.WindowsCredential;
     /// <summary>
     /// Base class for the Visual Studio 2022 TfsHelper.
     /// </summary>
@@ -176,7 +176,7 @@ namespace GitTfs.VsCommon
 #pragma warning disable 618
         private IGroupSecurityService GroupSecurityService => GetService<IGroupSecurityService>();
 
-        public override IIdentity GetIdentity(string username) => _bridge.Wrap<WrapperForIdentity, Identity>(Retry.Do(() => GroupSecurityService.ReadIdentity(SearchFactor.AccountName, username, QueryMembership.None)));
+        public override IIdentity GetIdentity(string username) => bridgeField.Wrap<WrapperForIdentity, Identity>(Retry.Do(() => GroupSecurityService.ReadIdentity(SearchFactor.AccountName, username, QueryMembership.None)));
 
         protected override TfsTeamProjectCollection GetTfsCredential(Uri uri)
         {

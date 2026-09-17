@@ -1,9 +1,9 @@
-using System.Diagnostics;
-using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs.Core.TfsInterop
 {
+    using global::System.Diagnostics;
+    using global::System.Reflection;
+    using global::Microsoft.Extensions.DependencyInjection;
     public abstract class TfsPlugin
     {
         public static TfsPlugin Find()
@@ -31,7 +31,7 @@ namespace GitTfs.Core.TfsInterop
 
         private class PluginLoader
         {
-            private readonly List<Exception> _failures = new List<Exception>();
+            private readonly List<Exception> failuresField = new List<Exception>();
             private static string VsPluginAssemblyFolder { get; set; }
 
             public static IReadOnlyList<string> SupportedVersions => new List<string>
@@ -64,7 +64,7 @@ namespace GitTfs.Core.TfsInterop
                 }
                 catch (Exception e)
                 {
-                    _failures.Add(e);
+                    failuresField.Add(e);
                 }
                 currentDomain.AssemblyResolve -= LoadFromSameFolder;
                 return null;
@@ -78,9 +78,9 @@ namespace GitTfs.Core.TfsInterop
                 return Assembly.LoadFrom(assemblyPath);
             }
 
-            public TfsPlugin Fail() => throw new PluginLoaderException(_failures);
+            public TfsPlugin Fail() => throw new PluginLoaderException(failuresField);
 
-            public TfsPlugin Fail(string message) => throw new PluginLoaderException(message, _failures);
+            public TfsPlugin Fail(string message) => throw new PluginLoaderException(message, failuresField);
 
             private class PluginLoaderException : Exception
             {

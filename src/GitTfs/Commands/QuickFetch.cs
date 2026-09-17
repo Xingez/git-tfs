@@ -1,7 +1,7 @@
-﻿using GitTfs.Core;
-
+﻿
 namespace GitTfs.Commands
 {
+    using global::GitTfs.Core;
     // This isn't intended to ever be a command. The intent is that
     // you create a repository with quick-clone, and then use
     // fetch to stay up-to-date.
@@ -11,11 +11,11 @@ namespace GitTfs.Commands
     //  2. Load the correct set of extant casing.
     public class QuickFetch : Fetch
     {
-        private readonly ConfigProperties _properties;
+        private readonly ConfigProperties propertiesField;
         public QuickFetch(Globals globals, ConfigProperties properties, RemoteOptions remoteOptions)
             : base(globals, properties, remoteOptions, null)
         {
-            _properties = properties;
+            propertiesField = properties;
         }
 
         protected override void DoFetch(IGitTfsRemote remote, bool stopOnFailMergeCommit)
@@ -24,8 +24,8 @@ namespace GitTfs.Commands
                 remote.QuickFetch(InitialChangeset.Value, false, false);
             else
                 remote.QuickFetch(-1, false, false);
-            _properties.InitialChangeset = remote.MaxChangesetId;
-            _properties.PersistAllOverrides();
+            propertiesField.InitialChangeset = remote.MaxChangesetId;
+            propertiesField.PersistAllOverrides();
         }
     }
 }

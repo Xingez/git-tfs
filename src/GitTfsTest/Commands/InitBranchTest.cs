@@ -1,15 +1,15 @@
-using GitTfs.Commands;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using GitTfs.VsFake;
-
-using Moq;
-
-using GitTfs.Test;
 
 
 namespace GitTfs.Test.Commands
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.VsFake;
+
+    using global::Moq;
+
+    using global::GitTfs.Test;
     [TestClass]
     public class InitBranchTest : BaseTest
     {

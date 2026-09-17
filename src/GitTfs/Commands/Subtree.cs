@@ -1,19 +1,19 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("subtree")]
     [Description("subtree [add|pull|split] [options] [remote | ( [tfs-url] [repository-path] )]")]
     [RequiresValidGitRepository]
     public class Subtree : GitTfsCommand
     {
-        private readonly Fetch _fetch;
-        private readonly QuickFetch _quickFetch;
-        private readonly Globals _globals;
-        private readonly RemoteOptions _remoteOptions;
+        private readonly Fetch fetchField;
+        private readonly QuickFetch quickFetchField;
+        private readonly Globals globalsField;
+        private readonly RemoteOptions remoteOptionsField;
 
         private string Prefix;
         private bool Squash;
@@ -27,14 +27,14 @@ namespace GitTfs.Commands
                     //                    { "r|revision=",
                     //                        v => RevisionToFetch = Convert.ToInt32(v) },
                 }
-                .Merge(_fetch.OptionSet);
+                .Merge(fetchField.OptionSet);
 
         public Subtree(Fetch fetch, QuickFetch quickFetch, Globals globals, RemoteOptions remoteOptions)
         {
-            _fetch = fetch;
-            _quickFetch = quickFetch;
-            _globals = globals;
-            _remoteOptions = remoteOptions;
+            fetchField = fetch;
+            quickFetchField = quickFetch;
+            globalsField = globals;
+            remoteOptionsField = remoteOptions;
         }
 
         public int Run(IList<string> args)
@@ -74,14 +74,14 @@ namespace GitTfs.Commands
             }
 
 
-            var fetch = Squash ? _quickFetch : _fetch;
+            var fetch = Squash ? quickFetchField : fetchField;
 
             IGitTfsRemote owner = null;
-            string ownerId = _globals.RemoteId;
+            string ownerId = globalsField.RemoteId;
             if (!string.IsNullOrEmpty(ownerId))
             {
                 //check for the specified remote
-                owner = _globals.Repository.HasRemote(_globals.RemoteId) ? _globals.Repository.ReadTfsRemote(_globals.RemoteId) : null;
+                owner = globalsField.Repository.HasRemote(globalsField.RemoteId) ? globalsField.Repository.ReadTfsRemote(globalsField.RemoteId) : null;
                 if (owner != null && !string.IsNullOrEmpty(owner.TfsRepositoryPath))
                 {
                     owner = null;
@@ -92,17 +92,17 @@ namespace GitTfs.Commands
             if (string.IsNullOrEmpty(ownerId))
             {
                 //check for any remote that has no TfsRepositoryPath
-                owner = _globals.Repository.ReadAllTfsRemotes().FirstOrDefault(x => string.IsNullOrEmpty(x.TfsRepositoryPath) && !x.IsSubtree);
+                owner = globalsField.Repository.ReadAllTfsRemotes().FirstOrDefault(x => string.IsNullOrEmpty(x.TfsRepositoryPath) && !x.IsSubtree);
             }
 
             if (owner == null)
             {
-                owner = _globals.Repository.CreateTfsRemote(new RemoteInfo
+                owner = globalsField.Repository.CreateTfsRemote(new RemoteInfo
                 {
                     Id = ownerId ?? GitTfsConstants.DefaultRepositoryId,
                     Url = tfsUrl,
                     Repository = null,
-                    RemoteOptions = _remoteOptions
+                    RemoteOptions = remoteOptionsField
                 });
                 Trace.TraceInformation("-> new owning remote " + owner.Id);
             }
@@ -115,14 +115,14 @@ namespace GitTfs.Commands
 
             //create a remote for the new subtree
             string remoteId = string.Format(GitTfsConstants.RemoteSubtreeFormat, owner.Id, Prefix);
-            IGitTfsRemote remote = _globals.Repository.HasRemote(remoteId) ?
-                _globals.Repository.ReadTfsRemote(remoteId) :
-                _globals.Repository.CreateTfsRemote(new RemoteInfo
+            IGitTfsRemote remote = globalsField.Repository.HasRemote(remoteId) ?
+                globalsField.Repository.ReadTfsRemote(remoteId) :
+                globalsField.Repository.CreateTfsRemote(new RemoteInfo
                 {
                     Id = remoteId,
                     Url = tfsUrl,
                     Repository = tfsRepositoryPath,
-                    RemoteOptions = _remoteOptions
+                    RemoteOptions = remoteOptionsField
                 });
 
             Trace.TraceInformation("-> new remote " + remote.Id);
@@ -141,10 +141,10 @@ namespace GitTfs.Commands
 
 {msg}";
 
-                _globals.Repository.CommandNoisy("subtree", "add", "--prefix=" + p, $"-m {msg}", remote.RemoteRef);
+                globalsField.Repository.CommandNoisy("subtree", "add", "--prefix=" + p, $"-m {msg}", remote.RemoteRef);
 
                 //update the owner remote to point at the commit where the newly created subtree was merged.
-                var commit = _globals.Repository.GetCurrentCommit();
+                var commit = globalsField.Repository.GetCurrentCommit();
                 owner.UpdateTfsHead(commit, latest);
 
                 result = GitTfsExitCodes.OK;
@@ -158,14 +158,14 @@ namespace GitTfs.Commands
         {
             ValidatePrefix();
 
-            remoteId = remoteId ?? string.Format(GitTfsConstants.RemoteSubtreeFormat, _globals.RemoteId ?? GitTfsConstants.DefaultRepositoryId, Prefix);
-            IGitTfsRemote remote = _globals.Repository.ReadTfsRemote(remoteId);
+            remoteId = remoteId ?? string.Format(GitTfsConstants.RemoteSubtreeFormat, globalsField.RemoteId ?? GitTfsConstants.DefaultRepositoryId, Prefix);
+            IGitTfsRemote remote = globalsField.Repository.ReadTfsRemote(remoteId);
 
-            int result = _fetch.Run(remote.Id);
+            int result = fetchField.Run(remote.Id);
             if (result == GitTfsExitCodes.OK)
             {
                 var p = Prefix.Replace(" ", "\\ ");
-                _globals.Repository.CommandNoisy("subtree", "merge", "--prefix=" + p, remote.RemoteRef);
+                globalsField.Repository.CommandNoisy("subtree", "merge", "--prefix=" + p, remote.RemoteRef);
                 result = GitTfsExitCodes.OK;
             }
 
@@ -177,12 +177,12 @@ namespace GitTfs.Commands
             ValidatePrefix();
 
             var p = Prefix.Replace(" ", "\\ ");
-            _globals.Repository.CommandNoisy("subtree", "split", "--prefix=" + p, "-b", p);
-            _globals.Repository.CommandNoisy("checkout", p);
+            globalsField.Repository.CommandNoisy("subtree", "split", "--prefix=" + p, "-b", p);
+            globalsField.Repository.CommandNoisy("checkout", p);
 
             //update subtree refs if needed
-            var owners = _globals.Repository.GetLastParentTfsCommits("HEAD").Where(x => !x.Remote.IsSubtree && x.Remote.TfsRepositoryPath == null).ToList();
-            foreach (var subtree in _globals.Repository.ReadAllTfsRemotes().Where(x => x.IsSubtree && string.Equals(x.Prefix, Prefix)))
+            var owners = globalsField.Repository.GetLastParentTfsCommits("HEAD").Where(x => !x.Remote.IsSubtree && x.Remote.TfsRepositoryPath == null).ToList();
+            foreach (var subtree in globalsField.Repository.ReadAllTfsRemotes().Where(x => x.IsSubtree && string.Equals(x.Prefix, Prefix)))
             {
                 var updateTo = owners.FirstOrDefault(x => string.Equals(x.Remote.Id, subtree.OwningRemoteId));
                 if (updateTo != null && updateTo.ChangesetId > subtree.MaxChangesetId)

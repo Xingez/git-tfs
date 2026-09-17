@@ -1,15 +1,15 @@
-using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
+    using global::GitTfs.Util;
     [SingletonService]
     public class CleanupOptions
     {
-        private readonly Globals _globals;
+        private readonly Globals globalsField;
 
         public CleanupOptions(Globals globals)
         {
-            _globals = globals;
+            globalsField = globals;
         }
 
         public OptionSet OptionSet => new OptionSet
@@ -22,7 +22,7 @@ namespace GitTfs.Commands
         public void Init()
         {
             if (IsVerbose)
-                _globals.DebugOutput = true;
+                globalsField.DebugOutput = true;
         }
     }
 }

@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
     public class GitCommandException : Exception
     {
         public Process Process { get; }

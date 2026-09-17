@@ -1,10 +1,10 @@
-using GitTfs.Core.TfsInterop;
-
-using Moq;
 
 
 namespace GitTfs.Test.Core.TfsInterop
 {
+    using global::GitTfs.Core.TfsInterop;
+
+    using global::Moq;
     [TestClass]
     public class BranchExtensionsTest : BaseTest
     {

@@ -1,7 +1,7 @@
-using System.Text.Json;
 
 namespace GitTfs.Core
 {
+    using global::System.Text.Json;
     /// <summary>
     /// Settings that apply to the local git-tfs executable. Credentials are kept
     /// out of this file and continue to use the existing TFS credential flow.

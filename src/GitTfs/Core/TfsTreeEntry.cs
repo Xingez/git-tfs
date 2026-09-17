@@ -1,21 +1,21 @@
-﻿using GitTfs.Core.TfsInterop;
-using GitTfs.Util;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Util;
     public class TfsTreeEntry : ITreeEntry
     {
-        private readonly string _pathInGitRepo;
-        private readonly IItem _item;
+        private readonly string pathInGitRepoField;
+        private readonly IItem itemField;
 
         public TfsTreeEntry(string pathInGitRepo, IItem item)
         {
-            _pathInGitRepo = pathInGitRepo;
-            _item = item;
+            pathInGitRepoField = pathInGitRepo;
+            itemField = item;
         }
 
-        public IItem Item => _item;
-        public string FullName => _pathInGitRepo;
-        public Stream OpenRead() => new TemporaryFileStream(_item.DownloadFile());
+        public IItem Item => itemField;
+        public string FullName => pathInGitRepoField;
+        public Stream OpenRead() => new TemporaryFileStream(itemField.DownloadFile());
     }
 }

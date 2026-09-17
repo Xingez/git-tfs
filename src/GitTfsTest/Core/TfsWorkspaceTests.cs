@@ -1,11 +1,11 @@
-using GitTfs.Commands;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using System.Diagnostics;
-using Moq;
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::System.Diagnostics;
+    using global::Moq;
     [TestClass]
     public class TfsWorkspaceTests : BaseTest, IDisposable
     {

@@ -1,49 +1,49 @@
-using System.ComponentModel;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("pull")]
     [Description("pull [options]")]
     [RequiresValidGitRepository]
     public class Pull : GitTfsCommand
     {
-        private readonly Fetch _fetch;
-        private readonly Globals _globals;
-        private bool _shouldRebase;
+        private readonly Fetch fetchField;
+        private readonly Globals globalsField;
+        private bool shouldRebaseField;
 
-        public OptionSet OptionSet => _fetch.OptionSet
-                            .Add("r|rebase", "Rebase your modifications on tfs changes", v => _shouldRebase = v != null);
+        public OptionSet OptionSet => fetchField.OptionSet
+                            .Add("r|rebase", "Rebase your modifications on tfs changes", v => shouldRebaseField = v != null);
 
         public Pull(Globals globals, Fetch fetch)
         {
-            _fetch = fetch;
-            _globals = globals;
+            fetchField = fetch;
+            globalsField = globals;
         }
 
-        public int Run() => Run(_globals.RemoteId);
+        public int Run() => Run(globalsField.RemoteId);
 
         public int Run(string remoteId)
         {
-            var retVal = _fetch.Run(remoteId);
+            var retVal = fetchField.Run(remoteId);
 
             if (retVal == 0)
             {
-                var remote = _globals.Repository.ReadTfsRemote(remoteId);
-                if (_shouldRebase)
+                var remote = globalsField.Repository.ReadTfsRemote(remoteId);
+                if (shouldRebaseField)
                 {
-                    _globals.WarnOnGitVersion();
+                    globalsField.WarnOnGitVersion();
 
-                    if (_globals.Repository.WorkingCopyHasUnstagedOrUncommitedChanges)
+                    if (globalsField.Repository.WorkingCopyHasUnstagedOrUncommitedChanges)
                     {
                         throw new GitTfsException("error: You have local changes; rebase-workflow only possible with clean working directory.")
                             .WithRecommendation("Try 'git stash' to stash your local changes and pull again.");
                     }
-                    _globals.Repository.CommandNoisy("rebase", "--rebase-merges", remote.RemoteRef);
+                    globalsField.Repository.CommandNoisy("rebase", "--rebase-merges", remote.RemoteRef);
                 }
                 else
-                    _globals.Repository.Merge(remote.RemoteRef);
+                    globalsField.Repository.Merge(remote.RemoteRef);
             }
 
             return retVal;

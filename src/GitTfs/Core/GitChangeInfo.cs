@@ -1,13 +1,13 @@
-using System.Diagnostics;
-using System.Text;
-using System.Text.RegularExpressions;
-
-using GitTfs.Util;
-
-using FileMode = LibGit2Sharp.Mode;
 
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
+    using global::System.Text;
+    using global::System.Text.RegularExpressions;
+
+    using global::GitTfs.Util;
+
+    using FileMode = global::LibGit2Sharp.Mode;
     public class GitChangeInfo
     {
         const string ElementToRemove = "[ElementToRemove]";
@@ -164,24 +164,24 @@ namespace GitTfs.Core
             }
         }
 
-        private readonly Match _match;
+        private readonly Match matchField;
         public string Status { get; set; }
 
         private GitChangeInfo(Match match)
         {
-            _match = match;
-            Status = _match.Groups["status"].Value;
+            matchField = match;
+            Status = matchField.Groups["status"].Value;
         }
 
-        public LibGit2Sharp.Mode NewMode => _match.Groups["dstmode"].Value.ToFileMode();
+        public LibGit2Sharp.Mode NewMode => matchField.Groups["dstmode"].Value.ToFileMode();
 
-        public string oldMode => _match.Groups["srcmode"].Value;
-        public string newMode => _match.Groups["dstmode"].Value;
-        public string oldSha => _match.Groups["srcsha1"].Value;
-        public string newSha => _match.Groups["dstsha1"].Value;
-        public string path => _match.Groups["srcpath"].Value;
-        public string pathTo => _match.Groups["dstpath"].Value;
-        public string score => _match.Groups["score"].Value;
+        public string oldMode => matchField.Groups["srcmode"].Value;
+        public string newMode => matchField.Groups["dstmode"].Value;
+        public string oldSha => matchField.Groups["srcsha1"].Value;
+        public string newSha => matchField.Groups["dstsha1"].Value;
+        public string path => matchField.Groups["srcpath"].Value;
+        public string pathTo => matchField.Groups["dstpath"].Value;
+        public string score => matchField.Groups["score"].Value;
 
         public IGitChangedFile ToGitChangedFile(IServiceProvider services, IGitRepository repository)
         {

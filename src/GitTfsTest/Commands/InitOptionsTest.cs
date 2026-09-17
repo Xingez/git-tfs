@@ -1,9 +1,9 @@
-using GitTfs.Commands;
-using GitTfs.Test;
-using GitTfs.Util;
 
 namespace GitTfs.Test.Commands
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Test;
+    using global::GitTfs.Util;
     [TestClass]
     public class InitOptionsTest : BaseTest
     {

@@ -1,11 +1,11 @@
-﻿using System.Diagnostics;
-using System.Text.Json;
-
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-
+﻿
 namespace GitTfs.VsFake
 {
+    using global::System.Diagnostics;
+    using global::System.Text.Json;
+
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
     public class Script
     {
         public const string EnvVar = "GIT_TFS_VSFAKE_SCRIPT";

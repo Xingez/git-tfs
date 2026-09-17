@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-
+﻿
 namespace GitTfs.Util
 {
+    using global::System.Diagnostics;
     public class TemporaryFileStream : FileStream
     {
         public static TemporaryFileStream Acquire()
@@ -10,27 +10,27 @@ namespace GitTfs.Util
             return new TemporaryFileStream(temp);
         }
 
-        private string _filename;
+        private string filenameField;
 
         public TemporaryFileStream(string filename)
             : base(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
         {
             // no need to check filename for null as base constructor would have thrown already in this case
-            _filename = filename;
+            filenameField = filename;
         }
 
-        public string Filename => _filename;
+        public string Filename => filenameField;
 
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if (_filename == null) return;
+            if (filenameField == null) return;
 
             // doing the same both on disposing and finalizing
             try
             {
-                File.Delete(_filename);
-                _filename = null;
+                File.Delete(filenameField);
+                filenameField = null;
             }
             catch (IOException e)
             {

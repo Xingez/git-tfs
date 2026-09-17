@@ -1,12 +1,12 @@
-using System.Collections;
-using System.Diagnostics;
-
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
 
 
 namespace GitTfs.Test.Core
 {
+    using global::System.Collections;
+    using global::System.Diagnostics;
+
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
     [TestClass]
     public class ExtTests : BaseTest
     {

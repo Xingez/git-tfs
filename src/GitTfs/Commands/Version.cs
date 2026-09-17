@@ -1,15 +1,15 @@
-using System.ComponentModel;
-using GitTfs.Util;
-using GitTfs.Core;
-using System.Diagnostics;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::System.Diagnostics;
     [Pluggable("version")]
     [Description("version")]
     public class Version : GitTfsCommand
     {
-        private readonly IGitTfsVersionProvider _versionProvider;
+        private readonly IGitTfsVersionProvider versionProviderField;
 
         /// <summary>
         /// Initializes a new instance of the Version class.
@@ -18,14 +18,14 @@ namespace GitTfs.Commands
         /// <param name="versionProvider"></param>
         public Version(Globals globals, IGitTfsVersionProvider versionProvider)
         {
-            _versionProvider = versionProvider;
+            versionProviderField = versionProvider;
             OptionSet = globals.OptionSet;
         }
 
         public int Run()
         {
-            Trace.TraceInformation(_versionProvider.GetVersionString());
-            Trace.TraceInformation(_versionProvider.GetPathToGitTfsExecutable());
+            Trace.TraceInformation(versionProviderField.GetVersionString());
+            Trace.TraceInformation(versionProviderField.GetPathToGitTfsExecutable());
 
             Trace.TraceInformation(GitTfsConstants.MessageForceVersion);
 

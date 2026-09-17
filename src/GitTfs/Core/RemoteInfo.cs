@@ -1,7 +1,7 @@
-﻿using GitTfs.Commands;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::GitTfs.Commands;
     public class RemoteInfo
     {
         public string Id { get; set; }

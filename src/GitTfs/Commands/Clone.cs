@@ -1,45 +1,45 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
     [Pluggable("clone")]
     [Description("clone [options] repository-path\n  The target server is read from appsettings.json.\n  ex : git tfs clone $/ProjectName/ProjectBranch\n\n  Legacy form (server first) is still supported: git tfs clone <tfs-url> <repository-path> [git-repository-path]\n")]
     public class Clone : GitTfsCommand
     {
-        private readonly Fetch _fetch;
-        private readonly Init _init;
-        private readonly Globals _globals;
-        private readonly InitBranch _initBranch;
-        private readonly GitTfsSettings _settings;
-        private bool _resumable = true;
+        private readonly Fetch fetchField;
+        private readonly Init initField;
+        private readonly Globals globalsField;
+        private readonly InitBranch initBranchField;
+        private readonly GitTfsSettings settingsField;
+        private bool resumableField = true;
 
         public Clone(Globals globals, Fetch fetch, Init init, InitBranch initBranch, GitTfsSettings settings)
         {
-            _fetch = fetch;
-            _init = init;
-            _globals = globals;
-            _initBranch = initBranch;
-            _settings = settings;
+            fetchField = fetch;
+            initField = init;
+            globalsField = globals;
+            initBranchField = initBranch;
+            settingsField = settings;
             globals.GcCountdown = globals.GcPeriod;
         }
 
-        public OptionSet OptionSet => _init.OptionSet.Merge(_fetch.OptionSet)
-                           .Add("resumable", "if an error occurred, try to continue when you restart clone with same parameters", v => _resumable = v != null);
+        public OptionSet OptionSet => initField.OptionSet.Merge(fetchField.OptionSet)
+                           .Add("resumable", "if an error occurred, try to continue when you restart clone with same parameters", v => resumableField = v != null);
 
         public int Run(string tfsRepositoryPath)
         {
-            if (string.IsNullOrWhiteSpace(_settings.TargetServer))
+            if (string.IsNullOrWhiteSpace(settingsField.TargetServer))
             {
-                var source = string.IsNullOrWhiteSpace(_settings.SourcePath) ? "appsettings.json" : _settings.SourcePath;
+                var source = string.IsNullOrWhiteSpace(settingsField.SourcePath) ? "appsettings.json" : settingsField.SourcePath;
                 throw new GitTfsException("TargetServer is not configured in " + source + ". Set it before using 'git tfs clone <repository-path>'.");
             }
 
-            _resumable = true;
-            return Run(_settings.TargetServer, tfsRepositoryPath);
+            resumableField = true;
+            return Run(settingsField.TargetServer, tfsRepositoryPath);
         }
 
         public int Run(string tfsUrl, string tfsRepositoryPath)
@@ -62,18 +62,18 @@ namespace GitTfs.Commands
             {
                 if (repositoryDirCreated)
                 {
-                    retVal = _init.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath);
+                    retVal = initField.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath);
                 }
                 else
                 {
                     try
                     {
                         Environment.CurrentDirectory = gitRepositoryPath;
-                        _globals.Repository = _init.GitHelper.MakeRepository(_globals.GitDir);
+                        globalsField.Repository = initField.GitHelper.MakeRepository(globalsField.GitDir);
                     }
                     catch (Exception)
                     {
-                        retVal = _init.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath);
+                        retVal = initField.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath);
                     }
                 }
 
@@ -81,7 +81,7 @@ namespace GitTfs.Commands
             }
             catch
             {
-                if (!_resumable)
+                if (!resumableField)
                 {
                     try
                     {
@@ -112,21 +112,21 @@ namespace GitTfs.Commands
             try
             {
                 if (tfsRepositoryPath == GitTfsConstants.TfsRoot)
-                    _fetch.BranchStrategy = BranchStrategy.None;
+                    fetchField.BranchStrategy = BranchStrategy.None;
 
-                _globals.Repository.SetConfig(GitTfsConstants.IgnoreBranches, _fetch.BranchStrategy == BranchStrategy.None);
+                globalsField.Repository.SetConfig(GitTfsConstants.IgnoreBranches, fetchField.BranchStrategy == BranchStrategy.None);
 
                 if (retVal == 0)
                 {
-                    _fetch.Run(_fetch.BranchStrategy == BranchStrategy.All);
-                    _globals.Repository.GarbageCollect();
+                    fetchField.Run(fetchField.BranchStrategy == BranchStrategy.All);
+                    globalsField.Repository.GarbageCollect();
                 }
 
-                if (_fetch.BranchStrategy == BranchStrategy.All && _initBranch != null)
+                if (fetchField.BranchStrategy == BranchStrategy.All && initBranchField != null)
                 {
-                    _initBranch.CloneAllBranches = true;
+                    initBranchField.CloneAllBranches = true;
 
-                    retVal = _initBranch.Run();
+                    retVal = initBranchField.Run();
                 }
             }
             catch (GitTfsException)
@@ -138,13 +138,13 @@ namespace GitTfs.Commands
             {
                 errorOccurs = true;
                 throw new GitTfsException("error: a problem occurred when trying to clone the repository. Try to solve the problem described below.\nIn any case, after, try to continue using command `git tfs "
-                    + (_fetch.BranchStrategy == BranchStrategy.All ? "branch --init --all" : "fetch") + "`\n", ex);
+                    + (fetchField.BranchStrategy == BranchStrategy.All ? "branch --init --all" : "fetch") + "`\n", ex);
             }
             finally
             {
                 try
                 {
-                    if (!_init.IsBare) _globals.Repository.Merge(_globals.Repository.ReadTfsRemote(_globals.RemoteId).RemoteRef);
+                    if (!initField.IsBare) globalsField.Repository.Merge(globalsField.Repository.ReadTfsRemote(globalsField.RemoteId).RemoteRef);
                 }
                 catch (Exception)
                 {
@@ -158,17 +158,17 @@ namespace GitTfs.Commands
 
         private void VerifyTfsPathToClone(string tfsRepositoryPath)
         {
-            if (_initBranch == null)
+            if (initBranchField == null)
                 return;
             try
             {
-                var remote = _globals.Repository.ReadTfsRemote(GitTfsConstants.DefaultRepositoryId);
+                var remote = globalsField.Repository.ReadTfsRemote(GitTfsConstants.DefaultRepositoryId);
 
                 if (!remote.Tfs.IsExistingInTfs(tfsRepositoryPath))
                     throw new GitTfsException("error: the path " + tfsRepositoryPath + " you want to clone doesn't exist!")
                         .WithRecommendation("To discover which branch to clone, you could use the command :\ngit tfs list-remote-branches " + remote.TfsUrl);
 
-                if (_fetch.BranchStrategy == BranchStrategy.None)
+                if (fetchField.BranchStrategy == BranchStrategy.None)
                     return;
 
                 var tfsTrunkRepository = remote.Tfs.GetRootTfsBranchForRemotePath(tfsRepositoryPath, false);
@@ -180,7 +180,7 @@ namespace GitTfs.Commands
                         Trace.TraceInformation("info: no TFS root found !\n\nPS:perhaps you should convert your trunk folder into a branch in TFS.");
                         return;
                     }
-                    if (_fetch.BranchStrategy == BranchStrategy.All)
+                    if (fetchField.BranchStrategy == BranchStrategy.All)
                         throw new GitTfsException("error: cloning the whole repository or too high in the repository path doesn't permit to manage branches!");
                     Trace.TraceWarning("warning: you are going to clone the whole repository or too high in the repository path!");
                     return;
@@ -220,7 +220,7 @@ namespace GitTfs.Commands
 #if DEBUG
                 isDebuggerAttached = Debugger.IsAttached;
 #endif
-                if (!isDebuggerAttached && !_resumable)
+                if (!isDebuggerAttached && !resumableField)
                 {
                     if (di.EnumerateFileSystemInfos().Any())
                         throw new GitTfsException("error: Specified git repository directory is not empty");

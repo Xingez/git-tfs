@@ -1,8 +1,8 @@
-using GitTfs.Commands;
-using GitTfs.Core;
 
 namespace GitTfs.Util
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
     /// <summary>
     /// Creates a new <see cref="CheckinOptions"/> that is customized based
     /// on extracting special git-tfs commands from a git commit message.
@@ -14,16 +14,16 @@ namespace GitTfs.Util
     /// </remarks>
     public class CheckinOptionsFactory
     {
-        private readonly Globals _globals;
+        private readonly Globals globalsField;
 
         public CheckinOptionsFactory(Globals globals)
         {
-            _globals = globals;
+            globalsField = globals;
         }
 
         public CheckinOptions BuildCommitSpecificCheckinOptions(CheckinOptions sourceCheckinOptions, string commitMessage)
         {
-            var customCheckinOptions = sourceCheckinOptions.Clone(_globals);
+            var customCheckinOptions = sourceCheckinOptions.Clone(globalsField);
 
             customCheckinOptions.CheckinComment = commitMessage;
 
@@ -49,7 +49,7 @@ namespace GitTfs.Util
         public CheckinOptions BuildShelveSetSpecificCheckinOptions(CheckinOptions sourceCheckinOptions,
             string commitMessage)
         {
-            var customCheckinOptions = sourceCheckinOptions.Clone(_globals);
+            var customCheckinOptions = sourceCheckinOptions.Clone(globalsField);
 
             customCheckinOptions.CheckinComment = commitMessage;
 

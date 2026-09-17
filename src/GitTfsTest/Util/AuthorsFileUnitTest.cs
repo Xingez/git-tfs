@@ -1,9 +1,9 @@
-using System.Text;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Test.Util
 {
+    using global::System.Text;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [TestClass]
     public class AuthorsFileUnitTest : BaseTest
     {

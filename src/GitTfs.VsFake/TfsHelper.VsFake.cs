@@ -1,12 +1,12 @@
-using GitTfs.Commands;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using GitTfs.Util;
-
-using System.Diagnostics;
 
 namespace GitTfs.VsFake
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Util;
+
+    using global::System.Diagnostics;
     public class MockBranchObject : IBranchObject
     {
         public string Path { get; set; }
@@ -20,15 +20,15 @@ namespace GitTfs.VsFake
     {
         #region misc/null
 
-        private readonly IServiceProvider _services;
-        private readonly Script _script;
-        private readonly FakeVersionControlServer _versionControlServer;
+        private readonly IServiceProvider servicesField;
+        private readonly Script scriptField;
+        private readonly FakeVersionControlServer versionControlServerField;
 
         public TfsHelper(IServiceProvider services, Script script)
         {
-            _services = services;
-            _script = script;
-            _versionControlServer = new FakeVersionControlServer(_script);
+            servicesField = services;
+            scriptField = script;
+            versionControlServerField = new FakeVersionControlServer(scriptField);
         }
 
         public string TfsClientLibraryVersion => "(FAKE)";
@@ -56,23 +56,23 @@ namespace GitTfs.VsFake
 
         #region read changesets
 
-        public ITfsChangeset GetLatestChangeset(IGitTfsRemote remote) => _script.Changesets.LastOrDefault().Try(x => BuildTfsChangeset(x, remote));
+        public ITfsChangeset GetLatestChangeset(IGitTfsRemote remote) => scriptField.Changesets.LastOrDefault().Try(x => BuildTfsChangeset(x, remote));
 
-        public int GetLatestChangesetId(IGitTfsRemote remote) => _script.Changesets.LastOrDefault().Id;
+        public int GetLatestChangesetId(IGitTfsRemote remote) => scriptField.Changesets.LastOrDefault().Id;
 
         public IEnumerable<ITfsChangeset> GetChangesets(string path, int startVersion, IGitTfsRemote remote, int lastVersion = -1, bool byLots = false)
         {
-            if (!_script.Changesets.Any(c => c.IsBranchChangeset) && _script.Changesets.Any(c => c.IsMergeChangeset))
-                return _script.Changesets.Where(x => x.Id >= startVersion).Select(x => BuildTfsChangeset(x, remote));
+            if (!scriptField.Changesets.Any(c => c.IsBranchChangeset) && scriptField.Changesets.Any(c => c.IsMergeChangeset))
+                return scriptField.Changesets.Where(x => x.Id >= startVersion).Select(x => BuildTfsChangeset(x, remote));
             var branchPath = path + "/";
-            return _script.Changesets
+            return scriptField.Changesets
                 .Where(x => x.Id >= startVersion && x.Changes.Any(c => c.RepositoryPath.IndexOf(branchPath, StringComparison.CurrentCultureIgnoreCase) == 0 || branchPath.IndexOf(c.RepositoryPath, StringComparison.CurrentCultureIgnoreCase) == 0))
                 .Select(x => BuildTfsChangeset(x, remote));
         }
 
         public int FindMergeChangesetParent(string path, int firstChangeset, GitTfsRemote remote)
         {
-            var firstChangesetOfBranch = _script.Changesets.FirstOrDefault(c => c.IsMergeChangeset && c.MergeChangesetDatas.MergeIntoBranch == path && c.MergeChangesetDatas.BeforeMergeChangesetId < firstChangeset);
+            var firstChangesetOfBranch = scriptField.Changesets.FirstOrDefault(c => c.IsMergeChangeset && c.MergeChangesetDatas.MergeIntoBranch == path && c.MergeChangesetDatas.BeforeMergeChangesetId < firstChangeset);
             if (firstChangesetOfBranch != null)
                 return firstChangesetOfBranch.MergeChangesetDatas.BeforeMergeChangesetId;
             return -1;
@@ -81,30 +81,30 @@ namespace GitTfs.VsFake
         private ITfsChangeset BuildTfsChangeset(ScriptedChangeset changeset, IGitTfsRemote remote)
         {
             TfsChangesetInfo tfsChangesetInfo = new TfsChangesetInfo { ChangesetId = changeset.Id, Remote = remote };
-            return _services.CreateInstance<TfsChangeset>(
-                this, new Changeset(_versionControlServer, changeset), tfsChangesetInfo);
+            return servicesField.CreateInstance<TfsChangeset>(
+                this, new Changeset(versionControlServerField, changeset), tfsChangesetInfo);
         }
 
         private class Changeset : IChangeset
         {
-            private readonly IVersionControlServer _versionControlServer;
-            private readonly ScriptedChangeset _changeset;
+            private readonly IVersionControlServer versionControlServerField;
+            private readonly ScriptedChangeset changesetField;
 
             public Changeset(IVersionControlServer versionControlServer, ScriptedChangeset changeset)
             {
-                _versionControlServer = versionControlServer;
-                _changeset = changeset;
+                versionControlServerField = versionControlServer;
+                changesetField = changeset;
             }
 
-            public IChange[] Changes => _changeset.Changes.Select(x => new Change(_versionControlServer, _changeset, x)).ToArray();
+            public IChange[] Changes => changesetField.Changes.Select(x => new Change(versionControlServerField, changesetField, x)).ToArray();
 
-            public string Committer => _changeset.Committer ?? "todo";
+            public string Committer => changesetField.Committer ?? "todo";
 
-            public DateTime CreationDate => _changeset.CheckinDate;
+            public DateTime CreationDate => changesetField.CheckinDate;
 
-            public string Comment => _changeset.Comment.Replace("\n", "\r\n");
+            public string Comment => changesetField.Comment.Replace("\n", "\r\n");
 
-            public int ChangesetId => _changeset.Id;
+            public int ChangesetId => changesetField.Id;
 
             public IVersionControlServer VersionControlServer => throw new NotImplementedException();
 
@@ -113,32 +113,32 @@ namespace GitTfs.VsFake
 
         private class Change : IChange, IItem
         {
-            private readonly IVersionControlServer _versionControlServer;
-            private readonly ScriptedChangeset _changeset;
-            private readonly ScriptedChange _change;
+            private readonly IVersionControlServer versionControlServerField;
+            private readonly ScriptedChangeset changesetField;
+            private readonly ScriptedChange changeField;
 
             public Change(IVersionControlServer versionControlServer, ScriptedChangeset changeset, ScriptedChange change)
             {
-                _versionControlServer = versionControlServer;
-                _changeset = changeset;
-                _change = change;
+                versionControlServerField = versionControlServer;
+                changesetField = changeset;
+                changeField = change;
             }
 
-            TfsChangeType IChange.ChangeType => _change.ChangeType;
+            TfsChangeType IChange.ChangeType => changeField.ChangeType;
 
             IItem IChange.Item => this;
 
-            IVersionControlServer IItem.VersionControlServer => _versionControlServer;
+            IVersionControlServer IItem.VersionControlServer => versionControlServerField;
 
-            int IItem.ChangesetId => _changeset.Id;
+            int IItem.ChangesetId => changesetField.Id;
 
-            string IItem.ServerItem => _change.RepositoryPath;
+            string IItem.ServerItem => changeField.RepositoryPath;
 
             int IItem.DeletionId => 0;
 
-            TfsItemType IItem.ItemType => _change.ItemType;
+            TfsItemType IItem.ItemType => changeField.ItemType;
 
-            int IItem.ItemId => _change.ItemId.Value;
+            int IItem.ItemId => changeField.ItemId.Value;
 
             long IItem.ContentLength
             {
@@ -154,7 +154,7 @@ namespace GitTfs.VsFake
                 var temp = new TemporaryFile();
                 using (var stream = File.Create(temp))
                 using (var writer = new BinaryWriter(stream))
-                    writer.Write(_change.Content);
+                    writer.Write(changeField.Content);
                 return temp;
             }
         }
@@ -167,7 +167,7 @@ namespace GitTfs.VsFake
         {
             Trace.WriteLine("Setting up a TFS workspace at " + localDirectory);
             var fakeWorkspace = new FakeWorkspace(localDirectory, remote.TfsRepositoryPath);
-            var workspace = _services.CreateInstance<TfsWorkspace>(fakeWorkspace, localDirectory, versionToFetch, remote, this);
+            var workspace = servicesField.CreateInstance<TfsWorkspace>(fakeWorkspace, localDirectory, versionToFetch, remote, this);
             action(workspace);
         }
 
@@ -175,19 +175,19 @@ namespace GitTfs.VsFake
         {
             Trace.WriteLine("Setting up a TFS workspace at " + directory);
             var fakeWorkspace = new FakeWorkspace(directory, remote.TfsRepositoryPath);
-            var workspace = _services.CreateInstance<TfsWorkspace>(fakeWorkspace, directory, versionToFetch, remote, this);
+            var workspace = servicesField.CreateInstance<TfsWorkspace>(fakeWorkspace, directory, versionToFetch, remote, this);
             action(workspace);
         }
 
         private class FakeWorkspace : IWorkspace
         {
-            private readonly string _directory;
-            private readonly string _repositoryRoot;
+            private readonly string directoryField;
+            private readonly string repositoryRootField;
 
             public FakeWorkspace(string directory, string repositoryRoot)
             {
-                _directory = directory;
-                _repositoryRoot = repositoryRoot;
+                directoryField = directory;
+                repositoryRootField = repositoryRoot;
             }
 
             public void GetSpecificVersion(int changesetId, IEnumerable<IItem> items, bool noParallel) => throw new NotImplementedException();
@@ -196,13 +196,13 @@ namespace GitTfs.VsFake
 
             public void GetSpecificVersion(int changeset, IEnumerable<IChange> changes, bool noParallel)
             {
-                var repositoryRoot = _repositoryRoot.ToLower();
+                var repositoryRoot = repositoryRootField.ToLower();
                 if (!repositoryRoot.EndsWith("/")) repositoryRoot += "/";
                 foreach (var change in changes)
                 {
                     if (change.Item.ItemType == TfsItemType.File)
                     {
-                        var outPath = Path.Combine(_directory, change.Item.ServerItem.ToLower().Replace(repositoryRoot, ""));
+                        var outPath = Path.Combine(directoryField, change.Item.ServerItem.ToLower().Replace(repositoryRoot, ""));
                         var outDir = Path.GetDirectoryName(outPath);
                         if (!Directory.Exists(outDir)) Directory.CreateDirectory(outDir);
                         using (var download = change.Item.DownloadFile())
@@ -253,7 +253,7 @@ namespace GitTfs.VsFake
         public bool IsExistingInTfs(string path)
         {
             var exists = false;
-            foreach (var changeset in _script.Changesets)
+            foreach (var changeset in scriptField.Changesets)
             {
                 foreach (var change in changeset.Changes)
                 {
@@ -266,11 +266,11 @@ namespace GitTfs.VsFake
             return exists;
         }
 
-        public IChangeset GetChangeset(int changesetId) => new Changeset(_versionControlServer, _script.Changesets.First(c => c.Id == changesetId));
+        public IChangeset GetChangeset(int changesetId) => new Changeset(versionControlServerField, scriptField.Changesets.First(c => c.Id == changesetId));
 
         public IList<RootBranch> GetRootChangesetForBranch(string tfsPathBranchToCreate, int lastChangesetIdToCheck = -1, string tfsPathParentBranch = null)
         {
-            var branchChangesets = _script.Changesets.Where(c => c.IsBranchChangeset);
+            var branchChangesets = scriptField.Changesets.Where(c => c.IsBranchChangeset);
             var firstBranchChangeset = branchChangesets.FirstOrDefault(c => c.BranchChangesetDatas.BranchPath == tfsPathBranchToCreate);
 
             var rootBranches = new List<RootBranch>();
@@ -296,20 +296,20 @@ namespace GitTfs.VsFake
             return rootBranches;
         }
 
-        private List<string> _deletedBranchesPathes;
-        private List<string> DeletedBranchesPathes => _deletedBranchesPathes ?? (_deletedBranchesPathes = _script.Changesets.Where(c => c.IsBranchChangeset &&
+        private List<string> deletedBranchesPathesField;
+        private List<string> DeletedBranchesPathes => deletedBranchesPathesField ?? (deletedBranchesPathesField = scriptField.Changesets.Where(c => c.IsBranchChangeset &&
                                                                          c.Changes.Any(ch => ch.ChangeType == TfsChangeType.Delete && ch.RepositoryPath == c.BranchChangesetDatas.ParentBranch))
                       .Select(b => b.BranchChangesetDatas.ParentBranch).ToList());
 
         public IEnumerable<IBranchObject> GetBranches(bool getDeletedBranches = false)
         {
-            var renamings = _script.Changesets.Where(
+            var renamings = scriptField.Changesets.Where(
                 c => c.IsBranchChangeset &&
                 DeletedBranchesPathes.Any(b => b == c.BranchChangesetDatas.BranchPath)).ToList();
 
             var branches = new List<IBranchObject>();
-            branches.AddRange(_script.RootBranches.Select(b => new MockBranchObject { IsRoot = true, Path = b.BranchPath, ParentPath = null }));
-            branches.AddRange(_script.Changesets.Where(c => c.IsBranchChangeset).Select(c => new MockBranchObject
+            branches.AddRange(scriptField.RootBranches.Select(b => new MockBranchObject { IsRoot = true, Path = b.BranchPath, ParentPath = null }));
+            branches.AddRange(scriptField.Changesets.Where(c => c.IsBranchChangeset).Select(c => new MockBranchObject
             {
                 IsRoot = false,
                 Path = c.BranchChangesetDatas.BranchPath,
@@ -367,16 +367,16 @@ namespace GitTfs.VsFake
 
         private class FakeVersionControlServer : IVersionControlServer
         {
-            private readonly Script _script;
+            private readonly Script scriptField;
 
             public FakeVersionControlServer(Script script)
             {
-                _script = script;
+                scriptField = script;
             }
 
             public IItem GetItem(int itemId, int changesetNumber)
             {
-                var match = _script.Changesets.AsEnumerable().Reverse()
+                var match = scriptField.Changesets.AsEnumerable().Reverse()
                     .SkipWhile(cs => cs.Id > changesetNumber)
                     .Select(cs => new { Changeset = cs, Change = cs.Changes.SingleOrDefault(change => change.ItemId == itemId) })
                     .First(x => x.Change != null);

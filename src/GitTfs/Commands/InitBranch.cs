@@ -1,16 +1,16 @@
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
 
 namespace GitTfs.Commands
 {
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
     public class InitBranch : GitTfsCommand
     {
-        private readonly Globals _globals;
-        private readonly Help _helper;
+        private readonly Globals globalsField;
+        private readonly Help helperField;
 
-        private RemoteOptions _remoteOptions;
+        private RemoteOptions remoteOptionsField;
         public string TfsUsername { get; set; }
         public string TfsPassword { get; set; }
         public string IgnoreRegex { get; set; }
@@ -23,8 +23,8 @@ namespace GitTfs.Commands
 
         public InitBranch(Globals globals, Help helper, AuthorsFile authors)
         {
-            _globals = globals;
-            _helper = helper;
+            globalsField = globals;
+            helperField = helper;
         }
 
         public OptionSet OptionSet => new OptionSet
@@ -45,7 +45,7 @@ namespace GitTfs.Commands
         {
             if (!CloneAllBranches && tfsBranchPath == null)
             {
-                _helper.Run(this);
+                helperField.Run(this);
                 return GitTfsExitCodes.Help;
             }
 
@@ -68,7 +68,7 @@ namespace GitTfs.Commands
 
             if (!tfsBranchPath.IsValidTfsPath())
             {
-                var remotes = _globals.Repository.GetLastParentTfsCommits(tfsBranchPath);
+                var remotes = globalsField.Repository.GetLastParentTfsCommits(tfsBranchPath);
                 if (!remotes.Any())
                 {
                     throw new Exception("error: No TFS branch found!");
@@ -77,7 +77,7 @@ namespace GitTfs.Commands
             }
             tfsBranchPath.AssertValidTfsPath();
 
-            var allRemotes = _globals.Repository.ReadAllTfsRemotes();
+            var allRemotes = globalsField.Repository.ReadAllTfsRemotes();
             var remote = allRemotes.FirstOrDefault(r => r.TfsRepositoryPath.ToLower() == tfsBranchPath.ToLower());
             if (remote != null && remote.MaxChangesetId != 0)
             {
@@ -112,7 +112,7 @@ namespace GitTfs.Commands
                 if (cbd.TfsRepositoryPath == tfsBranchPath)
                     cbd.GitBranchNameExpected = gitBranchNameExpected;
 
-                branchTfsRemote = defaultRemote.InitBranch(_remoteOptions, cbd.TfsRepositoryPath, cbd.RootChangesetId, !NoFetch, cbd.GitBranchNameExpected, fetchResult);
+                branchTfsRemote = defaultRemote.InitBranch(remoteOptionsField, cbd.TfsRepositoryPath, cbd.RootChangesetId, !NoFetch, cbd.GitBranchNameExpected, fetchResult);
                 if (branchTfsRemote == null)
                 {
                     throw new GitTfsException("error: Couldn't fetch parent branch\n");
@@ -135,7 +135,7 @@ namespace GitTfs.Commands
             }
             foreach (var gitTfsRemote in remoteToDelete)
             {
-                _globals.Repository.DeleteTfsRemote(gitTfsRemote);
+                globalsField.Repository.DeleteTfsRemote(gitTfsRemote);
             }
             return RemoteCreated = branchTfsRemote;
         }
@@ -179,7 +179,7 @@ namespace GitTfs.Commands
             if (CloneAllBranches && NoFetch)
                 throw new GitTfsException("error: --no-fetch cannot be used with --all");
 
-            _globals.Repository.SetConfig(GitTfsConstants.IgnoreBranches, false);
+            globalsField.Repository.SetConfig(GitTfsConstants.IgnoreBranches, false);
 
             var defaultRemote = InitFromDefaultRemote();
 
@@ -194,7 +194,7 @@ namespace GitTfs.Commands
                 var childBranchPaths = new Dictionary<string, BranchDatas>();
                 foreach (var branchRemote in gitRepositoryBranchRemotes)
                 {
-                    var branchRemoteChangesetInfos = _globals.Repository.GetLastParentTfsCommits(branchRemote);
+                    var branchRemoteChangesetInfos = globalsField.Repository.GetLastParentTfsCommits(branchRemote);
                     var firstRemoteChangesetInfo = branchRemoteChangesetInfos.FirstOrDefault();
 
                     if (firstRemoteChangesetInfo == null)
@@ -243,7 +243,7 @@ namespace GitTfs.Commands
                 var branchDatas = new BranchDatas
                 {
                     TfsRepositoryPath = childBranchPath.TfsRepositoryPath,
-                    TfsRemote = _globals.Repository.ReadAllTfsRemotes().FirstOrDefault(r => r.TfsRepositoryPath == childBranchPath.TfsRepositoryPath)
+                    TfsRemote = globalsField.Repository.ReadAllTfsRemotes().FirstOrDefault(r => r.TfsRepositoryPath == childBranchPath.TfsRepositoryPath)
                 };
                 try
                 {
@@ -305,7 +305,7 @@ namespace GitTfs.Commands
                 }
             } while (branchesToProcess.Any(b => !b.IsEntirelyFetched && b.Error == null) && isSomethingDone);
 
-            _globals.Repository.GarbageCollect();
+            globalsField.Repository.GarbageCollect();
 
             bool success = true;
             if (branchesToProcess.Any(b => !b.IsEntirelyFetched))
@@ -325,7 +325,7 @@ namespace GitTfs.Commands
                 foreach (var branchWithErrors in branchesToProcess.Where(b => b.Error != null))
                 {
                     Trace.TraceInformation("- " + branchWithErrors.TfsRepositoryPath);
-                    if (_globals.DebugOutput)
+                    if (globalsField.DebugOutput)
                         Trace.WriteLine("   =>error:" + branchWithErrors.Error);
                     else
                         Trace.TraceInformation("   =>error:" + branchWithErrors.Error.Message);
@@ -340,36 +340,36 @@ namespace GitTfs.Commands
         private IGitTfsRemote InitFromDefaultRemote()
         {
             IGitTfsRemote defaultRemote;
-            if (_globals.Repository.HasRemote(GitTfsConstants.DefaultRepositoryId))
-                defaultRemote = _globals.Repository.ReadTfsRemote(GitTfsConstants.DefaultRepositoryId);
+            if (globalsField.Repository.HasRemote(GitTfsConstants.DefaultRepositoryId))
+                defaultRemote = globalsField.Repository.ReadTfsRemote(GitTfsConstants.DefaultRepositoryId);
             else
-                defaultRemote = _globals.Repository.ReadAllTfsRemotes()
+                defaultRemote = globalsField.Repository.ReadAllTfsRemotes()
                     .Where(x => x != null && x.RemoteInfo != null && !string.IsNullOrEmpty(x.RemoteInfo.Url))
                     .OrderBy(x => x.RemoteInfo.Url.Length).FirstOrDefault();
             if (defaultRemote == null)
                 throw new GitTfsException("error: No git-tfs repository found. Please try to clone first...\n");
 
-            _remoteOptions = new RemoteOptions();
+            remoteOptionsField = new RemoteOptions();
             if (!string.IsNullOrWhiteSpace(TfsUsername))
             {
-                _remoteOptions.Username = TfsUsername;
-                _remoteOptions.Password = TfsPassword;
+                remoteOptionsField.Username = TfsUsername;
+                remoteOptionsField.Password = TfsPassword;
             }
             else
             {
-                _remoteOptions.Username = defaultRemote.TfsUsername;
-                _remoteOptions.Password = defaultRemote.TfsPassword;
+                remoteOptionsField.Username = defaultRemote.TfsUsername;
+                remoteOptionsField.Password = defaultRemote.TfsPassword;
             }
 
             if (IgnoreRegex != null)
-                _remoteOptions.IgnoreRegex = IgnoreRegex;
+                remoteOptionsField.IgnoreRegex = IgnoreRegex;
             else
-                _remoteOptions.IgnoreRegex = defaultRemote.IgnoreRegexExpression;
+                remoteOptionsField.IgnoreRegex = defaultRemote.IgnoreRegexExpression;
 
             if (ExceptRegex != null)
-                _remoteOptions.ExceptRegex = ExceptRegex;
+                remoteOptionsField.ExceptRegex = ExceptRegex;
             else
-                _remoteOptions.ExceptRegex = defaultRemote.IgnoreExceptRegexExpression;
+                remoteOptionsField.ExceptRegex = defaultRemote.IgnoreExceptRegexExpression;
 
             return defaultRemote;
         }
@@ -400,9 +400,9 @@ namespace GitTfs.Commands
                 {
                     Trace.WriteLine("Try creating the local branch...");
                     var branchRef = tfsRemote.Id.ToLocalGitRef();
-                    if (!_globals.Repository.HasRef(branchRef))
+                    if (!globalsField.Repository.HasRef(branchRef))
                     {
-                        if (!_globals.Repository.CreateBranch(branchRef, tfsRemote.MaxCommitHash))
+                        if (!globalsField.Repository.CreateBranch(branchRef, tfsRemote.MaxCommitHash))
                             Trace.TraceWarning("warning: Fail to create local branch ref file!");
                         else
                             Trace.WriteLine("Local branch created!");

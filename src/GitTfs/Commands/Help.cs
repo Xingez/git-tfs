@@ -1,23 +1,23 @@
-using System.ComponentModel;
-using GitTfs.Util;
-using GitTfs.Core;
-using System.Diagnostics;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::System.Diagnostics;
     [Pluggable("help")]
     [Description("help [command-name]")]
     public class Help : GitTfsCommand
     {
-        private readonly GitTfsCommandFactory _commandFactory;
-        private readonly IServiceProvider _services;
-        private readonly ServiceCatalog _catalog;
+        private readonly GitTfsCommandFactory commandFactoryField;
+        private readonly IServiceProvider servicesField;
+        private readonly ServiceCatalog catalogField;
 
         public Help(GitTfsCommandFactory commandFactory, IServiceProvider services, ServiceCatalog catalog)
         {
-            _commandFactory = commandFactory;
-            _services = services;
-            _catalog = catalog;
+            commandFactoryField = commandFactory;
+            servicesField = services;
+            catalogField = catalog;
         }
 
         public OptionSet OptionSet => new OptionSet();
@@ -30,7 +30,7 @@ namespace GitTfs.Commands
         {
             foreach (var arg in args)
             {
-                var command = _commandFactory.GetCommand(arg);
+                var command = commandFactoryField.GetCommand(arg);
                 if (command != null)
                 {
                     return Run(command);
@@ -74,7 +74,7 @@ namespace GitTfs.Commands
 
             Trace.TraceInformation("Usage: git-tfs " + GetCommandUsage(command));
             var writer = new StringWriter();
-            command.GetAllOptions(_services).WriteOptionDescriptions(writer);
+            command.GetAllOptions(servicesField).WriteOptionDescriptions(writer);
             Trace.TraceInformation(writer.ToString());
 
             Trace.TraceInformation("\nFind more help in our online help : https://github.com/git-tfs/git-tfs/blob/master/doc/commands/" + GetCommandName(command) + ".md");
@@ -86,13 +86,13 @@ namespace GitTfs.Commands
                                                                             where instance.Name != null
                                                                             orderby instance.Name
                                                                             select instance.Name)
-                .ToDictionary(s => s, s => _commandFactory.GetAliasesForCommandName(s));
+                .ToDictionary(s => s, s => commandFactoryField.GetAliasesForCommandName(s));
 
         private string GetCommandName(GitTfsCommand command) => (from instance in GetCommandInstances()
                                                                  where instance.ImplementationType == command.GetType()
                                                                  select instance.Name).Single();
 
-        private IEnumerable<ServiceCatalog.ServiceRegistration> GetCommandInstances() => _catalog.Commands;
+        private IEnumerable<ServiceCatalog.ServiceRegistration> GetCommandInstances() => catalogField.Commands;
 
         private string GetCommandUsage(GitTfsCommand command)
         {
@@ -114,14 +114,14 @@ namespace GitTfs.Commands
 
     public class HelpHelper : IHelpHelper
     {
-        private readonly IServiceProvider _services;
+        private readonly IServiceProvider servicesField;
 
         public HelpHelper(IServiceProvider services)
         {
-            _services = services;
+            servicesField = services;
         }
 
-        public int ShowHelp(GitTfsCommand command) => _services.GetRequiredService<Help>().Run(command);
+        public int ShowHelp(GitTfsCommand command) => servicesField.GetRequiredService<Help>().Run(command);
 
         public int ShowHelpForInvalidArguments(GitTfsCommand command)
         {

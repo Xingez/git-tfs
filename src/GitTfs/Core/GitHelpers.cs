@@ -1,23 +1,23 @@
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Text;
-using GitTfs.Util;
 
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
+    using global::System.Text.RegularExpressions;
+    using global::System.Text;
+    using global::GitTfs.Util;
     public class GitHelpers : IGitHelpers
     {
-        private readonly IServiceProvider _services;
+        private readonly IServiceProvider servicesField;
 
         /// <summary>
         /// Starting with version 1.7.10, Git uses UTF-8.
         /// Use this encoding for Git input and output.
         /// </summary>
-        private static readonly Encoding _encoding = new UTF8Encoding(false, true);
+        private static readonly Encoding encodingField = new UTF8Encoding(false, true);
 
         public GitHelpers(IServiceProvider services)
         {
-            _services = services;
+            servicesField = services;
         }
 
         /// <summary>
@@ -68,50 +68,50 @@ namespace GitTfs.Core
 
         private class ProcessStdoutReader : TextReader
         {
-            private readonly GitProcess _process;
-            private readonly GitHelpers _helper;
+            private readonly GitProcess processField;
+            private readonly GitHelpers helperField;
 
             public ProcessStdoutReader(GitHelpers helper, GitProcess process)
             {
-                _helper = helper;
-                _process = process;
+                helperField = helper;
+                processField = process;
             }
 
-            public override void Close() => _helper.Close(_process);
+            public override void Close() => helperField.Close(processField);
 
             protected override void Dispose(bool disposing)
             {
-                if (disposing && _process != null)
+                if (disposing && processField != null)
                 {
                     Close();
                 }
                 base.Dispose(disposing);
             }
 
-            public override bool Equals(object obj) => _process.StandardOutput.Equals(obj);
+            public override bool Equals(object obj) => processField.StandardOutput.Equals(obj);
 
-            public override int GetHashCode() => _process.StandardOutput.GetHashCode();
+            public override int GetHashCode() => processField.StandardOutput.GetHashCode();
 
-            public override int Peek() => _process.StandardOutput.Peek();
+            public override int Peek() => processField.StandardOutput.Peek();
 
-            public override int Read() => _process.StandardOutput.Read();
+            public override int Read() => processField.StandardOutput.Read();
 
-            public override int Read(char[] buffer, int index, int count) => _process.StandardOutput.Read(buffer, index, count);
+            public override int Read(char[] buffer, int index, int count) => processField.StandardOutput.Read(buffer, index, count);
 
-            public override int ReadBlock(char[] buffer, int index, int count) => _process.StandardOutput.ReadBlock(buffer, index, count);
+            public override int ReadBlock(char[] buffer, int index, int count) => processField.StandardOutput.ReadBlock(buffer, index, count);
 
-            public override string ReadLine() => _process.StandardOutput.ReadLine();
+            public override string ReadLine() => processField.StandardOutput.ReadLine();
 
-            public override string ReadToEnd() => _process.StandardOutput.ReadToEnd();
+            public override string ReadToEnd() => processField.StandardOutput.ReadToEnd();
 
-            public override string ToString() => _process.StandardOutput.ToString();
+            public override string ToString() => processField.StandardOutput.ToString();
         }
 
         public void CommandInputPipe(Action<TextWriter> action, params string[] command) => Time(command, () =>
                                                                                                                        {
                                                                                                                            AssertValidCommand(command);
                                                                                                                            var process = Start(command, RedirectStdin);
-                                                                                                                           action(process.StandardInput.WithEncoding(_encoding));
+                                                                                                                           action(process.StandardInput.WithEncoding(encodingField));
                                                                                                                            Close(process);
                                                                                                                        });
 
@@ -119,7 +119,7 @@ namespace GitTfs.Core
                                                                                                                                            {
                                                                                                                                                AssertValidCommand(command);
                                                                                                                                                var process = Start(command, Ext.And<ProcessStartInfo>(RedirectStdin, RedirectStdout));
-                                                                                                                                               interact(process.StandardInput.WithEncoding(_encoding), process.StandardOutput);
+                                                                                                                                               interact(process.StandardInput.WithEncoding(encodingField), process.StandardOutput);
                                                                                                                                                Close(process);
                                                                                                                                            });
 
@@ -166,13 +166,13 @@ namespace GitTfs.Core
         private void RedirectStdout(ProcessStartInfo startInfo)
         {
             startInfo.RedirectStandardOutput = true;
-            startInfo.StandardOutputEncoding = _encoding;
+            startInfo.StandardOutputEncoding = encodingField;
         }
 
         private void RedirectStderr(ProcessStartInfo startInfo)
         {
             startInfo.RedirectStandardError = true;
-            startInfo.StandardErrorEncoding = _encoding;
+            startInfo.StandardErrorEncoding = encodingField;
         }
 
         private void RedirectStdin(ProcessStartInfo startInfo) => startInfo.RedirectStandardInput = true;// there is no StandardInputEncoding property, use extension method StreamWriter.WithEncoding instead
@@ -213,7 +213,7 @@ namespace GitTfs.Core
         }
 
         public IGitRepository MakeRepository(string dir) =>
-            _services.CreateInstance<GitRepository>(dir, _services, _services.GetService<Globals>(), _services.GetRequiredService<RemoteConfigConverter>());
+            servicesField.CreateInstance<GitRepository>(dir, servicesField, servicesField.GetService<Globals>(), servicesField.GetRequiredService<RemoteConfigConverter>());
 
         private static readonly Regex ValidCommandName = new Regex("^[a-z0-9A-Z_-]+$");
         private static void AssertValidCommand(string[] command)
@@ -224,16 +224,16 @@ namespace GitTfs.Core
 
         protected class GitProcess
         {
-            private readonly Process _process;
+            private readonly Process processField;
 
             public GitProcess(Process process)
             {
-                _process = process;
+                processField = process;
             }
 
             public static implicit operator Process(GitProcess process)
             {
-                return process._process;
+                return process.processField;
             }
 
             public string StandardErrorString { get; private set; }
@@ -241,8 +241,8 @@ namespace GitTfs.Core
             public void ConsumeStandardError()
             {
                 StandardErrorString = "";
-                _process.ErrorDataReceived += StdErrReceived;
-                _process.BeginErrorReadLine();
+                processField.ErrorDataReceived += StdErrReceived;
+                processField.BeginErrorReadLine();
             }
 
             private void StdErrReceived(object sender, DataReceivedEventArgs e)
@@ -257,13 +257,13 @@ namespace GitTfs.Core
 
             // Delegate a bunch of things to the Process.
 
-            public ProcessStartInfo StartInfo => _process.StartInfo;
-            public int ExitCode => _process.ExitCode;
+            public ProcessStartInfo StartInfo => processField.StartInfo;
+            public int ExitCode => processField.ExitCode;
 
-            public StreamWriter StandardInput => _process.StandardInput;
-            public StreamReader StandardOutput => _process.StandardOutput;
+            public StreamWriter StandardInput => processField.StandardInput;
+            public StreamReader StandardOutput => processField.StandardOutput;
 
-            public bool WaitForExit(int milliseconds) => _process.WaitForExit(milliseconds);
+            public bool WaitForExit(int milliseconds) => processField.WaitForExit(milliseconds);
         }
     }
 }

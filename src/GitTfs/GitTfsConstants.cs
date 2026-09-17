@@ -1,9 +1,9 @@
-using System.Text.RegularExpressions;
-
-using GitTfs.Core.TfsInterop;
 
 namespace GitTfs
 {
+    using global::System.Text.RegularExpressions;
+
+    using global::GitTfs.Core.TfsInterop;
     public static class GitTfsConstants
     {
         public static readonly Regex Sha1 = new Regex("[a-f\\d]{40}", RegexOptions.IgnoreCase);

@@ -1,7 +1,7 @@
-using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
+    using global::GitTfs.Util;
     [SingletonService]
     public class RemoteOptions
     {

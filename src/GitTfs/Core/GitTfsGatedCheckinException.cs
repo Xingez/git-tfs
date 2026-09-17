@@ -1,7 +1,7 @@
-﻿using System.Collections.ObjectModel;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::System.Collections.ObjectModel;
     public class GitTfsGatedCheckinException : GitTfsException
     {
         public string ShelvesetName { get; }

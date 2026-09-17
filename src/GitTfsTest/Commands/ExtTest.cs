@@ -1,8 +1,8 @@
-using GitTfs.Commands;
-using GitTfs.Core;
 
 namespace GitTfs.Test.Commands
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
     [TestClass]
     public class ExtTest : BaseTest
     {

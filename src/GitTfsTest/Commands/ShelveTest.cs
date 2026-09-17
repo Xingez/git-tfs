@@ -1,10 +1,10 @@
-using GitTfs.Commands;
-using GitTfs.Core;
-using Moq;
-using GitTfs.Test;
 
 namespace GitTfs.Test.Commands
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::Moq;
+    using global::GitTfs.Test;
     [TestClass]
     public class ShelveTest : BaseTest
     {

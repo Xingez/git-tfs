@@ -1,10 +1,10 @@
-using GitTfs.Commands;
-using GitTfs.Core;
-using GitTfs.Util;
-using GitTfs.Test;
 
 namespace GitTfs.Test.Util
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core;
+    using global::GitTfs.Util;
+    using global::GitTfs.Test;
     [TestClass]
     public class ShelveSpecificCheckinOptionsFactoryTests
     {

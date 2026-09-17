@@ -1,7 +1,7 @@
-using GitTfs.Commands;
 
 namespace GitTfs.Test.Commands
 {
+    using global::GitTfs.Commands;
     [TestClass]
     public class CloneTest : BaseTest
     {

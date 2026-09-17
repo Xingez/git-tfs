@@ -1,32 +1,32 @@
-using GitTfs.Util;
 
 namespace GitTfs
 {
+    using global::GitTfs.Util;
     // Like Globals, but for values that can be set in the git config
     // or overridden by some other means, like from the command line.
     public class ConfigProperties
     {
-        private readonly ConfigPropertyLoader _loader;
+        private readonly ConfigPropertyLoader loaderField;
 
         public ConfigProperties(ConfigPropertyLoader loader)
         {
-            _loader = loader;
+            loaderField = loader;
         }
 
-        public void PersistAllOverrides() => _loader.PersistAllOverrides();
+        public void PersistAllOverrides() => loaderField.PersistAllOverrides();
 
         public int BatchSize
         {
-            set => _loader.Override(GitTfsConstants.BatchSize, value);
-            get => _loader.Get(GitTfsConstants.BatchSize, 100);
+            set => loaderField.Override(GitTfsConstants.BatchSize, value);
+            get => loaderField.Get(GitTfsConstants.BatchSize, 100);
         }
 
         public int? InitialChangeset
         {
-            set => _loader.Override(GitTfsConstants.InitialChangeset, value ?? -1);
+            set => loaderField.Override(GitTfsConstants.InitialChangeset, value ?? -1);
             get
             {
-                int? initialChangeset = _loader.Get(GitTfsConstants.InitialChangeset, -1);
+                int? initialChangeset = loaderField.Get(GitTfsConstants.InitialChangeset, -1);
                 return initialChangeset == -1 ? null : initialChangeset;
             }
         }

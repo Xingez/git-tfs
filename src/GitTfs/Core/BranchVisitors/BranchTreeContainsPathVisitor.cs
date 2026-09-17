@@ -1,16 +1,16 @@
-using GitTfs.Core.TfsInterop;
 
 namespace GitTfs.Core.BranchVisitors
 {
+    using global::GitTfs.Core.TfsInterop;
     public class BranchTreeContainsPathVisitor : IBranchTreeVisitor
     {
-        private readonly string _searchPath;
-        private readonly bool _searchExactPath;
+        private readonly string searchPathField;
+        private readonly bool searchExactPathField;
 
         public BranchTreeContainsPathVisitor(string searchPath, bool searchExactPath)
         {
-            _searchPath = searchPath;
-            _searchExactPath = searchExactPath;
+            searchPathField = searchPath;
+            searchExactPathField = searchExactPath;
         }
 
         public bool Found { get; private set; }
@@ -18,8 +18,8 @@ namespace GitTfs.Core.BranchVisitors
         public void Visit(BranchTree childBranch, int level)
         {
             if (Found == false
-                && ((_searchExactPath && _searchPath.ToLower() == childBranch.Path.ToLower())
-                || (!_searchExactPath && _searchPath.ToLower().IndexOf(childBranch.Path.ToLower()) == 0)))
+                && ((searchExactPathField && searchPathField.ToLower() == childBranch.Path.ToLower())
+                || (!searchExactPathField && searchPathField.ToLower().IndexOf(childBranch.Path.ToLower()) == 0)))
             {
                 Found = true;
             }

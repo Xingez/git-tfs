@@ -1,7 +1,7 @@
-﻿using GitTfs.Core.TfsInterop;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::GitTfs.Core.TfsInterop;
     public class CheckinPolicyEvaluator
     {
         public CheckinPolicyEvaluationResult EvaluateCheckin(IWorkspace workspace, IPendingChange[] pendingChanges, string comment, ICheckinNote checkinNote, IEnumerable<IWorkItemCheckinInfo> workItemInfo)
@@ -14,36 +14,36 @@ namespace GitTfs.Core
 
         public class CheckinPolicyEvaluationResult
         {
-            private readonly ICheckinEvaluationResult _result;
+            private readonly ICheckinEvaluationResult resultField;
 
             public CheckinPolicyEvaluationResult(ICheckinEvaluationResult result)
             {
-                _result = result;
+                resultField = result;
             }
 
             public bool HasErrors => Messages.Any();
 
             public IEnumerable<string> Messages => BuildMessages();
 
-            public ICheckinEvaluationResult Result => _result;
+            public ICheckinEvaluationResult Result => resultField;
 
             private IEnumerable<string> BuildMessages()
             {
-                foreach (var x in _result.Conflicts)
+                foreach (var x in resultField.Conflicts)
                 {
                     yield return "Conflict: " + x.ServerItem + ": " + x.Message;
                 }
-                foreach (var x in _result.PolicyFailures)
+                foreach (var x in resultField.PolicyFailures)
                 {
                     yield return "Policy: " + x.Message;
                 }
-                foreach (var x in _result.NoteFailures)
+                foreach (var x in resultField.NoteFailures)
                 {
                     yield return "Checkin Note: " + x.Definition.Name + ": " + x.Message;
                 }
-                if (_result.PolicyEvaluationException != null)
+                if (resultField.PolicyEvaluationException != null)
                 {
-                    yield return "Exception: " + _result.PolicyEvaluationException.Message;
+                    yield return "Exception: " + resultField.PolicyEvaluationException.Message;
                 }
             }
         }

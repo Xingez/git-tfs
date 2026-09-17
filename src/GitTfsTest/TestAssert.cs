@@ -1,9 +1,9 @@
-using System.Collections;
-
-using MSTestAssert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 
 namespace GitTfs.Test
 {
+    using global::System.Collections;
+
+    using MSTestAssert = global::Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
     internal static class TestAssert
     {
         public static void Equal<T>(T expected, T actual, string message = null)

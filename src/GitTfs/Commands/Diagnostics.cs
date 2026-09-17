@@ -1,23 +1,23 @@
-using GitTfs.Util;
-using System.Diagnostics;
 
 namespace GitTfs.Commands
 {
+    using global::GitTfs.Util;
+    using global::System.Diagnostics;
     [Pluggable("diagnostics")]
     public class Diagnostics : GitTfsCommand
     {
-        private readonly ServiceCatalog _catalog;
+        private readonly ServiceCatalog catalogField;
 
         public Diagnostics(ServiceCatalog catalog)
         {
-            _catalog = catalog;
+            catalogField = catalog;
         }
 
         public OptionSet OptionSet => new OptionSet();
 
         public int Run()
         {
-            Trace.TraceInformation(_catalog.Describe());
+            Trace.TraceInformation(catalogField.Describe());
             return GitTfsExitCodes.OK;
         }
     }

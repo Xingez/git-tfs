@@ -1,21 +1,21 @@
-﻿using System.Diagnostics;
-
-using LibGit2Sharp;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
+
+    using global::LibGit2Sharp;
     public class GitCommit
     {
-        private readonly Commit _commit;
+        private readonly Commit commitField;
 
         public GitCommit(Commit commit)
         {
-            _commit = commit ?? throw new ArgumentNullException(nameof(commit));
+            commitField = commit ?? throw new ArgumentNullException(nameof(commit));
         }
 
         public IEnumerable<GitTreeEntry> GetTree()
         {
-            var treesToDescend = new Queue<Tree>(new[] { _commit.Tree });
+            var treesToDescend = new Queue<Tree>(new[] { commitField.Tree });
             while (treesToDescend.Any())
             {
                 var currentTree = treesToDescend.Dequeue();
@@ -37,15 +37,15 @@ namespace GitTfs.Core
             }
         }
 
-        public Tuple<string, string> AuthorAndEmail => new Tuple<string, string>(_commit.Author.Name, _commit.Author.Email);
+        public Tuple<string, string> AuthorAndEmail => new Tuple<string, string>(commitField.Author.Name, commitField.Author.Email);
 
-        public DateTimeOffset When => _commit.Author.When;
+        public DateTimeOffset When => commitField.Author.When;
 
-        public string Sha => _commit.Sha;
+        public string Sha => commitField.Sha;
 
-        public string Message => _commit.Message;
+        public string Message => commitField.Message;
 
-        public IEnumerable<GitCommit> Parents => _commit.Parents.Select(c => new GitCommit(c));
+        public IEnumerable<GitCommit> Parents => commitField.Parents.Select(c => new GitCommit(c));
     }
 }
 

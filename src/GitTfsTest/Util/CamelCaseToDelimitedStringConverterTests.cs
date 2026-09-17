@@ -1,7 +1,7 @@
-using GitTfs.Util;
 
 namespace GitTfs.Test.Util
 {
+    using global::GitTfs.Util;
     [TestClass]
     public class CamelCaseToDelimitedStringConverterTests
     {

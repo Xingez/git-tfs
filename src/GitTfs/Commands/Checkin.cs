@@ -1,9 +1,9 @@
-using System.ComponentModel;
-using GitTfs.Core;
-using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Core;
+    using global::GitTfs.Util;
     [Pluggable("checkin")]
     [Description("checkin [options] [ref-to-checkin]")]
     [RequiresValidGitRepository]
@@ -14,6 +14,6 @@ namespace GitTfs.Commands
         {
         }
 
-        protected override int DoCheckin(TfsChangesetInfo changeset, string refToCheckin) => changeset.Remote.Checkin(refToCheckin, changeset, _checkinOptions);
+        protected override int DoCheckin(TfsChangesetInfo changeset, string refToCheckin) => changeset.Remote.Checkin(refToCheckin, changeset, checkinOptionsField);
     }
 }

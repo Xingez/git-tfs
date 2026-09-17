@@ -1,14 +1,14 @@
-using GitTfs.Commands;
-using GitTfs;
-using GitTfs.Test;
-using GitTfs.Util;
-using System.Diagnostics;
-using Serilog;
-using Serilog.Core;
-using Serilog.Events;
 
 namespace GitTfs.Test.Commands
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs;
+    using global::GitTfs.Test;
+    using global::GitTfs.Util;
+    using global::System.Diagnostics;
+    using global::Serilog;
+    using global::Serilog.Core;
+    using global::Serilog.Events;
     [TestClass]
     public class HelpTest : BaseTest
     {

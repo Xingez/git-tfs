@@ -4,11 +4,11 @@
     {
         public string Path { get; private set; }
         public string NewSha { get; private set; }
-        public IGitRepository _repository { get; private set; }
+        public IGitRepository Repository { get; private set; }
 
         public Modify(IGitRepository repository, GitChangeInfo changeInfo)
         {
-            _repository = repository;
+            Repository = repository;
             NewSha = changeInfo.newSha;
             Path = changeInfo.path;
         }
@@ -17,7 +17,7 @@
         {
             workspace.Edit(Path);
             var workspaceFile = workspace.GetLocalPath(Path);
-            _repository.CopyBlob(NewSha, workspaceFile);
+            Repository.CopyBlob(NewSha, workspaceFile);
         }
     }
 }

@@ -1,20 +1,20 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("shelve-delete")]
     [Description("shelve-delete shelveset-name")]
     [RequiresValidGitRepository]
     public class ShelveDelete : GitTfsCommand
     {
-        private readonly Globals _globals;
+        private readonly Globals globalsField;
 
         public ShelveDelete(Globals globals)
         {
-            _globals = globals;
+            globalsField = globals;
             OptionSet = new OptionSet();
         }
 
@@ -28,7 +28,7 @@ namespace GitTfs.Commands
                 return GitTfsExitCodes.InvalidArguments;
             }
 
-            var remote = _globals.Repository.ReadTfsRemote(_globals.RemoteId);
+            var remote = globalsField.Repository.ReadTfsRemote(globalsField.RemoteId);
             if (!remote.HasShelveset(shelvesetName))
             {
                 Trace.TraceInformation("error: could not find shelveset \"{0}\"...", shelvesetName);

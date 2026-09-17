@@ -1,22 +1,22 @@
-using System.Collections;
-
-using GitTfs.Core.TfsInterop;
-
-using GitTfs.Util;
 
 namespace GitTfs.VsCommon
 {
+    using global::System.Collections;
+
+    using global::GitTfs.Core.TfsInterop;
+
+    using global::GitTfs.Util;
     public class TfsApiBridge
     {
-        private readonly IServiceProvider _services;
+        private readonly IServiceProvider servicesField;
 
         public TfsApiBridge(IServiceProvider services)
         {
-            _services = services;
+            servicesField = services;
         }
 
         public TWrapper Wrap<TWrapper, TWrapped>(TWrapped wrapped) where TWrapper : class =>
-            wrapped == null ? null : _services.CreateInstance<TWrapper>(this, wrapped);
+            wrapped == null ? null : servicesField.CreateInstance<TWrapper>(this, wrapped);
 
         public TWrapper[] Wrap<TWrapper, TWrapped>(IEnumerable wrapped) where TWrapper : class => wrapped == null ? null : wrapped.OfType<TWrapped>().Select(x => Wrap<TWrapper, TWrapped>(x)).ToArray();
 

@@ -1,10 +1,10 @@
-using System.Diagnostics;
-using System.Globalization;
-using Serilog;
-using Serilog.Events;
 
 namespace GitTfs
 {
+    using global::System.Diagnostics;
+    using global::System.Globalization;
+    using global::Serilog;
+    using global::Serilog.Events;
     /// <summary>
     /// Keeps the existing Trace-based logging calls backed by Serilog.
     /// </summary>

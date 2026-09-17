@@ -1,7 +1,7 @@
-using GitTfs.Util;
 
 namespace GitTfs.Core.TfsInterop
 {
+    using global::GitTfs.Util;
     public interface IItem
     {
         IVersionControlServer VersionControlServer { get; }

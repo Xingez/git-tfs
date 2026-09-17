@@ -1,8 +1,8 @@
-using GitTfs.Core;
-using GitTfs.Util;
 
 namespace GitTfs.Test.Integration
 {
+    using global::GitTfs.Core;
+    using global::GitTfs.Util;
     [TestClass]
     public class ConfigPropertyLoaderTests : BaseTest, IDisposable
     {

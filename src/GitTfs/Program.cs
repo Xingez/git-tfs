@@ -1,21 +1,21 @@
-using System.Diagnostics;
-using System.Reflection;
-using GitTfs.Core;
-using GitTfs.Core.Changes.Git;
-using GitTfs.Core.TfsInterop;
-using GitTfs.Util;
-using Microsoft.Extensions.DependencyInjection;
-using Serilog;
-using Serilog.Core;
-using Serilog.Events;
-using Serilog.Sinks.SystemConsole.Themes;
 
 namespace GitTfs
 {
+    using global::System.Diagnostics;
+    using global::System.Reflection;
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.Changes.Git;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Util;
+    using global::Microsoft.Extensions.DependencyInjection;
+    using global::Serilog;
+    using global::Serilog.Core;
+    using global::Serilog.Events;
+    using global::Serilog.Sinks.SystemConsole.Themes;
     public class Program
     {
-        private static string _logFilePath;
-        private static LoggingLevelSwitch _consoleLevelSwitch;
+        private static string logFilePathField;
+        private static LoggingLevelSwitch consoleLevelSwitchField;
 
         [STAThread]
         public static void Main(string[] args)
@@ -60,7 +60,7 @@ namespace GitTfs
                 ReportInternalException(e);
             }
 
-            Trace.TraceWarning("All the logs could be found in the log file: " + _logFilePath);
+            Trace.TraceWarning("All the logs could be found in the log file: " + logFilePathField);
         }
 
         private static void ReportInternalException(Exception e)
@@ -120,17 +120,17 @@ namespace GitTfs
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "git-tfs");
                 Directory.CreateDirectory(logDirectory);
-                _logFilePath = Path.Combine(logDirectory, GitTfsConstants.LogFileName);
-                _consoleLevelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
+                logFilePathField = Path.Combine(logDirectory, GitTfsConstants.LogFileName);
+                consoleLevelSwitchField = new LoggingLevelSwitch(LogEventLevel.Information);
 
                 Log.Logger = new LoggerConfiguration()
                     .MinimumLevel.Debug()
                     .WriteTo.Console(
-                        levelSwitch: _consoleLevelSwitch,
+                        levelSwitch: consoleLevelSwitchField,
                         outputTemplate: "{Message:lj}{NewLine}",
                         theme: SystemConsoleTheme.Literate)
                     .WriteTo.File(
-                        _logFilePath,
+                        logFilePathField,
                         restrictedToMinimumLevel: LogEventLevel.Debug,
                         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}")
                     .CreateLogger();
@@ -144,7 +144,7 @@ namespace GitTfs
             }
         }
 
-        internal static void EnableDebugLogging() => _consoleLevelSwitch?.MinimumLevel = LogEventLevel.Debug;
+        internal static void EnableDebugLogging() => consoleLevelSwitchField?.MinimumLevel = LogEventLevel.Debug;
 
         public static void AddGitChangeTypes(ServiceCatalog catalog)
         {

@@ -1,8 +1,8 @@
-using GitTfs.Commands;
-using GitTfs.Core.TfsInterop;
 
 namespace GitTfs.Core
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Core.TfsInterop;
     /// <summary>
     /// Things needed by code that pends changes to a workspace.
     /// </summary>

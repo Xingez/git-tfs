@@ -1,9 +1,9 @@
-using LibGit2Sharp;
-using GitTfs.Core.TfsInterop;
-using GitTfs.Test.Fixtures;
 
 namespace GitTfs.Test.Integration
 {
+    using global::LibGit2Sharp;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Test.Fixtures;
     //NOTE: All timestamps in these tests must specify a time zone. If they don't, the local time zone will be used in the DateTime,
     //      but the commit timestamp will use the ToUniversalTime() version of the DateTime.
     //      This will cause the hashes to differ on computers in different time zones.

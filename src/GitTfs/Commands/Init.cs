@@ -1,35 +1,35 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::System.Text.RegularExpressions;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("init")]
     [Description("init [options] tfs-url-or-instance-name repository-path [git-repository]")]
     public class Init : GitTfsCommand
     {
-        private readonly InitOptions _initOptions;
-        private readonly RemoteOptions _remoteOptions;
-        private readonly Globals _globals;
-        private readonly IGitHelpers _gitHelper;
-        private readonly AuthorsFile _authorsFileHelper;
+        private readonly InitOptions initOptionsField;
+        private readonly RemoteOptions remoteOptionsField;
+        private readonly Globals globalsField;
+        private readonly IGitHelpers gitHelperField;
+        private readonly AuthorsFile authorsFileHelperField;
 
         public Init(RemoteOptions remoteOptions, InitOptions initOptions, Globals globals, IGitHelpers gitHelper, AuthorsFile authorsFileHelper)
         {
-            _remoteOptions = remoteOptions;
-            _gitHelper = gitHelper;
-            _authorsFileHelper = authorsFileHelper;
-            _globals = globals;
-            _initOptions = initOptions;
+            remoteOptionsField = remoteOptions;
+            gitHelperField = gitHelper;
+            authorsFileHelperField = authorsFileHelper;
+            globalsField = globals;
+            initOptionsField = initOptions;
         }
 
-        public OptionSet OptionSet => _initOptions.OptionSet.Merge(_remoteOptions.OptionSet);
+        public OptionSet OptionSet => initOptionsField.OptionSet.Merge(remoteOptionsField.OptionSet);
 
-        public bool IsBare => _initOptions.IsBare;
+        public bool IsBare => initOptionsField.IsBare;
 
-        public IGitHelpers GitHelper => _gitHelper;
+        public IGitHelpers GitHelper => gitHelperField;
 
         public int Run(string tfsUrl, string tfsRepositoryPath)
         {
@@ -37,16 +37,16 @@ namespace GitTfs.Commands
             DoGitInitDb();
             VerifyGitUserConfig();
             SaveAuthorFileInRepository();
-            CommitTheGitIgnoreFile(_remoteOptions.GitIgnorePath);
-            UseTheGitIgnoreFile(_remoteOptions.GitIgnorePath);
+            CommitTheGitIgnoreFile(remoteOptionsField.GitIgnorePath);
+            UseTheGitIgnoreFile(remoteOptionsField.GitIgnorePath);
             GitTfsInit(tfsUrl, tfsRepositoryPath);
             return 0;
         }
 
         private void VerifyGitUserConfig()
         {
-            var userName = _globals.Repository.GetConfig<string>("user.name");
-            var userEmail = _globals.Repository.GetConfig<string>("user.email");
+            var userName = globalsField.Repository.GetConfig<string>("user.name");
+            var userEmail = globalsField.Repository.GetConfig<string>("user.email");
             if (string.IsNullOrWhiteSpace(userName)
                 || string.IsNullOrWhiteSpace(userEmail))
             {
@@ -58,7 +58,7 @@ namespace GitTfs.Commands
             }
         }
 
-        private void SaveAuthorFileInRepository() => _authorsFileHelper.SaveAuthorFileInRepository(_globals.AuthorsFilePath, _globals.GitDir);
+        private void SaveAuthorFileInRepository() => authorsFileHelperField.SaveAuthorFileInRepository(globalsField.AuthorsFilePath, globalsField.GitDir);
 
         private void CommitTheGitIgnoreFile(string pathToGitIgnoreFile)
         {
@@ -67,7 +67,7 @@ namespace GitTfs.Commands
                 Trace.WriteLine("No .gitignore file specified to commit...");
                 return;
             }
-            _globals.Repository.CommitGitIgnore(pathToGitIgnoreFile);
+            globalsField.Repository.CommitGitIgnore(pathToGitIgnoreFile);
         }
 
         private void UseTheGitIgnoreFile(string pathToGitIgnoreFile)
@@ -77,25 +77,25 @@ namespace GitTfs.Commands
                 Trace.WriteLine("No .gitignore file specified to use...");
                 return;
             }
-            _globals.Repository.UseGitIgnore(pathToGitIgnoreFile);
+            globalsField.Repository.UseGitIgnore(pathToGitIgnoreFile);
         }
 
         public int Run(string tfsUrl, string tfsRepositoryPath, string gitRepositoryPath)
         {
             tfsRepositoryPath.AssertValidTfsPathOrRoot();
-            if (!_initOptions.IsBare)
+            if (!initOptionsField.IsBare)
             {
                 InitSubdir(gitRepositoryPath);
             }
             else
             {
                 Environment.CurrentDirectory = gitRepositoryPath;
-                _globals.GitDir = ".";
+                globalsField.GitDir = ".";
             }
             var runResult = Run(tfsUrl, tfsRepositoryPath);
             try
             {
-                File.WriteAllText(Path.Combine(_globals.GitDir, "description"), tfsRepositoryPath + "\n" + HideUserCredentials(_globals.CommandLineRun));
+                File.WriteAllText(Path.Combine(globalsField.GitDir, "description"), tfsRepositoryPath + "\n" + HideUserCredentials(globalsField.CommandLineRun));
             }
             catch (Exception)
             {
@@ -117,35 +117,35 @@ namespace GitTfs.Commands
             if (!Directory.Exists(repositoryPath))
                 Directory.CreateDirectory(repositoryPath);
             Environment.CurrentDirectory = repositoryPath;
-            _globals.GitDir = ".git";
+            globalsField.GitDir = ".git";
         }
 
         private void DoGitInitDb()
         {
             var initializedRepository = false;
-            if (!Directory.Exists(_globals.GitDir) || _initOptions.IsBare)
+            if (!Directory.Exists(globalsField.GitDir) || initOptionsField.IsBare)
             {
-                _gitHelper.CommandNoisy(BuildInitCommand());
+                gitHelperField.CommandNoisy(BuildInitCommand());
                 initializedRepository = true;
             }
-            _globals.Repository = _gitHelper.MakeRepository(_globals.GitDir);
+            globalsField.Repository = gitHelperField.MakeRepository(globalsField.GitDir);
 
             if (initializedRepository)
             {
-                var initialBranch = _initOptions.GitInitDefaultBranch
-                    ?? _globals.Repository.GetConfig<string>("init.defaultBranch");
+                var initialBranch = initOptionsField.GitInitDefaultBranch
+                    ?? globalsField.Repository.GetConfig<string>("init.defaultBranch");
                 if (!string.IsNullOrWhiteSpace(initialBranch))
-                    _gitHelper.CommandNoisy("symbolic-ref", "HEAD", "refs/heads/" + initialBranch);
+                    gitHelperField.CommandNoisy("symbolic-ref", "HEAD", "refs/heads/" + initialBranch);
             }
 
-            if (!string.IsNullOrWhiteSpace(_initOptions.WorkspacePath))
+            if (!string.IsNullOrWhiteSpace(initOptionsField.WorkspacePath))
             {
-                Trace.WriteLine("workspace path:" + _initOptions.WorkspacePath);
+                Trace.WriteLine("workspace path:" + initOptionsField.WorkspacePath);
 
                 try
                 {
-                    Directory.CreateDirectory(_initOptions.WorkspacePath);
-                    _globals.Repository.SetConfig(GitTfsConstants.WorkspaceConfigKey, _initOptions.WorkspacePath);
+                    Directory.CreateDirectory(initOptionsField.WorkspacePath);
+                    globalsField.Repository.SetConfig(GitTfsConstants.WorkspaceConfigKey, initOptionsField.WorkspacePath);
                 }
                 catch (Exception)
                 {
@@ -153,24 +153,24 @@ namespace GitTfs.Commands
                 }
             }
 
-            _globals.Repository.SetConfig(GitTfsConstants.IgnoreBranches, false);
-            _globals.Repository.SetConfig(GitTfsConstants.IgnoreNotInitBranches, false);
-            _globals.Repository.SetConfig("core.autocrlf", _initOptions.GitInitAutoCrlf);
+            globalsField.Repository.SetConfig(GitTfsConstants.IgnoreBranches, false);
+            globalsField.Repository.SetConfig(GitTfsConstants.IgnoreNotInitBranches, false);
+            globalsField.Repository.SetConfig("core.autocrlf", initOptionsField.GitInitAutoCrlf);
 
-            if (_initOptions.GitInitIgnoreCase != null)
-                _globals.Repository.SetConfig("core.ignorecase", _initOptions.GitInitIgnoreCase);
+            if (initOptionsField.GitInitIgnoreCase != null)
+                globalsField.Repository.SetConfig("core.ignorecase", initOptionsField.GitInitIgnoreCase);
         }
 
         private string[] BuildInitCommand()
         {
             var initCommand = new List<string> { "init" };
-            if (_initOptions.GitInitTemplate != null)
-                initCommand.Add("--template=" + _initOptions.GitInitTemplate);
-            if (_initOptions.IsBare)
+            if (initOptionsField.GitInitTemplate != null)
+                initCommand.Add("--template=" + initOptionsField.GitInitTemplate);
+            if (initOptionsField.IsBare)
                 initCommand.Add("--bare");
-            if (_initOptions.GitInitShared is string)
-                initCommand.Add("--shared=" + _initOptions.GitInitShared);
-            else if (_initOptions.GitInitShared != null)
+            if (initOptionsField.GitInitShared is string)
+                initCommand.Add("--shared=" + initOptionsField.GitInitShared);
+            else if (initOptionsField.GitInitShared != null)
                 initCommand.Add("--shared");
             return initCommand.ToArray();
         }
@@ -179,13 +179,13 @@ namespace GitTfs.Commands
         {
             // Azure DevOps throttles bursts aggressively. Keep the setting in the
             // repository config as an explicit record of the safe default.
-            _remoteOptions.NoParallel = true;
-            _globals.Repository.CreateTfsRemote(new RemoteInfo
+            remoteOptionsField.NoParallel = true;
+            globalsField.Repository.CreateTfsRemote(new RemoteInfo
             {
-                Id = _globals.RemoteId,
+                Id = globalsField.RemoteId,
                 Url = tfsUrl,
                 Repository = tfsRepositoryPath,
-                RemoteOptions = _remoteOptions,
+                RemoteOptions = remoteOptionsField,
             });
         }
     }

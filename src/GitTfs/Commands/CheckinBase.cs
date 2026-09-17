@@ -1,31 +1,31 @@
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     public abstract class CheckinBase : GitTfsCommand
     {
-        protected readonly CheckinOptions _checkinOptions;
-        private readonly TfsWriter _writer;
+        protected readonly CheckinOptions checkinOptionsField;
+        private readonly TfsWriter writerField;
 
         protected CheckinBase(CheckinOptions checkinOptions, TfsWriter writer)
         {
-            _checkinOptions = checkinOptions;
-            _writer = writer;
+            checkinOptionsField = checkinOptions;
+            writerField = writer;
         }
 
-        public OptionSet OptionSet => _checkinOptions.OptionSet;
+        public OptionSet OptionSet => checkinOptionsField.OptionSet;
 
         public int Run() => Run("HEAD");
 
-        public int Run(string refToCheckin) => _writer.Write(refToCheckin, PerformCheckin);
+        public int Run(string refToCheckin) => writerField.Write(refToCheckin, PerformCheckin);
 
         private int PerformCheckin(TfsChangesetInfo parentChangeset, string refToCheckin)
         {
             var newChangesetId = DoCheckin(parentChangeset, refToCheckin);
 
-            if (_checkinOptions.NoMerge)
+            if (checkinOptionsField.NoMerge)
             {
                 Trace.TraceInformation($"TFS Changeset #{newChangesetId} was created.");
                 parentChangeset.Remote.Fetch();

@@ -1,67 +1,67 @@
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("rcheckin")]
     [RequiresValidGitRepository]
     public class Rcheckin : GitTfsCommand
     {
-        private readonly CheckinOptions _checkinOptions;
-        private readonly CheckinOptionsFactory _checkinOptionsFactory;
-        private readonly TfsWriter _writer;
-        private readonly Globals _globals;
-        private readonly AuthorsFile _authors;
+        private readonly CheckinOptions checkinOptionsField;
+        private readonly CheckinOptionsFactory checkinOptionsFactoryField;
+        private readonly TfsWriter writerField;
+        private readonly Globals globalsField;
+        private readonly AuthorsFile authorsField;
 
         private bool AutoRebase { get; set; }
         private bool ForceCheckin { get; set; }
 
         public Rcheckin(CheckinOptions checkinOptions, TfsWriter writer, Globals globals, AuthorsFile authors)
         {
-            _checkinOptions = checkinOptions;
-            _checkinOptionsFactory = new CheckinOptionsFactory(globals);
-            _writer = writer;
-            _globals = globals;
-            _authors = authors;
+            checkinOptionsField = checkinOptions;
+            checkinOptionsFactoryField = new CheckinOptionsFactory(globals);
+            writerField = writer;
+            globalsField = globals;
+            authorsField = authors;
         }
 
         public OptionSet OptionSet => new OptionSet
                     {
                         {"a|autorebase", "Continue and rebase if new TFS changesets found", v => AutoRebase = v != null},
                         {"ignore-merge", "Force check in ignoring parent tfs branches in merge commits", v => ForceCheckin = v != null},
-                    }.Merge(_checkinOptions.OptionSet);
+                    }.Merge(checkinOptionsField.OptionSet);
 
         // uses rebase and works only with HEAD
         public int Run()
         {
-            _globals.WarnOnGitVersion();
+            globalsField.WarnOnGitVersion();
 
-            if (_globals.Repository.IsBare)
+            if (globalsField.Repository.IsBare)
                 throw new GitTfsException("error: you should specify the local branch to checkin for a bare repository.");
 
-            return _writer.Write("HEAD", PerformRCheckin);
+            return writerField.Write("HEAD", PerformRCheckin);
         }
 
         // uses rebase and works only with HEAD in a none bare repository
         public int Run(string localBranch)
         {
-            _globals.WarnOnGitVersion();
+            globalsField.WarnOnGitVersion();
 
-            if (!_globals.Repository.IsBare)
+            if (!globalsField.Repository.IsBare)
                 throw new GitTfsException("error: This syntax with one parameter is only allowed in bare repository.");
 
-            _authors.LoadAuthorsFromSavedFile(_globals.GitDir);
+            authorsField.LoadAuthorsFromSavedFile(globalsField.GitDir);
 
-            return _writer.Write(GitRepository.ShortToLocalName(localBranch), PerformRCheckin);
+            return writerField.Write(GitRepository.ShortToLocalName(localBranch), PerformRCheckin);
         }
 
         private int PerformRCheckin(TfsChangesetInfo parentChangeset, string refToCheckin)
         {
-            if (_globals.Repository.IsBare)
+            if (globalsField.Repository.IsBare)
                 AutoRebase = false;
 
-            if (_globals.Repository.WorkingCopyHasUnstagedOrUncommitedChanges)
+            if (globalsField.Repository.WorkingCopyHasUnstagedOrUncommitedChanges)
             {
                 throw new GitTfsException("error: You have local changes; rebase-workflow checkin only possible with clean working directory.")
                     .WithRecommendation("Try 'git stash' to stash your local changes and checkin again.");
@@ -74,20 +74,20 @@ namespace GitTfs.Commands
             {
                 if (AutoRebase)
                 {
-                    _globals.Repository.CommandNoisy("rebase", "--rebase-merges", parentChangeset.Remote.RemoteRef);
-                    parentChangeset = _globals.Repository.GetTfsCommit(parentChangeset.Remote.MaxCommitHash);
+                    globalsField.Repository.CommandNoisy("rebase", "--rebase-merges", parentChangeset.Remote.RemoteRef);
+                    parentChangeset = globalsField.Repository.GetTfsCommit(parentChangeset.Remote.MaxCommitHash);
                 }
                 else
                 {
-                    if (_globals.Repository.IsBare)
-                        _globals.Repository.UpdateRef(refToCheckin, parentChangeset.Remote.MaxCommitHash);
+                    if (globalsField.Repository.IsBare)
+                        globalsField.Repository.UpdateRef(refToCheckin, parentChangeset.Remote.MaxCommitHash);
 
                     throw new GitTfsException("error: New TFS changesets were found.")
                         .WithRecommendation("Try to rebase HEAD onto latest TFS checkin and repeat rcheckin or alternatively checkins");
                 }
             }
 
-            IEnumerable<GitCommit> commitsToCheckin = _globals.Repository.FindParentCommits(refToCheckin, parentChangeset.Remote.MaxCommitHash);
+            IEnumerable<GitCommit> commitsToCheckin = globalsField.Repository.FindParentCommits(refToCheckin, parentChangeset.Remote.MaxCommitHash);
             Trace.WriteLine("Commit to checkin count:" + commitsToCheckin.Count());
             if (!commitsToCheckin.Any())
                 throw new GitTfsException("error: latest TFS commit should be parent of commits being checked in");
@@ -99,8 +99,8 @@ namespace GitTfs.Commands
 
         private void SetupMetadataExport(IGitTfsRemote remote)
         {
-            var exportInitializer = new ExportMetadatasInitializer(_globals);
-            var shouldExport = _globals.Repository.GetConfig(GitTfsConstants.ExportMetadatasConfigKey) == "true";
+            var exportInitializer = new ExportMetadatasInitializer(globalsField);
+            var shouldExport = globalsField.Repository.GetConfig(GitTfsConstants.ExportMetadatasConfigKey) == "true";
             exportInitializer.InitializeRemote(remote, shouldExport);
         }
 
@@ -112,14 +112,14 @@ namespace GitTfs.Commands
 
             foreach (var commit in commitsToCheckin)
             {
-                var message = BuildCommitMessage(commit, !_checkinOptions.NoGenerateCheckinComment, currentParent);
+                var message = BuildCommitMessage(commit, !checkinOptionsField.NoGenerateCheckinComment, currentParent);
                 string target = commit.Sha;
                 var parents = commit.Parents.Where(c => c.Sha != currentParent).ToArray();
-                string tfsRepositoryPathOfMergedBranch = _checkinOptions.NoMerge
+                string tfsRepositoryPathOfMergedBranch = checkinOptionsField.NoMerge
                                                              ? null
                                                              : FindTfsRepositoryPathOfMergedBranch(tfsRemote, parents, target);
 
-                var commitSpecificCheckinOptions = _checkinOptionsFactory.BuildCommitSpecificCheckinOptions(_checkinOptions, message, commit, _authors);
+                var commitSpecificCheckinOptions = checkinOptionsFactoryField.BuildCommitSpecificCheckinOptions(checkinOptionsField, message, commit, authorsField);
 
                 Trace.TraceInformation("Starting checkin of {0} '{1}'", target.Substring(0, 8), commitSpecificCheckinOptions.CheckinComment);
                 try
@@ -128,7 +128,7 @@ namespace GitTfs.Commands
                     var fetchResult = tfsRemote.FetchWithMerge(newChangesetId, false, parents.Select(c => c.Sha).ToArray());
                     if (fetchResult.NewChangesetCount != 1)
                     {
-                        var lastCommit = _globals.Repository.FindCommitHashByChangesetId(newChangesetId);
+                        var lastCommit = globalsField.Repository.FindCommitHashByChangesetId(newChangesetId);
                         RebaseOnto(lastCommit, target);
                         if (AutoRebase)
                             tfsRemote.Repository.CommandNoisy("rebase", "--rebase-merges", tfsRemote.RemoteRef);
@@ -144,17 +144,17 @@ namespace GitTfs.Commands
                 {
                     if (newChangesetId != 0)
                     {
-                        var lastCommit = _globals.Repository.FindCommitHashByChangesetId(newChangesetId);
+                        var lastCommit = globalsField.Repository.FindCommitHashByChangesetId(newChangesetId);
                         RebaseOnto(lastCommit, currentParent);
                     }
                     throw;
                 }
             }
 
-            if (_globals.Repository.IsBare)
-                _globals.Repository.UpdateRef(refToCheckin, tfsRemote.MaxCommitHash);
+            if (globalsField.Repository.IsBare)
+                globalsField.Repository.UpdateRef(refToCheckin, tfsRemote.MaxCommitHash);
             else
-                _globals.Repository.ResetHard(tfsRemote.MaxCommitHash);
+                globalsField.Repository.ResetHard(tfsRemote.MaxCommitHash);
             Trace.TraceInformation("No more to rcheckin.");
 
             Trace.WriteLine("Cleaning...");
@@ -164,8 +164,8 @@ namespace GitTfs.Commands
         }
 
         public string BuildCommitMessage(GitCommit commit, bool generateCheckinComment, string latest) => generateCheckinComment
-                               ? _globals.Repository.GetCommitMessage(commit.Sha, latest)
-                               : _globals.Repository.GetCommit(commit.Sha).Message;
+                               ? globalsField.Repository.GetCommitMessage(commit.Sha, latest)
+                               : globalsField.Repository.GetCommit(commit.Sha).Message;
 
         private string FindTfsRepositoryPathOfMergedBranch(IGitTfsRemote remoteToCheckin, GitCommit[] gitParents, string target)
         {
@@ -176,10 +176,10 @@ namespace GitTfs.Commands
                     Trace.TraceWarning("warning: only 1 parent is supported by TFS for a merge changeset. The other parents won't be materialized in the TFS merge!");
                 foreach (var gitParent in gitParents)
                 {
-                    var tfsCommit = _globals.Repository.GetTfsCommit(gitParent);
+                    var tfsCommit = globalsField.Repository.GetTfsCommit(gitParent);
                     if (tfsCommit != null)
                         return tfsCommit.Remote.TfsRepositoryPath;
-                    var lastCheckinCommit = _globals.Repository.GetLastParentTfsCommits(gitParent.Sha).FirstOrDefault();
+                    var lastCheckinCommit = globalsField.Repository.GetLastParentTfsCommits(gitParent.Sha).FirstOrDefault();
                     if (lastCheckinCommit != null)
                     {
                         if (!ForceCheckin && lastCheckinCommit.Remote.Id != remoteToCheckin.Id)
@@ -198,6 +198,6 @@ namespace GitTfs.Commands
             return null;
         }
 
-        public void RebaseOnto(string newBaseCommit, string oldBaseCommit) => _globals.Repository.CommandNoisy("rebase", "--rebase-merges", "--onto", newBaseCommit, oldBaseCommit);
+        public void RebaseOnto(string newBaseCommit, string oldBaseCommit) => globalsField.Repository.CommandNoisy("rebase", "--rebase-merges", "--onto", newBaseCommit, oldBaseCommit);
     }
 }

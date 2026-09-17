@@ -1,12 +1,12 @@
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-using GitTfs.Util;
-
-using Moq;
 
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+    using global::GitTfs.Util;
+
+    using global::Moq;
     [TestClass]
     public class ChangeSieveTests : BaseTest
     {
@@ -29,14 +29,14 @@ namespace GitTfs.Test.Core
                     .Returns(new Func<string, bool>(s => !string.IsNullOrEmpty(s) && s.Contains("\\.git\\")));
             }
 
-            private ChangeSieve _changeSieve;
-            public ChangeSieve Subject => _changeSieve ?? (_changeSieve = new ChangeSieve(Changeset, new PathResolver(Remote, "", InitialTree)));
+            private ChangeSieve changeSieveField;
+            public ChangeSieve Subject => changeSieveField ?? (changeSieveField = new ChangeSieve(Changeset, new PathResolver(Remote, "", InitialTree)));
 
-            private Dictionary<string, GitObject> _initialTree;
-            public virtual Dictionary<string, GitObject> InitialTree => _initialTree ?? (_initialTree = new Dictionary<string, GitObject>(StringComparer.InvariantCultureIgnoreCase));
+            private Dictionary<string, GitObject> initialTreeField;
+            public virtual Dictionary<string, GitObject> InitialTree => initialTreeField ?? (initialTreeField = new Dictionary<string, GitObject>(StringComparer.InvariantCultureIgnoreCase));
 
-            private FakeChangeset _changeset;
-            public virtual FakeChangeset Changeset => _changeset ?? (_changeset = new FakeChangeset());
+            private FakeChangeset changesetField;
+            public virtual FakeChangeset Changeset => changesetField ?? (changesetField = new FakeChangeset());
 
             public class FakeChangeset : IChangeset
             {
@@ -50,13 +50,13 @@ namespace GitTfs.Test.Core
                 public void Get(ITfsWorkspace workspace, IEnumerable<IChange> changes, Action<Exception> ignorableErrorHandler) => throw new NotImplementedException();
             }
 
-            private IGitTfsRemote _remote;
-            public virtual IGitTfsRemote Remote => _remote ?? (_remote = BuildRemote());
+            private IGitTfsRemote remoteField;
+            public virtual IGitTfsRemote Remote => remoteField ?? (remoteField = BuildRemote());
 
-            protected virtual IGitTfsRemote BuildRemote() => _mocks.OneOf<IGitTfsRemote>();
+            protected virtual IGitTfsRemote BuildRemote() => mocksField.OneOf<IGitTfsRemote>();
 
-            protected MockRepository _mocks = new MockRepository(MockBehavior.Default);
-            public MockRepository Mocks => _mocks;
+            protected MockRepository mocksField = new MockRepository(MockBehavior.Default);
+            public MockRepository Mocks => mocksField;
         }
 
         // A base class for ChangeSieve test classes.
@@ -106,25 +106,25 @@ namespace GitTfs.Test.Core
 
             private const int ChangesetId = 10;
 
-            private readonly TfsChangeType _tfsChangeType;
-            private readonly TfsItemType _tfsItemType;
-            private readonly string _serverItem;
-            private readonly int _deletionId;
-            private readonly string _renamedFrom;
-            private readonly int _itemId;
-            private static int _maxItemId = 0;
+            private readonly TfsChangeType tfsChangeTypeField;
+            private readonly TfsItemType tfsItemTypeField;
+            private readonly string serverItemField;
+            private readonly int deletionIdField;
+            private readonly string renamedFromField;
+            private readonly int itemIdField;
+            private static int maxItemIdField = 0;
 
             private FakeChange(TfsChangeType tfsChangeType, TfsItemType itemType, string serverItem, int deletionId = 0, string renamedFrom = null)
             {
-                _tfsChangeType = tfsChangeType;
-                _tfsItemType = itemType;
-                _serverItem = serverItem;
-                _deletionId = deletionId;
-                _renamedFrom = renamedFrom;
-                _itemId = ++_maxItemId;
+                tfsChangeTypeField = tfsChangeType;
+                tfsItemTypeField = itemType;
+                serverItemField = serverItem;
+                deletionIdField = deletionId;
+                renamedFromField = renamedFrom;
+                itemIdField = ++maxItemIdField;
             }
 
-            TfsChangeType IChange.ChangeType => _tfsChangeType;
+            TfsChangeType IChange.ChangeType => tfsChangeTypeField;
 
             IItem IChange.Item => this;
 
@@ -132,13 +132,13 @@ namespace GitTfs.Test.Core
 
             int IItem.ChangesetId => ChangesetId;
 
-            string IItem.ServerItem => _serverItem;
+            string IItem.ServerItem => serverItemField;
 
-            int IItem.DeletionId => _deletionId;
+            int IItem.DeletionId => deletionIdField;
 
-            TfsItemType IItem.ItemType => _tfsItemType;
+            TfsItemType IItem.ItemType => tfsItemTypeField;
 
-            int IItem.ItemId => _itemId;
+            int IItem.ItemId => itemIdField;
 
             long IItem.ContentLength => throw new NotImplementedException();
 
@@ -146,25 +146,25 @@ namespace GitTfs.Test.Core
 
             IItem IVersionControlServer.GetItem(int itemId, int changesetNumber)
             {
-                if (itemId == _itemId && changesetNumber == ChangesetId - 1 && _tfsChangeType.HasFlag(TfsChangeType.Rename))
-                    return new PreviousItem(_renamedFrom);
+                if (itemId == itemIdField && changesetNumber == ChangesetId - 1 && tfsChangeTypeField.HasFlag(TfsChangeType.Rename))
+                    return new PreviousItem(renamedFromField);
                 throw new NotImplementedException();
             }
 
             private class PreviousItem : IItem
             {
-                private readonly string _oldName;
+                private readonly string oldNameField;
 
                 public PreviousItem(string oldName)
                 {
-                    _oldName = oldName;
+                    oldNameField = oldName;
                 }
 
                 IVersionControlServer IItem.VersionControlServer => throw new NotImplementedException();
 
                 int IItem.ChangesetId => throw new NotImplementedException();
 
-                string IItem.ServerItem => _oldName;
+                string IItem.ServerItem => oldNameField;
 
                 int IItem.DeletionId => throw new NotImplementedException();
 
@@ -557,13 +557,13 @@ namespace GitTfs.Test.Core
 
                 // The rest of the implementation is pretty straight-forward.
 
-                private readonly string _serverItem;
+                private readonly string serverItemField;
 
                 // Accept a name so that the name is more obviously matched between the Fixture
                 // and the assertion.
                 public RenamedFromDeletedChange(string serverItem)
                 {
-                    _serverItem = serverItem;
+                    serverItemField = serverItem;
                 }
 
                 TfsChangeType IChange.ChangeType => TfsChangeType.Rename;
@@ -574,7 +574,7 @@ namespace GitTfs.Test.Core
 
                 int IItem.ChangesetId => 100;
 
-                string IItem.ServerItem => _serverItem;
+                string IItem.ServerItem => serverItemField;
 
                 int IItem.DeletionId => 0;
 

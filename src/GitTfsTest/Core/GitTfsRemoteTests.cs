@@ -1,13 +1,13 @@
-using GitTfs.Core;
-using GitTfs.Core.TfsInterop;
-
-using Moq;
-
-using GitTfs.Test;
 
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Core;
+    using global::GitTfs.Core.TfsInterop;
+
+    using global::Moq;
+
+    using global::GitTfs.Test;
     [TestClass]
     public class GitTfsRemoteTests : BaseTest
     {

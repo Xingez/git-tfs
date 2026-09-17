@@ -1,7 +1,7 @@
-﻿using GitTfs.Core.TfsInterop;
-
+﻿
 namespace GitTfs.Core
 {
+    using global::GitTfs.Core.TfsInterop;
     public class DirectoryTidier : ITfsWorkspaceModifier, IDisposable
     {
         private enum FileOperation
@@ -14,37 +14,37 @@ namespace GitTfs.Core
             EditAndRenameFrom,
         }
 
-        private readonly ITfsWorkspaceModifier _workspace;
-        private readonly Func<IEnumerable<TfsTreeEntry>> _getInitialTfsTree;
-        private List<string> _filesInTfs;
-        private readonly Dictionary<string, FileOperation> _fileOperations;
-        private bool _disposed;
+        private readonly ITfsWorkspaceModifier workspaceField;
+        private readonly Func<IEnumerable<TfsTreeEntry>> getInitialTfsTreeField;
+        private List<string> filesInTfsField;
+        private readonly Dictionary<string, FileOperation> fileOperationsField;
+        private bool disposedField;
 
         public DirectoryTidier(ITfsWorkspaceModifier workspace, Func<IEnumerable<TfsTreeEntry>> getInitialTfsTree)
         {
-            _workspace = workspace;
-            _getInitialTfsTree = getInitialTfsTree;
-            _fileOperations = new Dictionary<string, FileOperation>(StringComparer.InvariantCultureIgnoreCase);
+            workspaceField = workspace;
+            getInitialTfsTreeField = getInitialTfsTree;
+            fileOperationsField = new Dictionary<string, FileOperation>(StringComparer.InvariantCultureIgnoreCase);
         }
 
         public void Dispose()
         {
-            if (_disposed)
+            if (disposedField)
                 return;
-            _disposed = true;
+            disposedField = true;
 
             var candidateDirectories = CalculateCandidateDirectories();
             if (!candidateDirectories.Any())
                 return;
 
-            _filesInTfs = _getInitialTfsTree().Where(entry => entry.Item.ItemType == TfsItemType.File).Select(entry => entry.FullName.ToLowerInvariant()).ToList();
+            filesInTfsField = getInitialTfsTreeField().Where(entry => entry.Item.ItemType == TfsItemType.File).Select(entry => entry.FullName.ToLowerInvariant()).ToList();
 
-            foreach (var fileAndOperation in _fileOperations)
+            foreach (var fileAndOperation in fileOperationsField)
             {
                 if (fileAndOperation.Value == FileOperation.Remove)
-                    _filesInTfs.Remove(fileAndOperation.Key.ToLowerInvariant());
+                    filesInTfsField.Remove(fileAndOperation.Key.ToLowerInvariant());
                 else if (fileAndOperation.Value == FileOperation.Add || fileAndOperation.Value == FileOperation.RenameTo)
-                    _filesInTfs.Add(fileAndOperation.Key.ToLowerInvariant());
+                    filesInTfsField.Add(fileAndOperation.Key.ToLowerInvariant());
             }
 
             var deletedDirs = new List<string>();
@@ -64,7 +64,7 @@ namespace GitTfs.Core
                 DeleteEmptyDir(GetDirectoryName(dirName), deletedDirs);
                 if (!IsDirDeletedAlready(downcasedDirName, deletedDirs))
                 {
-                    _workspace.Delete(dirName);
+                    workspaceField.Delete(dirName);
                     deletedDirs.Add(downcasedDirName);
                 }
             }
@@ -83,51 +83,51 @@ namespace GitTfs.Core
         private bool HasEntryInDir(string dirName)
         {
             dirName = dirName + "/";
-            return _filesInTfs.Any(file => file.StartsWith(dirName));
+            return filesInTfsField.Any(file => file.StartsWith(dirName));
         }
 
-        string ITfsWorkspaceModifier.GetLocalPath(string path) => _workspace.GetLocalPath(path);
+        string ITfsWorkspaceModifier.GetLocalPath(string path) => workspaceField.GetLocalPath(path);
 
         void ITfsWorkspaceModifier.Add(string path)
         {
-            _workspace.Add(path);
-            _fileOperations.Add(path, FileOperation.Add);
+            workspaceField.Add(path);
+            fileOperationsField.Add(path, FileOperation.Add);
         }
 
         void ITfsWorkspaceModifier.Edit(string path)
         {
-            _workspace.Edit(path);
-            _fileOperations.Add(path, FileOperation.Edit);
+            workspaceField.Edit(path);
+            fileOperationsField.Add(path, FileOperation.Edit);
         }
 
         void ITfsWorkspaceModifier.Delete(string path)
         {
-            _workspace.Delete(path);
-            _fileOperations.Add(path, FileOperation.Remove);
+            workspaceField.Delete(path);
+            fileOperationsField.Add(path, FileOperation.Remove);
         }
 
         void ITfsWorkspaceModifier.Rename(string pathFrom, string pathTo, string score)
         {
-            _workspace.Rename(pathFrom, pathTo, score);
+            workspaceField.Rename(pathFrom, pathTo, score);
 
             FileOperation pathFromOperation;
-            if (_fileOperations.TryGetValue(pathFrom, out pathFromOperation) &&
+            if (fileOperationsField.TryGetValue(pathFrom, out pathFromOperation) &&
                 pathFromOperation == FileOperation.Edit)
             {
-                _fileOperations[pathFrom] = FileOperation.EditAndRenameFrom;
+                fileOperationsField[pathFrom] = FileOperation.EditAndRenameFrom;
             }
             else
             {
-                _fileOperations.Add(pathFrom, FileOperation.RenameFrom);
+                fileOperationsField.Add(pathFrom, FileOperation.RenameFrom);
             }
-            _fileOperations.Add(pathTo, FileOperation.RenameTo);
+            fileOperationsField.Add(pathTo, FileOperation.RenameTo);
         }
 
         private IEnumerable<string> CalculateCandidateDirectories()
         {
             var directoriesWithRemovedFiles = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
 
-            foreach (var removedFilePath in _fileOperations.Where(x => x.Value == FileOperation.Remove).Select(x => x.Key))
+            foreach (var removedFilePath in fileOperationsField.Where(x => x.Value == FileOperation.Remove).Select(x => x.Key))
             {
                 var directory = GetDirectoryName(removedFilePath);
                 if (directory != null)

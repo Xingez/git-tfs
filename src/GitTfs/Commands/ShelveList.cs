@@ -1,15 +1,15 @@
-using System.ComponentModel;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("shelve-list")]
     [Description("shelve-list -u <shelve-owner-name> [options]")]
     [RequiresValidGitRepository]
     public class ShelveList : GitTfsCommand
     {
-        private readonly Globals _globals;
+        private readonly Globals globalsField;
 
         public string SortBy { get; set; }
         public bool FullFormat { get; set; }
@@ -27,12 +27,12 @@ namespace GitTfs.Commands
 
         public ShelveList(Globals globals)
         {
-            _globals = globals;
+            globalsField = globals;
         }
 
         public int Run()
         {
-            var remote = _globals.Repository.ReadTfsRemote(_globals.RemoteId);
+            var remote = globalsField.Repository.ReadTfsRemote(globalsField.RemoteId);
             return remote.Tfs.ListShelvesets(this, remote);
         }
     }

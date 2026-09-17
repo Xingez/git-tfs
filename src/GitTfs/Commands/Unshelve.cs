@@ -1,20 +1,20 @@
-using System.ComponentModel;
-using System.Diagnostics;
-using GitTfs.Util;
-using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::System.Diagnostics;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
     [Pluggable("unshelve")]
     [Description("unshelve [options] shelve-name destination-branch")]
     [RequiresValidGitRepository]
     public class Unshelve : GitTfsCommand
     {
-        private readonly Globals _globals;
+        private readonly Globals globalsField;
 
         public Unshelve(Globals globals)
         {
-            _globals = globals;
+            globalsField = globals;
             TfsBranch = null;
         }
 
@@ -35,9 +35,9 @@ namespace GitTfs.Commands
         public int Run(string shelvesetName, string destinationBranch)
         {
             if (string.IsNullOrEmpty(TfsBranch))//If destination not on command line, set up defaults.
-                TfsBranch = _globals.RemoteId;
+                TfsBranch = globalsField.RemoteId;
 
-            var remote = _globals.Repository.ReadTfsRemote(TfsBranch);
+            var remote = globalsField.Repository.ReadTfsRemote(TfsBranch);
             remote.Unshelve(Owner, shelvesetName, destinationBranch, BuildErrorHandler(), Force);
             Trace.TraceInformation("Created branch " + destinationBranch + " from shelveset \"" + shelvesetName + "\".");
             return GitTfsExitCodes.OK;

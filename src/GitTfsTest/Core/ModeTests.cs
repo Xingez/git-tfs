@@ -1,7 +1,7 @@
-using GitTfs.Core;
 
 namespace GitTfs.Test.Core
 {
+    using global::GitTfs.Core;
     [TestClass]
     public class ModeTests : BaseTest
     {

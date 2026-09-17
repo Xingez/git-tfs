@@ -1,20 +1,20 @@
-using System.ComponentModel;
-using GitTfs.Util;
-using GitTfs.Core;
-using System.Diagnostics;
 
 namespace GitTfs.Commands
 {
+    using global::System.ComponentModel;
+    using global::GitTfs.Util;
+    using global::GitTfs.Core;
+    using global::System.Diagnostics;
     [Pluggable("checkout")]
     [RequiresValidGitRepository]
     [Description("checkout changesetId [-b=branch_name]\n   ex: git-tfs checkout 2365\n       git-tfs checkout 2365 -b=bugfix_2365\n")]
     public class Checkout : GitTfsCommand
     {
-        private readonly Globals _globals;
+        private readonly Globals globalsField;
 
         public Checkout(Globals globals)
         {
-            _globals = globals;
+            globalsField = globals;
         }
 
         public OptionSet OptionSet => new OptionSet
@@ -32,7 +32,7 @@ namespace GitTfs.Commands
             int changesetId;
             if (!int.TryParse(id, out changesetId))
                 throw new GitTfsException("error: wrong format for changeset id...");
-            var sha = _globals.Repository.FindCommitHashByChangesetId(changesetId);
+            var sha = globalsField.Repository.FindCommitHashByChangesetId(changesetId);
             if (string.IsNullOrEmpty(sha))
                 throw new GitTfsException("error: commit not found for this changeset id...");
             if (ReturnShaOnly)
@@ -43,13 +43,13 @@ namespace GitTfs.Commands
             string commitishToCheckout = sha;
             if (!string.IsNullOrEmpty(BranchName))
             {
-                BranchName = _globals.Repository.AssertValidBranchName(BranchName);
-                if (!_globals.Repository.CreateBranch(BranchName.ToLocalGitRef(), sha))
+                BranchName = globalsField.Repository.AssertValidBranchName(BranchName);
+                if (!globalsField.Repository.CreateBranch(BranchName.ToLocalGitRef(), sha))
                     throw new GitTfsException("error: can not create branch '" + BranchName + "'");
                 Trace.TraceInformation("Branch '" + BranchName + "' created...");
                 commitishToCheckout = BranchName;
             }
-            if (!_globals.Repository.Checkout(commitishToCheckout))
+            if (!globalsField.Repository.Checkout(commitishToCheckout))
                 throw new GitTfsException("error: unable to checkout '" + commitishToCheckout + "' due to changes in your workspace!",
                     new List<string> { "commit or stash your changes before retrying..." });
             return GitTfsExitCodes.OK;

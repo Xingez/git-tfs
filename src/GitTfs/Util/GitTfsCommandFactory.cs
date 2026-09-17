@@ -3,22 +3,22 @@ namespace GitTfs.Util
     [SingletonService]
     public class GitTfsCommandFactory
     {
-        private readonly IServiceProvider _services;
-        private readonly ServiceCatalog _catalog;
+        private readonly IServiceProvider servicesField;
+        private readonly ServiceCatalog catalogField;
 
         public GitTfsCommandFactory(IServiceProvider services, ServiceCatalog catalog)
         {
-            _services = services;
-            _catalog = catalog;
+            servicesField = services;
+            catalogField = catalog;
         }
 
-        private Dictionary<string, string> _aliasMap;
-        public Dictionary<string, string> AliasMap => _aliasMap ?? (_aliasMap = CreateAliasMap());
+        private Dictionary<string, string> aliasMapField;
+        public Dictionary<string, string> AliasMap => aliasMapField ?? (aliasMapField = CreateAliasMap());
 
         private Dictionary<string, string> CreateAliasMap()
         {
             var aliasMap = new Dictionary<string, string>();
-            foreach (var instance in _catalog.Commands)
+            foreach (var instance in catalogField.Commands)
             {
                 var attribute = instance.ImplementationType.GetCustomAttributes(typeof(PluggableWithAliases), true)
                     .Cast<PluggableWithAliases>().FirstOrDefault();
@@ -37,8 +37,8 @@ namespace GitTfs.Util
 
         public GitTfsCommand GetCommand(string name)
         {
-            var commandType = _catalog.GetCommandType(GetCommandName(name));
-            return commandType == null ? null : (GitTfsCommand)_services.GetRequiredService(commandType);
+            var commandType = catalogField.GetCommandType(GetCommandName(name));
+            return commandType == null ? null : (GitTfsCommand)servicesField.GetRequiredService(commandType);
         }
 
         private string GetCommandName(string name)

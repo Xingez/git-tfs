@@ -1,40 +1,40 @@
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using LibGit2Sharp;
-using GitTfs.Commands;
-using Branch = LibGit2Sharp.Branch;
-using GitTfs.Util;
 
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
+    using global::System.Text.RegularExpressions;
+    using global::LibGit2Sharp;
+    using global::GitTfs.Commands;
+    using Branch = global::LibGit2Sharp.Branch;
+    using global::GitTfs.Util;
     public class GitRepository : GitHelpers, IGitRepository
     {
-        private readonly IServiceProvider _services;
-        private readonly Globals _globals;
-        private IDictionary<string, IGitTfsRemote> _cachedRemotes;
-        private readonly Repository _repository;
-        private readonly RemoteConfigConverter _remoteConfigReader;
+        private readonly IServiceProvider servicesField;
+        private readonly Globals globalsField;
+        private IDictionary<string, IGitTfsRemote> cachedRemotesField;
+        private readonly Repository repositoryField;
+        private readonly RemoteConfigConverter remoteConfigReaderField;
 
         public GitRepository(string gitDir, IServiceProvider services, Globals globals, RemoteConfigConverter remoteConfigReader)
             : base(services)
         {
-            _services = services;
-            _globals = globals;
+            servicesField = services;
+            globalsField = globals;
             GitDir = gitDir;
-            _repository = new Repository(GitDir);
-            _remoteConfigReader = remoteConfigReader;
+            repositoryField = new Repository(GitDir);
+            remoteConfigReaderField = remoteConfigReader;
         }
 
         ~GitRepository()
         {
-            if (_repository != null)
-                _repository.Dispose();
+            if (repositoryField != null)
+                repositoryField.Dispose();
         }
 
         public GitCommit Commit(LogEntry logEntry)
         {
-            var parents = logEntry.CommitParents.Select(sha => _repository.Lookup<Commit>(sha));
-            var commit = _repository.ObjectDatabase.CreateCommit(
+            var parents = logEntry.CommitParents.Select(sha => repositoryField.Lookup<Commit>(sha));
+            var commit = repositoryField.ObjectDatabase.CreateCommit(
                 new Signature(logEntry.AuthorName, logEntry.AuthorEmail, logEntry.Date.ToUniversalTime()),
                 new Signature(logEntry.CommitterName, logEntry.CommitterEmail, logEntry.Date.ToUniversalTime()),
                 logEntry.Log,
@@ -48,9 +48,9 @@ namespace GitTfs.Core
         public void UpdateRef(string gitRefName, string shaCommit, string message = null)
         {
             if (message == null)
-                _repository.Refs.Add(gitRefName, shaCommit, allowOverwrite: true);
+                repositoryField.Refs.Add(gitRefName, shaCommit, allowOverwrite: true);
             else
-                _repository.Refs.Add(gitRefName, shaCommit, message, true);
+                repositoryField.Refs.Add(gitRefName, shaCommit, message, true);
         }
 
         public static string ShortToLocalName(string branchName) => "refs/heads/" + branchName;
@@ -69,7 +69,7 @@ namespace GitTfs.Core
 
         public string GetConfig(string key)
         {
-            var entry = _repository.Config.Get<string>(key);
+            var entry = repositoryField.Config.Get<string>(key);
             return entry == null ? null : entry.Value;
         }
 
@@ -79,7 +79,7 @@ namespace GitTfs.Core
         {
             try
             {
-                var entry = _repository.Config.Get<T>(key);
+                var entry = repositoryField.Config.Get<T>(key);
                 if (entry == null)
                     return defaultValue;
                 return entry.Value;
@@ -90,7 +90,7 @@ namespace GitTfs.Core
             }
         }
 
-        public void SetConfig(string key, string value) => _repository.Config.Set<string>(key, value, ConfigurationLevel.Local);
+        public void SetConfig(string key, string value) => repositoryField.Config.Set<string>(key, value, ConfigurationLevel.Local);
 
         public void SetConfig(string key, bool value) => SetConfig(key, value.ToString().ToLower());
 
@@ -136,31 +136,31 @@ namespace GitTfs.Core
         public IEnumerable<string> GetGitRemoteBranches(string gitRemote)
         {
             gitRemote = gitRemote + "/";
-            var references = _repository.Branches.Where(b => b.IsRemote && b.FriendlyName.StartsWith(gitRemote) && !b.FriendlyName.EndsWith("/HEAD"));
+            var references = repositoryField.Branches.Where(b => b.IsRemote && b.FriendlyName.StartsWith(gitRemote) && !b.FriendlyName.EndsWith("/HEAD"));
             return references.Select(r => r.FriendlyName);
         }
 
         private IDictionary<string, IGitTfsRemote> GetTfsRemotes()
-            => _cachedRemotes ?? (_cachedRemotes = ReadTfsRemotes());
+            => cachedRemotesField ?? (cachedRemotesField = ReadTfsRemotes());
 
         public IGitTfsRemote CreateTfsRemote(RemoteInfo remote)
         {
-            foreach (var entry in _remoteConfigReader.Dump(remote))
+            foreach (var entry in remoteConfigReaderField.Dump(remote))
             {
                 if (entry.Value != null)
                 {
-                    _repository.Config.Set(entry.Key, entry.Value);
+                    repositoryField.Config.Set(entry.Key, entry.Value);
                 }
                 else
                 {
-                    _repository.Config.Unset(entry.Key);
+                    repositoryField.Config.Unset(entry.Key);
                 }
             }
 
             var gitTfsRemote = BuildRemote(remote);
             gitTfsRemote.EnsureTfsAuthenticated();
 
-            return _cachedRemotes[remote.Id] = gitTfsRemote;
+            return cachedRemotesField[remote.Id] = gitTfsRemote;
         }
 
 
@@ -170,16 +170,16 @@ namespace GitTfs.Core
                 throw new GitTfsException("error: the name of the remote to delete is invalid!");
 
             UnsetTfsRemoteConfig(remote.Id);
-            _repository.Refs.Remove(remote.RemoteRef);
+            repositoryField.Refs.Remove(remote.RemoteRef);
         }
 
         private void UnsetTfsRemoteConfig(string remoteId)
         {
-            foreach (var entry in _remoteConfigReader.Delete(remoteId))
+            foreach (var entry in remoteConfigReaderField.Delete(remoteId))
             {
-                _repository.Config.Unset(entry.Key);
+                repositoryField.Config.Unset(entry.Key);
             }
-            _cachedRemotes = null;
+            cachedRemotesField = null;
         }
 
         public void MoveRemote(string oldRemoteName, string newRemoteName)
@@ -203,28 +203,28 @@ namespace GitTfs.Core
             CreateTfsRemote(remoteInfo);
             var newRemote = ReadTfsRemote(newRemoteName);
 
-            _repository.Refs.Rename(oldRemote.RemoteRef, newRemote.RemoteRef);
+            repositoryField.Refs.Rename(oldRemote.RemoteRef, newRemote.RemoteRef);
             UnsetTfsRemoteConfig(oldRemoteName);
         }
 
         public Branch RenameBranch(string oldName, string newName)
         {
-            var branch = _repository.Branches[oldName];
+            var branch = repositoryField.Branches[oldName];
 
-            return branch == null ? null : _repository.Branches.Rename(branch, newName);
+            return branch == null ? null : repositoryField.Branches.Rename(branch, newName);
         }
 
         private IDictionary<string, IGitTfsRemote> ReadTfsRemotes()
         {
             // does this need to ensuretfsauthenticated?
-            _repository.Config.Set("tfs.touch", "1"); // reload configuration, because `git tfs init` and `git tfs clone` use Process.Start to update the config, so _repository's copy is out of date.
-            var remotes = _remoteConfigReader.Load(_repository.Config).Select(x => BuildRemote(x)).ToDictionary(x => x.Id);
+            repositoryField.Config.Set("tfs.touch", "1"); // reload configuration, because `git tfs init` and `git tfs clone` use Process.Start to update the config, so _repository's copy is out of date.
+            var remotes = remoteConfigReaderField.Load(repositoryField.Config).Select(x => BuildRemote(x)).ToDictionary(x => x.Id);
 
             bool shouldExport = GetConfig(GitTfsConstants.ExportMetadatasConfigKey) == "true";
 
             foreach(var remote in remotes.Values)
             {
-                var metadataExportInitializer = new ExportMetadatasInitializer(_globals);
+                var metadataExportInitializer = new ExportMetadatasInitializer(globalsField);
                 metadataExportInitializer.InitializeRemote(remote, shouldExport);
             }
 
@@ -232,7 +232,7 @@ namespace GitTfs.Core
         }
 
         private IGitTfsRemote BuildRemote(RemoteInfo remoteInfo) =>
-            _services.CreateInstance<GitTfsRemote>(remoteInfo, this);
+            servicesField.CreateInstance<GitTfsRemote>(remoteInfo, this);
 
         public bool HasRemote(string remoteId) => GetTfsRemotes().ContainsKey(remoteId);
 
@@ -250,7 +250,7 @@ namespace GitTfs.Core
             return tfsRepositoryPath.StartsWith(teamProjectPath + "/");
         }
 
-        public bool HasRef(string gitRef) => _repository.Refs[gitRef] != null;
+        public bool HasRef(string gitRef) => repositoryField.Refs[gitRef] != null;
 
         public void MoveTfsRefForwardIfNeeded(IGitTfsRemote remote) => MoveTfsRefForwardIfNeeded(remote, "HEAD");
 
@@ -270,14 +270,14 @@ namespace GitTfs.Core
 
         public GitCommit GetCommit(string commitish)
         {
-            var commit = _repository.Lookup<Commit>(commitish);
+            var commit = repositoryField.Lookup<Commit>(commitish);
 
             return commit is null ? null : new GitCommit(commit);
         }
 
         public MergeResult Merge(string commitish)
         {
-            var commit = _repository.Lookup<Commit>(commitish);
+            var commit = repositoryField.Lookup<Commit>(commitish);
             if (commit == null)
                 throw new GitTfsException("error: commit '" + commitish + "' can't be found and merged into!");
 
@@ -291,15 +291,15 @@ namespace GitTfs.Core
                 },
                 CheckoutNotifyFlags = CheckoutNotifyFlags.Conflict
             };
-            return _repository.Merge(commit, _repository.Config.BuildSignature(new DateTimeOffset(DateTime.Now)), options);
+            return repositoryField.Merge(commit, repositoryField.Config.BuildSignature(new DateTimeOffset(DateTime.Now)), options);
         }
 
-        public String GetCurrentCommit() => _repository.Head.Commits.First().Sha;
+        public String GetCurrentCommit() => repositoryField.Head.Commits.First().Sha;
 
         public IEnumerable<TfsChangesetInfo> GetLastParentTfsCommits(string head)
         {
             var changesets = new List<TfsChangesetInfo>();
-            var commit = _repository.Lookup<Commit>(head);
+            var commit = repositoryField.Lookup<Commit>(head);
             if (commit == null)
                 return changesets;
             FindTfsParentCommits(changesets, commit);
@@ -343,7 +343,7 @@ namespace GitTfs.Core
 
         public TfsChangesetInfo GetCurrentTfsCommit()
         {
-            var currentCommit = _repository.Head.Commits.First();
+            var currentCommit = repositoryField.Head.Commits.First();
             return TryParseChangesetInfo(currentCommit.Message, currentCommit.Sha);
         }
 
@@ -366,7 +366,7 @@ namespace GitTfs.Core
             var match = GitTfsConstants.TfsCommitInfoRegex.Match(gitTfsMetaInfo);
             if (match.Success)
             {
-                var commitInfo = _services.GetRequiredService<TfsChangesetInfo>();
+                var commitInfo = servicesField.GetRequiredService<TfsChangesetInfo>();
                 commitInfo.Remote = ReadTfsRemote(match.Groups["url"].Value, match.Groups["repository"].Success ? match.Groups["repository"].Value : null);
                 commitInfo.ChangesetId = Convert.ToInt32(match.Groups["changeset"].Value);
                 commitInfo.GitCommit = commit;
@@ -382,7 +382,7 @@ namespace GitTfs.Core
         {
             if (commit != null)
             {
-                ParseEntries(entries, _repository.Lookup<Commit>(commit).Tree, commit);
+                ParseEntries(entries, repositoryField.Lookup<Commit>(commit).Tree, commit);
             }
             return entries;
         }
@@ -395,14 +395,14 @@ namespace GitTfs.Core
 
         public IGitTreeBuilder GetTreeBuilder(string commit)
             => commit == null
-                ? new GitTreeBuilder(_repository.ObjectDatabase)
-                : new GitTreeBuilder(_repository.ObjectDatabase, _repository.Lookup<Commit>(commit).Tree);
+                ? new GitTreeBuilder(repositoryField.ObjectDatabase)
+                : new GitTreeBuilder(repositoryField.ObjectDatabase, repositoryField.Lookup<Commit>(commit).Tree);
 
         public string GetCommitMessage(string head, string parentCommitish)
         {
             var message = new System.Text.StringBuilder();
             foreach (Commit comm in
-                _repository.Commits.QueryBy(new CommitFilter { IncludeReachableFrom = head, ExcludeReachableFrom = parentCommitish }))
+                repositoryField.Commits.QueryBy(new CommitFilter { IncludeReachableFrom = head, ExcludeReachableFrom = parentCommitish }))
             {
                 // Normalize commit message line endings to CR+LF style, so that message
                 // would be correctly shown in TFS commit dialog.
@@ -453,7 +453,7 @@ namespace GitTfs.Core
             }
         }
 
-        private IGitChangedFile BuildGitChangedFile(GitChangeInfo change) => change.ToGitChangedFile(_services, this);
+        private IGitChangedFile BuildGitChangedFile(GitChangeInfo change) => change.ToGitChangedFile(servicesField, this);
 
         public bool WorkingCopyHasUnstagedOrUncommitedChanges
         {
@@ -462,7 +462,7 @@ namespace GitTfs.Core
                 if (IsBare)
                     return false;
                 return (from
-                            entry in _repository.RetrieveStatus()
+                            entry in repositoryField.RetrieveStatus()
                         where
                             entry.State != FileStatus.Ignored &&
                             entry.State != FileStatus.NewInWorkdir
@@ -476,7 +476,7 @@ namespace GitTfs.Core
             var destination = new FileInfo(outputFile);
             if (!destination.Directory.Exists)
                 destination.Directory.Create();
-            if ((blob = _repository.Lookup<Blob>(sha)) != null)
+            if ((blob = repositoryField.Lookup<Blob>(sha)) != null)
                 using (Stream stream = blob.GetContentStream(new FilteringOptions(string.Empty)))
                 using (var outstream = File.Create(destination.FullName))
                     stream.CopyTo(outstream);
@@ -509,7 +509,7 @@ namespace GitTfs.Core
             Reference reference;
             try
             {
-                reference = _repository.Refs.Add(gitBranchName, target);
+                reference = repositoryField.Refs.Add(gitBranchName, target);
             }
             catch (Exception)
             {
@@ -555,7 +555,7 @@ namespace GitTfs.Core
                 if (changesetsCache.TryGetValue(changesetId, out sha))
                 {
                     Trace.WriteLine("Changeset " + changesetId + " found at " + sha);
-                    return _repository.Lookup<Commit>(sha);
+                    return repositoryField.Lookup<Commit>(sha);
                 }
                 if (cacheIsFull)
                 {
@@ -566,13 +566,13 @@ namespace GitTfs.Core
 
             var reachableFromRemoteBranches = new CommitFilter
             {
-                IncludeReachableFrom = _repository.Branches.Where(p => p.IsRemote),
+                IncludeReachableFrom = repositoryField.Branches.Where(p => p.IsRemote),
                 SortBy = CommitSortStrategies.Time
             };
 
             if (remoteRef != null)
             {
-                var query = _repository.Branches.Where(p => p.IsRemote && p.CanonicalName.EndsWith(remoteRef));
+                var query = repositoryField.Branches.Where(p => p.IsRemote && p.CanonicalName.EndsWith(remoteRef));
                 Trace.WriteLine("Looking for changeset " + changesetId + " in git repository: Adding remotes:");
                 foreach (var reachable in query)
                 {
@@ -580,7 +580,7 @@ namespace GitTfs.Core
                 }
                 reachableFromRemoteBranches.IncludeReachableFrom = query;
             }
-            var commitsFromRemoteBranches = _repository.Commits.QueryBy(reachableFromRemoteBranches);
+            var commitsFromRemoteBranches = repositoryField.Commits.QueryBy(reachableFromRemoteBranches);
 
             Commit commit = null;
             foreach (var c in commitsFromRemoteBranches)
@@ -619,19 +619,19 @@ namespace GitTfs.Core
 
         public void CreateTag(string name, string sha, string comment, string Owner, string emailOwner, DateTime creationDate)
         {
-            if (_repository.Tags[name] == null)
-                _repository.ApplyTag(name, sha, new Signature(Owner, emailOwner, new DateTimeOffset(creationDate)), comment);
+            if (repositoryField.Tags[name] == null)
+                repositoryField.ApplyTag(name, sha, new Signature(Owner, emailOwner, new DateTimeOffset(creationDate)), comment);
         }
 
         public void CreateNote(string sha, string content, string owner, string emailOwner, DateTime creationDate)
         {
             Signature author = new Signature(owner, emailOwner, creationDate);
-            _repository.Notes.Add(new ObjectId(sha), content, author, author, "commits");
+            repositoryField.Notes.Add(new ObjectId(sha), content, author, author, "commits");
         }
 
-        public void ResetHard(string sha) => _repository.Reset(ResetMode.Hard, sha);
+        public void ResetHard(string sha) => repositoryField.Reset(ResetMode.Hard, sha);
 
-        public bool IsBare => _repository.Info.IsBare;
+        public bool IsBare => repositoryField.Info.IsBare;
 
         /// <summary>
         /// Gets all configured "subtree" remotes which point to the same Tfs URL as the given remote.
@@ -646,9 +646,9 @@ namespace GitTfs.Core
             return ReadAllTfsRemotes().Where(x => x.IsSubtree && string.Equals(x.OwningRemoteId, owner.Id, StringComparison.InvariantCultureIgnoreCase));
         }
 
-        public void ResetRemote(IGitTfsRemote remoteToReset, string target) => _repository.Refs.UpdateTarget(remoteToReset.RemoteRef, target);
+        public void ResetRemote(IGitTfsRemote remoteToReset, string target) => repositoryField.Refs.UpdateTarget(remoteToReset.RemoteRef, target);
 
-        public string GetCurrentBranch() => _repository.Head.CanonicalName;
+        public string GetCurrentBranch() => repositoryField.Head.CanonicalName;
 
         public void GarbageCollect(bool auto, string additionalMessage)
         {
@@ -657,9 +657,9 @@ namespace GitTfs.Core
             try
             {
                 if (auto)
-                    _globals.Repository.CommandNoisy("gc", "--auto");
+                    globalsField.Repository.CommandNoisy("gc", "--auto");
                 else
-                    _globals.Repository.CommandNoisy("gc");
+                    globalsField.Repository.CommandNoisy("gc");
             }
             catch (Exception e)
             {
@@ -672,7 +672,7 @@ namespace GitTfs.Core
         {
             try
             {
-                LibGit2Sharp.Commands.Checkout(_repository, commitish);
+                LibGit2Sharp.Commands.Checkout(repositoryField, commitish);
                 return true;
             }
             catch (CheckoutConflictException)
@@ -683,7 +683,7 @@ namespace GitTfs.Core
 
         public IEnumerable<GitCommit> FindParentCommits(string @from, string to)
         {
-            var commits = _repository.Commits.QueryBy(
+            var commits = repositoryField.Commits.QueryBy(
                 new CommitFilter() { IncludeReachableFrom = @from, ExcludeReachableFrom = to, SortBy = CommitSortStrategies.Reverse, FirstParentOnly = true })
                 .Select(c => new GitCommit(c));
             var parent = to;
@@ -696,7 +696,7 @@ namespace GitTfs.Core
             return commits;
         }
 
-        public bool IsPathIgnored(string relativePath) => _repository.Ignore.IsPathIgnored(relativePath);
+        public bool IsPathIgnored(string relativePath) => repositoryField.Ignore.IsPathIgnored(relativePath);
 
         public string CommitGitIgnore(string pathToGitIgnoreFile)
         {
@@ -704,21 +704,21 @@ namespace GitTfs.Core
             {
                 Trace.TraceWarning("warning: the .gitignore file specified '{0}' does not exist!", pathToGitIgnoreFile);
             }
-            var gitTreeBuilder = new GitTreeBuilder(_repository.ObjectDatabase);
+            var gitTreeBuilder = new GitTreeBuilder(repositoryField.ObjectDatabase);
             gitTreeBuilder.Add(".gitignore", pathToGitIgnoreFile, LibGit2Sharp.Mode.NonExecutableFile);
             var tree = gitTreeBuilder.GetTree();
             var signature = new Signature("git-tfs", "git-tfs@noreply.com", new DateTimeOffset(2000, 1, 1, 0, 0, 0, new TimeSpan(0)));
-            var sha = _repository.ObjectDatabase.CreateCommit(signature, signature, ".gitignore", tree, new Commit[0], false).Sha;
+            var sha = repositoryField.ObjectDatabase.CreateCommit(signature, signature, ".gitignore", tree, new Commit[0], false).Sha;
             Trace.WriteLine(".gitignore commit created: " + sha);
 
             // Point our tfs remote branch to the .gitignore commit
             var defaultRef = ShortToTfsRemoteName("default");
-            _repository.Refs.Add(defaultRef, new ObjectId(sha));
+            repositoryField.Refs.Add(defaultRef, new ObjectId(sha));
 
             // Also point HEAD to the .gitignore commit, if it isn't already. This
             // ensures a common initial commit for the git-tfs init --gitignore case.
-            if (_repository.Head.CanonicalName != defaultRef)
-                _repository.Refs.Add(_repository.Head.CanonicalName, new ObjectId(sha));
+            if (repositoryField.Head.CanonicalName != defaultRef)
+                repositoryField.Refs.Add(repositoryField.Head.CanonicalName, new ObjectId(sha));
 
             return sha;
         }
@@ -726,11 +726,11 @@ namespace GitTfs.Core
         public void UseGitIgnore(string pathToGitIgnoreFile) =>
             //Should add ourself the rules to the temporary rules because committing directly to the git database
             //prevent libgit2sharp to detect the new .gitignore file
-            _repository.Ignore.AddTemporaryRules(File.ReadLines(pathToGitIgnoreFile));
+            repositoryField.Ignore.AddTemporaryRules(File.ReadLines(pathToGitIgnoreFile));
 
         public IDictionary<int, string> GetCommitChangeSetPairs()
         {
-            var allCommits = _repository.Commits.QueryBy(new CommitFilter());
+            var allCommits = repositoryField.Commits.QueryBy(new CommitFilter());
             var pairs = new Dictionary<int, string>() ;
             foreach (var c in allCommits)
             {

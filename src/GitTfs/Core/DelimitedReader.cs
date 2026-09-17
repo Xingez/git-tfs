@@ -2,11 +2,11 @@
 {
     public class DelimitedReader
     {
-        private readonly TextReader _reader;
+        private readonly TextReader readerField;
 
         public DelimitedReader(TextReader reader)
         {
-            _reader = reader;
+            readerField = reader;
             Delimiter = "\0";
         }
 
@@ -14,10 +14,10 @@
 
         public string Read()
         {
-            if (-1 == _reader.Peek()) return null;
+            if (-1 == readerField.Peek()) return null;
             var nextString = "";
             int nextChar;
-            while (-1 != (nextChar = _reader.Read()))
+            while (-1 != (nextChar = readerField.Read()))
             {
                 nextString = nextString + (char)nextChar;
                 if (nextString.EndsWith(Delimiter, StringComparison.Ordinal))

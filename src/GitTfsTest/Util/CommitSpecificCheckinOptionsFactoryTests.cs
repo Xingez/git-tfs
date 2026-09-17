@@ -1,11 +1,11 @@
-using GitTfs.Commands;
-using GitTfs.Util;
-using GitTfs.Test;
-using GitTfs.Core;
-using Moq;
 
 namespace GitTfs.Test.Util
 {
+    using global::GitTfs.Commands;
+    using global::GitTfs.Util;
+    using global::GitTfs.Test;
+    using global::GitTfs.Core;
+    using global::Moq;
     [TestClass]
     public class CommitSpecificCheckinOptionsFactoryTests : BaseTest
     {
