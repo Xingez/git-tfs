@@ -14,9 +14,12 @@ migration:
 - Git
 - `git-tfs.exe`, available on `PATH`
 - .NET 10 runtime
+- .NET Framework 4.8 runtime (for the bundled recursive-history helper)
 
-The executable uses the TFVC REST API directly; Visual Studio and its TFVC
-client object model are not required.
+The executable uses the TFVC REST API to download file contents and create Git
+commits. The bundled helper uses the legacy TFVC client object model only for
+the server-side recursive history query; Visual Studio and local TFVC
+workspaces are not required.
 
 Configure the Git identity that will be written to imported commits:
 
@@ -115,6 +118,11 @@ The clone reads `resumable`, `no-parallel`, `debug`, `proxy`, and
 `api-version` from `appsettings.json`. The default proxy is disabled. Use a
 local drive for the output rather than a network share; no TFVC workspace path
 is needed.
+
+The helper is packaged in the `legacy-history` directory beside `git-tfs.exe`.
+If it cannot run, git-tfs logs that it is using the slower REST-only project
+history fallback. `GIT_TFS_LEGACY_HISTORY` can point to another helper
+executable.
 
 ## Verify the migration
 

@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GitTfsTest", "GitTfsTest\Gi
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GitTfs.VsFake", "GitTfs.VsFake\GitTfs.VsFake.csproj", "{20C411E8-49C7-11E1-A776-3FE84824019B}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GitTfs.LegacyHistory", "GitTfs.LegacyHistory\GitTfs.LegacyHistory.csproj", "{850861B9-D421-463F-B337-A67768620743}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "doc", "doc", "{4A46FEEE-B8A2-4445-B9D1-8160520C7301}"
 	ProjectSection(SolutionItems) = preProject
 		..\doc\release-notes\NEXT.md = ..\doc\release-notes\NEXT.md
@@ -36,6 +38,10 @@ Global
 		{20C411E8-49C7-11E1-A776-3FE84824019B}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{20C411E8-49C7-11E1-A776-3FE84824019B}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{20C411E8-49C7-11E1-A776-3FE84824019B}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{850861B9-D421-463F-B337-A67768620743}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{850861B9-D421-463F-B337-A67768620743}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{850861B9-D421-463F-B337-A67768620743}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{850861B9-D421-463F-B337-A67768620743}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -62,8 +62,11 @@ guide for the supported authentication options.
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for building
 
-The executable uses the TFVC REST API directly. Visual Studio, the TFVC client
-object model, and local TFVC workspaces are not required for a clone.
+The executable uses the TFVC REST API for file downloads and Git commits. A
+bundled .NET Framework helper uses the legacy TFVC client object model only to
+ask the server for recursive history of the selected subfolder; it does not
+create a workspace or require the Visual Studio IDE. The machine must have
+the .NET Framework 4.8 runtime available for that helper.
 
 ### Build and test
 

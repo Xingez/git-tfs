@@ -14,11 +14,14 @@ namespace GitTfs.Core.RestTfs
     {
         private readonly GitTfsSettings settingsField;
         private readonly AuthorsFile authorsFileField;
+        private readonly LegacyTfvcHistoryProvider legacyHistoryProviderField;
 
-        public RestTfsCloneService(GitTfsSettings settings, AuthorsFile authorsFile)
+        public RestTfsCloneService(GitTfsSettings settings, AuthorsFile authorsFile,
+            LegacyTfvcHistoryProvider legacyHistoryProvider = null)
         {
             settingsField = settings;
             authorsFileField = authorsFile;
+            legacyHistoryProviderField = legacyHistoryProvider;
         }
 
         public int Run(string targetServer, string repositoryPath, string outputPath)
@@ -69,71 +72,66 @@ namespace GitTfs.Core.RestTfs
 
                     Trace.TraceInformation("Using REST TFVC clone for " + repositoryPath + ".");
                     Trace.TraceInformation("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
-                    Trace.TraceInformation("Scanning project changesets and filtering changes under " + repositoryPath + ".");
-
-                    while (true)
+                    var legacyChangesetReferences = legacyHistoryProviderField?.IsAvailable == true
+                        ? legacyHistoryProviderField.GetChangesets(targetServer, repositoryPath, lastChangesetId)
+                        : null;
+                    if (legacyChangesetReferences != null)
                     {
-                        var pageStartChangesetId = fromChangesetId;
-                        var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize,
-                            filterByItemPath: false);
-                        if (changesetReferences.Count == 0)
-                            break;
-
-                        Trace.TraceInformation("Changeset scan after C" + pageStartChangesetId + " returned "
-                            + changesetReferences.Count + " reference(s), through C"
-                            + changesetReferences.Max(reference => reference.ChangesetId) + ".");
-
-                        foreach (var changesetReference in changesetReferences.OrderBy(reference => reference.ChangesetId))
+                        Trace.TraceInformation("Using legacy TFVC recursive history for " + repositoryPath + ".");
+                        Trace.TraceInformation("Legacy history returned " + legacyChangesetReferences.Count
+                            + " relevant changeset reference(s).");
+                        foreach (var changesetReference in legacyChangesetReferences)
                         {
-                            if (changesetReference.ChangesetId <= lastScannedChangesetId)
+                            if (changesetReference.ChangesetId <= lastChangesetId)
                                 continue;
 
-                            lastScannedChangesetId = changesetReference.ChangesetId;
-                            var changeset = client.GetChangeset(changesetReference.ChangesetId);
-                            changeset.Changes ??= new List<RestChange>();
-                            if (!HasChangesWithinRepository(changeset, repositoryPath))
-                            {
-                                Trace.TraceInformation("C" + changeset.ChangesetId + ": skipped; no changes under "
-                                    + repositoryPath + ".");
-                                continue;
-                            }
-
-                            var treeDefinition = newestCommit == null
-                                ? new TreeDefinition()
-                                : TreeDefinition.From(newestCommit.Tree);
-                            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, repositoryPath, absoluteOutputPath);
-
-                            var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
-                            var message = BuildCommitMessage(changeset, changesetReference, targetServer, repositoryPath);
-                            var identity = ResolveIdentity(changeset.Author ?? changeset.CheckedInBy ?? changesetReference.Author);
-                            var signature = new Signature(identity.Name, identity.Email, GetCommitDate(changeset, changesetReference));
-                            var parents = newestCommit == null ? Enumerable.Empty<Commit>() : new[] { newestCommit };
-                            var commit = repository.ObjectDatabase.CreateCommit(signature, signature, message, tree, parents, false);
-
-                            UpdateRefs(repository, commit, changeset.ChangesetId);
-                            newestCommit = commit;
-                            lastChangesetId = changeset.ChangesetId;
-                            fromChangesetId = changeset.ChangesetId;
-                            fetchedChangesets++;
-
-                            Trace.TraceInformation("C" + changeset.ChangesetId + " committed as " + commit.Sha + ".");
+                            ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
+                                absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets);
                         }
+                    }
+                    else
+                    {
+                        Trace.TraceWarning("Legacy TFVC history helper is unavailable; scanning project changesets as a REST fallback.");
+                        Trace.TraceInformation("Scanning project changesets and filtering changes under " + repositoryPath + ".");
 
-                        var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
-                        if (lastReferenceId <= pageStartChangesetId)
+                        while (true)
                         {
-                            if (pageStartChangesetId == int.MaxValue)
+                            var pageStartChangesetId = fromChangesetId;
+                            var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize,
+                                filterByItemPath: false);
+                            if (changesetReferences.Count == 0)
                                 break;
 
-                            // Some TFVC-compatible servers treat fromId as inclusive even though
-                            // the Azure DevOps REST contract describes it as exclusive. Move past
-                            // the repeated result so a folder history cannot stop at its first page.
-                            fromChangesetId = pageStartChangesetId + 1;
-                            Trace.TraceInformation("Changeset scan page did not advance; retrying after C"
-                                + pageStartChangesetId + ".");
-                            continue;
+                            Trace.TraceInformation("Changeset scan after C" + pageStartChangesetId + " returned "
+                                + changesetReferences.Count + " reference(s), through C"
+                                + changesetReferences.Max(reference => reference.ChangesetId) + ".");
+
+                            foreach (var changesetReference in changesetReferences.OrderBy(reference => reference.ChangesetId))
+                            {
+                                if (changesetReference.ChangesetId <= lastScannedChangesetId)
+                                    continue;
+
+                                lastScannedChangesetId = changesetReference.ChangesetId;
+                                ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
+                                    absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets);
+                            }
+
+                            var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
+                            if (lastReferenceId <= pageStartChangesetId)
+                            {
+                                if (pageStartChangesetId == int.MaxValue)
+                                    break;
+
+                                // Some TFVC-compatible servers treat fromId as inclusive even though
+                                // the Azure DevOps REST contract describes it as exclusive. Move past
+                                // the repeated result so a folder history cannot stop at its first page.
+                                fromChangesetId = pageStartChangesetId + 1;
+                                Trace.TraceInformation("Changeset scan page did not advance; retrying after C"
+                                    + pageStartChangesetId + ".");
+                                continue;
+                            }
+                            fromChangesetId = lastReferenceId;
                         }
-                        fromChangesetId = lastReferenceId;
                     }
 
                     if (newestCommit != null)
@@ -164,6 +162,39 @@ namespace GitTfs.Core.RestTfs
                 }
                 throw;
             }
+        }
+
+        private void ImportChangeset(RestTfsClient client, Repository repository, RestChangesetReference changesetReference,
+            string targetServer, string repositoryPath, string outputPath, IDictionary<string, string> pathMap,
+            ref Commit newestCommit, ref int lastChangesetId, ref int fetchedChangesets)
+        {
+            var changeset = client.GetChangeset(changesetReference.ChangesetId);
+            changeset.Changes ??= new List<RestChange>();
+            if (!HasChangesWithinRepository(changeset, repositoryPath))
+            {
+                Trace.TraceInformation("C" + changeset.ChangesetId + ": skipped; no changes under "
+                    + repositoryPath + ".");
+                return;
+            }
+
+            var treeDefinition = newestCommit == null
+                ? new TreeDefinition()
+                : TreeDefinition.From(newestCommit.Tree);
+            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, repositoryPath, outputPath);
+
+            var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
+            var message = BuildCommitMessage(changeset, changesetReference, targetServer, repositoryPath);
+            var identity = ResolveIdentity(changeset.Author ?? changeset.CheckedInBy ?? changesetReference.Author);
+            var signature = new Signature(identity.Name, identity.Email, GetCommitDate(changeset, changesetReference));
+            var parents = newestCommit == null ? Enumerable.Empty<Commit>() : new[] { newestCommit };
+            var commit = repository.ObjectDatabase.CreateCommit(signature, signature, message, tree, parents, false);
+
+            UpdateRefs(repository, commit, changeset.ChangesetId);
+            newestCommit = commit;
+            lastChangesetId = changeset.ChangesetId;
+            fetchedChangesets++;
+
+            Trace.TraceInformation("C" + changeset.ChangesetId + " committed as " + commit.Sha + ".");
         }
 
         private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,

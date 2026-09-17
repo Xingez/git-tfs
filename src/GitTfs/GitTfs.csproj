@@ -5,6 +5,7 @@
     <AssemblyName>git-tfs</AssemblyName>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <ResolveAssemblyReferencesFindRelatedSatellites>false</ResolveAssemblyReferencesFindRelatedSatellites>
+    <NoWarn>$(NoWarn);NU1702</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\CommonAssemblyInfo.cs">
@@ -29,10 +30,25 @@
     <None Include="Core\TfsInterop\README.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\GitTfs.LegacyHistory\GitTfs.LegacyHistory.csproj"
+                      ReferenceOutputAssembly="false"
+                      BuildReference="true" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="LibGit2Sharp" Version="0.30.0" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
   </ItemGroup>
+
+  <Target Name="CopyLegacyHistoryHelper" AfterTargets="Build">
+    <ItemGroup>
+      <LegacyHistoryFiles Include="..\GitTfs.LegacyHistory\bin\$(Configuration)\net48\**\*" />
+    </ItemGroup>
+    <MakeDir Directories="$(TargetDir)legacy-history" />
+    <Copy SourceFiles="@(LegacyHistoryFiles)"
+          DestinationFiles="@(LegacyHistoryFiles->'$(TargetDir)legacy-history\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
