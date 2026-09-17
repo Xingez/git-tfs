@@ -44,10 +44,6 @@
     <Reference Include="$(PkgMicrosoft_VisualStudio_Services_Client)\lib\net462\*.dll" Private="true" />
     <Reference Include="$(PkgMicrosoft_VisualStudio_Services_InteractiveClient)\lib\net462\*.dll" Private="true" />
   </ItemGroup>
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /y /I &quot;$(TargetDir)*.dll&quot; &quot;$(SolutionDir)GitTfs\$(OutDir)$(ProjectName)&quot;" />
-    <Exec Command="xcopy /y /I &quot;$(TargetDir)*.pdb&quot; &quot;$(SolutionDir)GitTfs\$(OutDir)$(ProjectName)&quot;" />
-  </Target>
   <Target Name="PreferDesktopTfsClientAssemblies" BeforeTargets="CoreCompile">
     <ItemGroup>
       <ReferencePath Remove="$(PkgMicrosoft_VisualStudio_Services_Client)\lib\netstandard2.0\*.dll" />
