@@ -1,19 +1,16 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PlatformTarget>AnyCPU</PlatformTarget>
+    <SolutionDir Condition="'$(SolutionDir)' == '' Or '$(SolutionDir)' == '*Undefined*'">$(MSBuildThisFileDirectory)</SolutionDir>
 
-    <LangVersion>12</LangVersion>
+    <LangVersion>14</LangVersion>
     <NoWarn>$(NoWarn);1573;1591;1712;NU1903</NoWarn>
     <!-- <TreatWarningsAsErrors>true</TreatWarningsAsErrors> -->
     <!-- <Nullable>enable</Nullable> -->
 
     <ImplicitUsings>enable</ImplicitUsings>
-
-    <!-- More information: https://aka.ms/msbuild/net8-binaryformatter -->
-    <GenerateResourceWarnOnBinaryFormatterUse>false</GenerateResourceWarnOnBinaryFormatterUse>
 
     <!-- SourceLink: https://github.com/dotnet/sourcelink -->
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

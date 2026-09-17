@@ -1,10 +1,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using NDesk.Options;
+using GitTfs.Util;
 using GitTfs.Core;
 using StructureMap;
-using GitTfs.Util;
 
 namespace GitTfs.Commands
 {

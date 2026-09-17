@@ -1,10 +1,10 @@
-﻿using Xunit;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 using Moq;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class DirectoryTidierTests : BaseTest, IDisposable
     {
         private readonly MockRepository mocks;
@@ -52,19 +52,19 @@ namespace GitTfs.Test.Core
 
         private void TidyDisposeToProcess() => ((IDisposable)Tidy).Dispose();
 
-        [Fact]
+        [TestMethod]
         public void PassesThroughGetLocalPath()
         {
             Mock.Get(mockWorkspace).Setup(x => x.GetLocalPath("git-path")).Returns("tfs-path");
             Assert.Equal("tfs-path", Tidy.GetLocalPath("git-path"));
         }
 
-        [Fact]
+        [TestMethod]
         public void NoChangesMeansNoChanges() =>
             // nothing!
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
 
-        [Fact]
+        [TestMethod]
         public void AddingAFilePassesThroughAndDoesNotRemoveOtherItems()
         {
             Tidy.Add("topDir/midDir/bottomDir/newFile.txt");
@@ -75,7 +75,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void RemovingAFileWithSiblingsDoesNotRemoveTheDir()
         {
             Tidy.Delete("topDir/midDir/bottomDir/file1.txt");
@@ -86,7 +86,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void RemovingBothSiblingFilesRemovesTheDir()
         {
             Tidy.Delete("topDir/midDir/bottomDir/file1.txt");
@@ -100,7 +100,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void NoDoubleDelete()
         {
             Tidy.Delete("topDir/midDir/bottomDir/file1.txt");
@@ -114,7 +114,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void RemovingAFileRemovesAllEmptyParents()
         {
             Tidy.Delete("dir1/dir2/dir3/lonelyFile.txt");
@@ -127,7 +127,7 @@ namespace GitTfs.Test.Core
         }
 
 
-        [Fact]
+        [TestMethod]
         public void SourceDirectoryOfRenameShouldNotBeDeleted()
         {
             // Even though a directory may end up empty after a file has been moved from it,
@@ -145,7 +145,7 @@ namespace GitTfs.Test.Core
             // "topDir/midDir/bottomDir/" becomes empty but is not deleted
         }
 
-        [Fact]
+        [TestMethod]
         public void MovingAFileOutLeavesAllEmptyParents()
         {
             Tidy.Rename("dir1/dir2/dir3/lonelyFile.txt", "otherdir/otherdir2/newName.txt", ScoreIsIrrelevant);
@@ -156,7 +156,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void DeleteOnlyTheTopOfEmptyDirTree()
         {
             Tidy.Delete("dirA/file.txt");
@@ -170,7 +170,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void MovingAFileOutAndInLeavesParents()
         {
             Tidy.Rename("dir1/dir2/dir3/lonelyFile.txt", "otherdir/otherdir2/newName.txt", ScoreIsIrrelevant);
@@ -183,7 +183,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void DeletingAFileAndAddingAnotherLeavesParents()
         {
             Tidy.Delete("dir1/dir2/dir3/lonelyFile.txt");
@@ -196,7 +196,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void DeletingAFileAndAddingAnotherInANewSubdirectoryLeavesParents()
         {
             Tidy.Delete("top/file.txt");
@@ -209,7 +209,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void DeletingAFileAndAddingAnotherInANewSiblingDirectoryLeavesParent()
         {
             Tidy.Delete("top/sub1/file.txt");
@@ -223,7 +223,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void DeletingAFileAndMovingAnotherInLeavesTheDirectory()
         {
             Tidy.Delete("dir/file1.txt");
@@ -236,7 +236,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void RemovingAllFilesRemovesAllParents()
         {
             Tidy.Delete("topDir/midDir/bottomDir/file1.txt");
@@ -256,7 +256,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void TidyDoesNotCareWhatCaseYouUse()
         {
             Tidy.Delete("TOPDIR/MIDDIR/BOTTOMDIR/FILE1.TXT");
@@ -274,7 +274,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void HandlesEditAndRenameOnSameFile()
         {
             Tidy.Edit("topDir/midDir/bottomDir/file1.txt");
@@ -287,7 +287,7 @@ namespace GitTfs.Test.Core
             Mock.Get(mockWorkspace).VerifyNoOtherCalls();
         }
 
-        [Fact]
+        [TestMethod]
         public void TidyThrowsWhenMultipleOperationsOnTheSameFileOccur()
         {
             var workspace = mocks.OneOf<ITfsWorkspaceModifier>();

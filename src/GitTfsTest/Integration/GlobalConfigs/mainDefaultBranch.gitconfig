@@ -6,3 +6,7 @@
 
 [init]
 	defaultBranch = main
+
+[user]
+	name = Git Tfs Tests
+	email = git-tfs-tests@example.invalid

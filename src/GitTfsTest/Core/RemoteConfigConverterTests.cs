@@ -1,33 +1,34 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Core;
 
 using LibGit2Sharp;
 
-using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class RemoteConfigConverterTests : BaseTest
     {
+        [TestClass]
         public class DumpTests : BaseTest
         {
             private readonly RemoteConfigConverter _dumper = new RemoteConfigConverter();
 
-            [Fact]
+            [TestMethod]
             public void DumpsNothingWithNoId()
             {
                 var remote = new RemoteInfo { Url = "http://server/path", Repository = "$/Project" };
                 Assert.Empty(_dumper.Dump(remote));
             }
 
-            [Fact]
+            [TestMethod]
             public void DumpsNothingWithBlankId()
             {
                 var remote = new RemoteInfo { Id = "  ", Url = "http://server/path", Repository = "$/Project" };
                 Assert.Empty(_dumper.Dump(remote));
             }
 
-            [Fact]
+            [TestMethod]
             public void DumpsMinimalRemote()
             {
                 var remote = new RemoteInfo { Id = "default", Url = "http://server/path", Repository = "$/Project" };
@@ -42,7 +43,7 @@ namespace GitTfs.Test.Core
                 AssertContainsConfig("tfs-remote.default.noparallel", null, config);
             }
 
-            [Fact]
+            [TestMethod]
             public void DumpsCompleteRemote()
             {
                 var remote = new RemoteInfo
@@ -75,7 +76,7 @@ namespace GitTfs.Test.Core
             /// <summary>
             /// Test to ensure that RemoteInfo properties are set correctly when populated via a RemoteOptions object.
             /// </summary>
-            [Fact]
+            [TestMethod]
             public void DumpsCompleteRemoteAlt()
             {
                 var remote = new RemoteInfo
@@ -111,7 +112,7 @@ namespace GitTfs.Test.Core
             /// <summary>
             /// Test to ensure that when the RemoteOptions object is retrieved from a RemoteInfo object it's properties are set correctly
             /// </summary>
-            [Fact]
+            [TestMethod]
             public void RetrieveRemoteOptionsFromRemoteInfo()
             {
                 var remote = new RemoteInfo
@@ -141,20 +142,22 @@ namespace GitTfs.Test.Core
             private void AssertContainsConfig(string key, string value, IEnumerable<KeyValuePair<string, string>> configs) => Assert.Contains(new KeyValuePair<string, string>(key, value), configs);
         }
 
+        [TestClass]
+
         public class LoadTests : BaseTest
         {
             private readonly RemoteConfigConverter _loader = new RemoteConfigConverter();
 
             private IEnumerable<RemoteInfo> Load(params ConfigurationEntry<string>[] configs) => _loader.Load(configs);
 
-            [Fact]
+            [TestMethod]
             public void NoConfig()
             {
                 var remotes = _loader.Load(Enumerable.Empty<ConfigurationEntry<string>>());
                 Assert.Empty(remotes);
             }
 
-            [Fact]
+            [TestMethod]
             public void OnlyGitConfig()
             {
                 var remotes = Load(
@@ -163,7 +166,7 @@ namespace GitTfs.Test.Core
                 Assert.Empty(remotes);
             }
 
-            [Fact]
+            [TestMethod]
             public void MinimalRemote()
             {
                 var remotes = Load(
@@ -179,7 +182,7 @@ namespace GitTfs.Test.Core
                 Assert.Null(remote.IgnoreRegex);
             }
 
-            [Fact]
+            [TestMethod]
             public void RemoteWithEverything()
             {
                 var remotes = Load(
@@ -209,7 +212,7 @@ namespace GitTfs.Test.Core
             }
 
 
-            [Fact]
+            [TestMethod]
             public void ShouldNotReturnLackingTfsUrlRemote()
             {
                 var remotes = Load(
@@ -220,7 +223,7 @@ namespace GitTfs.Test.Core
 
         private readonly RemoteConfigConverter _converter = new RemoteConfigConverter();
 
-        [Fact]
+        [TestMethod]
         public void MultipleRemotes()
         {
             var remote1 = new RemoteInfo { Id = "a", Url = "http://a", Repository = "$/a" };
@@ -233,7 +236,7 @@ namespace GitTfs.Test.Core
             Assert.Equal(new string[] { "a", "b" }, remotes.Select(r => r.Id).OrderBy(s => s));
         }
 
-        [Fact]
+        [TestMethod]
         public void HandlesDotsInName()
         {
             var originalRemote = new RemoteInfo { Id = "has.dots.in.it", Url = "http://do/not/care", Repository = "$/do/not/care" };

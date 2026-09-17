@@ -1,17 +1,16 @@
-﻿
+
 namespace GitTfs.Test
 {
     public class BaseTest
     {
         /// <summary>
         /// Set this variable to `true` to display trace logs
-        /// This value is set by default to false because xunit runner >v2.0 do not hide these logs anymore
-        /// and it too much logs are displayed in build output (AppVeyor page is too heavy to load and read!)
+        /// This value is false by default because verbose trace output makes automated build logs difficult to read.
         /// </summary>
         public const bool DebugTests = false;
 
         public static bool DisplayTrace => System.Diagnostics.Debugger.IsAttached || DebugTests;
-        public BaseTest()
+        static BaseTest()
         {
             Globals.DisableGarbageCollect = true;
             if (!DisplayTrace)

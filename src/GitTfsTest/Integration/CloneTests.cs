@@ -1,29 +1,26 @@
-﻿using LibGit2Sharp;
+using LibGit2Sharp;
 using GitTfs.Core.TfsInterop;
 using GitTfs.Test.Fixtures;
-using Xunit;
-using Xunit.Abstractions;
 
 namespace GitTfs.Test.Integration
 {
     //NOTE: All timestamps in these tests must specify a time zone. If they don't, the local time zone will be used in the DateTime,
     //      but the commit timestamp will use the ToUniversalTime() version of the DateTime.
     //      This will cause the hashes to differ on computers in different time zones.
+    [TestClass]
     public class CloneTests : BaseTest, IDisposable
     {
-        private readonly ITestOutputHelper _output;
         private readonly IntegrationHelper h;
 
-        public CloneTests(ITestOutputHelper output)
+        public CloneTests()
         {
-            _output = output;
             h = new IntegrationHelper();
-            _output.WriteLine("Repository in folder: " + h.Workdir);
+            Console.WriteLine("Repository in folder: " + h.Workdir);
         }
 
         public void Dispose() => h.Dispose();
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void ClonesEmptyProject()
         {
             h.SetupFake(r =>
@@ -38,7 +35,7 @@ namespace GitTfs.Test.Integration
                 tree: "4b825dc642cb6eb9a060e54bf8d69288fbee4904");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneProjectWithChangesets()
         {
             h.SetupFake(r =>
@@ -59,7 +56,7 @@ namespace GitTfs.Test.Integration
                 tree: "41ab05d8f2a0f7f7f3a39c623e94fee68f64797e");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneProjectWithInternationalCharactersInFileNamesAndFolderNames()
         {
             h.SetupFake(r =>
@@ -77,7 +74,7 @@ namespace GitTfs.Test.Integration
                 tree: "14f207f532105e6df76cf69d6481d84b9e5b17ad");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneProjectWithInternationalCharactersInFileContents()
         {
             h.SetupFake(r =>
@@ -95,7 +92,7 @@ namespace GitTfs.Test.Integration
                 tree: "57336850a107184ca05911c9ac6cba8d1fd212fc");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneProjectWithInternationalCharactersInCommitMessages()
         {
             h.SetupFake(r =>
@@ -114,7 +111,7 @@ namespace GitTfs.Test.Integration
                 tree: "3f8b26f2594b7ca2370388c99739e56a64954f00");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneWithMixedUpCase()
         {
             h.SetupFake(r =>
@@ -166,7 +163,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Edit | TfsChangeType.Merge, TfsItemType.File, "$/MyProject/Main/File.txt", "File contents_main_branch=>_merge");
             });
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void WhenCloningTrunkWithMergeChangesetWithAllBranches_ThenThe2BranchesAreAutomaticallyInitialized()
         {
             CreateFakeRepositoryWithMergeChangeset();
@@ -182,7 +179,7 @@ namespace GitTfs.Test.Integration
                 tree: "c379179fee2ce45e44a5a2dd1d9bcf5ce8489608");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void WhenCloningTrunkWithMergeChangeset_ThenTheMergedBranchIsAutomaticallyInitialized()
         {
             CreateFakeRepositoryWithMergeChangeset();
@@ -198,7 +195,7 @@ namespace GitTfs.Test.Integration
                 tree: "c379179fee2ce45e44a5a2dd1d9bcf5ce8489608");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void WhenCloningFunctionalTestVtccdsWithBranchesRenaming_ThenAllRenamesShouldBeWellHandled()
         {
             h.SetupFake(r =>
@@ -222,7 +219,7 @@ namespace GitTfs.Test.Integration
             h.AssertNoRef("Vtccds", "refs/remotes/tfs/testRename");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void WhenCloningFunctionalTestVtccdsWithBranchesRenamingAndGitignore_ThenAllRenamesShouldBeWellHandled()
         {
             // This test duplicates WhenCloningFunctionalTestVtccdsWithBranchesRenaming_ThenAllRenamesShouldBeWellHandled, but with
@@ -262,7 +259,7 @@ namespace GitTfs.Test.Integration
             h.AssertNoRef("Vtccds", "refs/remotes/tfs/testRename");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void WhenCloningTrunkWithIgnoringBranches_ThenTheMergedBranchIsAutomaticallyInitialized()
         {
             CreateFakeRepositoryWithMergeChangeset();
@@ -302,7 +299,7 @@ namespace GitTfs.Test.Integration
 
         #region ignore regexes
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void IgnoresAFile()
         {
             h.SetupFake(r =>
@@ -317,7 +314,7 @@ namespace GitTfs.Test.Integration
             h.AssertNoFileInWorkspace("MyProject", "app.exe");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void WorksForACommitWithOnlyIgnoredFiles()
         {
             h.SetupFake(r =>
@@ -334,7 +331,7 @@ namespace GitTfs.Test.Integration
             h.AssertNoFileInWorkspace("MyProject", "app.exe");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void LineEndingsNormalizedWhenAutocrlf()
         {
             h.SetupFake(r =>
@@ -350,7 +347,7 @@ namespace GitTfs.Test.Integration
             h.AssertFileInIndex("MyProject", "README", "tld \n another line \n");
         }
         
-        [FactExceptOnUnix]
+        [TestMethod]
         public void LineNotNormalizedWhenAutocrlfFalse()
         {
             h.SetupFake(r =>
@@ -365,7 +362,7 @@ namespace GitTfs.Test.Integration
             h.AssertFileInIndex("MyProject", "README", "tld \r\n another line \r\n");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void LineNotNormalizedWhenGitIgnoreGivenAndAutocrlfFalse_Issue1398()
         {
             string readmeContent = "tld \r\n another line \r\n";
@@ -392,7 +389,7 @@ namespace GitTfs.Test.Integration
             h.AssertFileInIndex("MyProject", "README", readmeContent);
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void HandlesIgnoredFilesParticipatingInRenames()
         {
             h.SetupFake(r =>
@@ -417,7 +414,7 @@ namespace GitTfs.Test.Integration
 
         #endregion
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneWithAllBranchesShouldHandleFolderDeletedAndRecreatedAsBranch()
         {
             h.SetupFake(r =>
@@ -479,7 +476,7 @@ namespace GitTfs.Test.Integration
             AssertNewClone("MyTeamProject", refs);
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneUsingInitialBranchOption()
         {
             h.SetupFake(r =>
@@ -500,7 +497,7 @@ namespace GitTfs.Test.Integration
                 tree: "41ab05d8f2a0f7f7f3a39c623e94fee68f64797e");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneWithMainAndGitignore()
         {
             // Verifies that no extraneous "master" branch is introduced when git is configured to use
@@ -529,7 +526,7 @@ namespace GitTfs.Test.Integration
             h.AssertNoRef("MyProject", "master");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneWithFirstTFSChangesetIsRename()
         {
             // Tests for the special case where the first TFS changeset is a rename changeset and --gitignore is not used (see issue #1409)
@@ -552,7 +549,7 @@ namespace GitTfs.Test.Integration
                 tree: "41ab05d8f2a0f7f7f3a39c623e94fee68f64797e");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CloneWithFirstTFSChangesetIsRenameAndGitignoreGiven()
         {
             // Tests for the special case where the first TFS changeset is a rename changeset and --gitignore is used (see issue #1409)

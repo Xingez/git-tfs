@@ -4,10 +4,10 @@ using GitTfs.Util;
 
 using Moq;
 
-using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class ChangeSieveTests : BaseTest
     {
         #region Base fixture
@@ -72,7 +72,7 @@ namespace GitTfs.Test.Core
                 //BaseFixture.Mocks.ReplayAll();
             }
 
-            public void Dispose()
+            public virtual void Dispose()
             {
                 BaseFixture.RemoteMock.Verify(r => r.GetPathInGitRepo(It.IsAny<string>()), Times.AtLeastOnce);
                 BaseFixture.RemoteMock.Verify(r => r.ShouldSkip(It.IsAny<string>()), Times.Never);
@@ -186,7 +186,9 @@ namespace GitTfs.Test.Core
 
         #endregion
 
-        public class WithNoChanges : Base<WithNoChanges.Fixture>, IDisposable
+        [TestClass]
+
+        public class WithNoChanges : Base<WithNoChanges.Fixture>
         {
             public class Fixture : BaseFixture
             {
@@ -196,13 +198,13 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void HasEmptyChangesToFetch() => Assert.Empty(Subject.GetChangesToFetch());
 
-            [Fact]
+            [TestMethod]
             public void HasEmptyChangesToApply() => AssertChanges(Subject.GetChangesToApply() /* expect an empty list */);
 
-            public new void Dispose()
+            public override void Dispose()
             {
                 BaseFixture.RemoteMock.Verify(r => r.GetPathInGitRepo(It.IsAny<string>()), Times.Never);
                 BaseFixture.RemoteMock.Verify(r => r.ShouldSkip(It.IsAny<string>()), Times.Never);
@@ -210,6 +212,8 @@ namespace GitTfs.Test.Core
                 BaseFixture.RemoteMock.Verify(r => r.IsInDotGit(It.IsAny<string>()), Times.Never);
             }
         }
+
+        [TestClass]
 
         public class WithAddsAndDeletes : Base<WithAddsAndDeletes.Fixture>
         {
@@ -227,7 +231,7 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void FetchesAllChanges()
             {
                 var fetchChanges = Subject.GetChangesToFetch().ToArray();
@@ -239,7 +243,7 @@ namespace GitTfs.Test.Core
                 Assert.Contains(Changes[4], fetchChanges);
             }
 
-            [Fact]
+            [TestMethod]
             public void SplitsRenamesAndPutsDeletesFirst() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Delete("file2.txt"),
                     ApplicableChange.Delete("file4.txt"),
@@ -248,6 +252,8 @@ namespace GitTfs.Test.Core
                     ApplicableChange.Update("file3.txt"),
                     ApplicableChange.Update("file5.txt"));
         }
+
+        [TestClass]
 
         public class WithIgnoredThings : Base<WithIgnoredThings.Fixture>
         {
@@ -267,7 +273,7 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void FetchesAllExceptIgnored()
             {
                 var fetchChanges = Subject.GetChangesToFetch().ToArray();
@@ -277,7 +283,7 @@ namespace GitTfs.Test.Core
                 Assert.Contains(Changes[6], fetchChanges);
             }
 
-            [Fact]
+            [TestMethod]
             public void AppliesDeletesFirst() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Delete("1-ignored.txt"),
                     ApplicableChange.Delete("3-included.txt"),
@@ -290,6 +296,8 @@ namespace GitTfs.Test.Core
                     ApplicableChange.Ignore("4-ignored.txt"),
                     ApplicableChange.Ignore("5-ignored.txt"));
         }
+
+        [TestClass]
 
         public class SkipDeletedThings : Base<SkipDeletedThings.Fixture>
         {
@@ -304,10 +312,12 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void DoesNotApplyDeletedRenamedFile() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Delete("oldfile1.txt"));
         }
+
+        [TestClass]
 
         public class DirsAndPathsOutsideTheProject : Base<DirsAndPathsOutsideTheProject.Fixture>
         {
@@ -324,14 +334,16 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void DoesNotFetchFilesOutside() => Assert.Equal(new string[] { "$/Project/dir1", "$/Project/movedinside.txt" }, Subject.GetChangesToFetch().Select(c => c.Item.ServerItem));
 
-            [Fact]
+            [TestMethod]
             public void OnlyAppliesChangesInsideTheProject() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Delete("startedinside.txt"),
                     ApplicableChange.Update("movedinside.txt"));
         }
+
+        [TestClass]
 
         public class WithExistingItems : Base<WithExistingItems.Fixture>
         {
@@ -353,14 +365,14 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void UpdatesPathCasing() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Delete("dir2/file2.txt"),
                     ApplicableChange.Update("dir2/file3.txt"),
                     ApplicableChange.Update("dir1/file1.exe"),
                     ApplicableChange.Update("dir1/file4.txt"));
 
-            [Fact]
+            [TestMethod]
             public void PreservesFileMode()
             {
                 var toApply = Subject.GetChangesToApply().ToArray();
@@ -369,6 +381,8 @@ namespace GitTfs.Test.Core
                 Assert.Equal("100644", toApply[3].Mode.ToModeString()); // existing normal file
             }
         }
+
+        [TestClass]
 
         public class SkipBranchedThings : Base<SkipBranchedThings.Fixture>
         {
@@ -387,7 +401,7 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void DoesNotFetchBranchedFile()
             {
                 var fetchChanges = Subject.GetChangesToFetch().ToArray();
@@ -398,13 +412,15 @@ namespace GitTfs.Test.Core
                 Assert.Contains(Changes[3], fetchChanges);
             }
 
-            [Fact]
+            [TestMethod]
             public void DoesNotApplyBranchedFile() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Delete("oldfile9.txt"),
                     ApplicableChange.Update("file7.txt"),
                     ApplicableChange.Update("file8.txt"),
                     ApplicableChange.Update("file9.txt"));
         }
+
+        [TestClass]
 
         public class SkipMergedThings : Base<SkipMergedThings.Fixture>
         {
@@ -425,7 +441,7 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void DoesNotFetchBranchedFile()
             {
                 var fetchChanges = Subject.GetChangesToFetch().ToArray();
@@ -437,7 +453,7 @@ namespace GitTfs.Test.Core
                 Assert.Contains(Changes[4], fetchChanges);
             }
 
-            [Fact]
+            [TestMethod]
             public void DoesNotApplyBranchedFile() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Delete("oldfile10.txt"),
                     ApplicableChange.Update("file8.txt"),
@@ -445,7 +461,9 @@ namespace GitTfs.Test.Core
                     ApplicableChange.Update("file10.txt"));
         }
 
-        public class WithDeleteMainFolderBranchAndSubItems : Base<WithDeleteMainFolderBranchAndSubItems.Fixture>, IDisposable
+        [TestClass]
+
+        public class WithDeleteMainFolderBranchAndSubItems : Base<WithDeleteMainFolderBranchAndSubItems.Fixture>
         {
             public class Fixture : BaseFixture
             {
@@ -463,15 +481,15 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void WhenMainBranchFolderIsDeleted_ThenKeepFileInGitCommitByDoingNothing() => Assert.Empty(Subject.GetChangesToApply());
 
-            [Fact]
+            [TestMethod]
             public void DoNotFetch() =>
                 // Because we're not going to apply changes, don't waste time fetching any.
                 Assert.Empty(Subject.GetChangesToFetch());
 
-            public new void Dispose()
+            public override void Dispose()
             {
                 BaseFixture.RemoteMock.Verify(r => r.GetPathInGitRepo(It.IsAny<string>()), Times.Exactly(4));
                 BaseFixture.RemoteMock.Verify(r => r.ShouldSkip(It.IsAny<string>()), Times.Never);
@@ -479,6 +497,8 @@ namespace GitTfs.Test.Core
                 BaseFixture.RemoteMock.Verify(r => r.IsInDotGit(It.IsAny<string>()), Times.Never);
             }
         }
+
+        [TestClass]
 
         public class WithDeleteOtherFolder : Base<WithDeleteOtherFolder.Fixture>, IDisposable
         {
@@ -496,13 +516,15 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void IncludesChangesInThisProject() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Update("file1.txt"));
 
-            [Fact]
+            [TestMethod]
             public void FetchesChangesInThisProject() => Assert.Equal(new string[] { "$/Project/file1.txt" }, Subject.GetChangesToFetch().Select(c => c.Item.ServerItem));
         }
+
+        [TestClass]
 
         public class RenamedFromDeleted : Base<RenamedFromDeleted.Fixture>
         {
@@ -516,7 +538,7 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            [Fact]
+            [TestMethod]
             public void FetchesItemRenamedAfterDelete() => AssertChanges(Subject.GetChangesToApply(),
                     ApplicableChange.Update("file1.txt"));
 

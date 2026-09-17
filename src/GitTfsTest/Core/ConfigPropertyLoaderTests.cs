@@ -1,12 +1,12 @@
-﻿using GitTfs.Core;
+using GitTfs.Core;
 using GitTfs.Util;
 
 using StructureMap;
 
-using Xunit;
 
 namespace GitTfs.Test.Integration
 {
+    [TestClass]
     public class ConfigPropertyLoaderTests : BaseTest, IDisposable
     {
         private readonly IntegrationHelper h = new IntegrationHelper();
@@ -18,7 +18,7 @@ namespace GitTfs.Test.Integration
 
         public void Dispose() => h.Dispose();
 
-        [Fact]
+        [TestMethod]
         public void WhenNoValueIsSet_ThenDefaultValueIsReturned()
         {
             h.SetupGitRepo("repo", g =>
@@ -34,7 +34,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenANewValueIsSet_ThenThisValueIsReturned()
         {
             h.SetupGitRepo("repo", g =>
@@ -53,7 +53,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenANewValueIsSetThrougthGitConfigFile_ThenThisValueIsReturned()
         {
             h.SetupGitRepo("repo", g =>
@@ -71,7 +71,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenANewValueIsSetAndPersistedInTheGitConfigFile_ThenThisValueAppearInTheGitConfigFile()
         {
             h.SetupGitRepo("repo", g =>

@@ -1,7 +1,6 @@
 using System.ComponentModel;
-using NDesk.Options;
-using GitTfs.Core;
 using GitTfs.Util;
+using GitTfs.Core;
 using StructureMap;
 using StructureMap.Query;
 using IContainer = StructureMap.IContainer;

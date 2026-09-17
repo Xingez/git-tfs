@@ -1,25 +1,22 @@
-﻿using GitTfs.Core.TfsInterop;
+using GitTfs.Core.TfsInterop;
 
-using Xunit;
-using Xunit.Abstractions;
 
 namespace GitTfs.Test.Integration
 {
+    [TestClass]
     public class FetchTests : BaseTest, IDisposable
     {
-        private readonly ITestOutputHelper _output;
         private readonly IntegrationHelper integrationHelper;
 
-        public FetchTests(ITestOutputHelper output)
+        public FetchTests()
         {
-            _output = output;
             integrationHelper = new IntegrationHelper();
-            _output.WriteLine("Repository in folder: " + integrationHelper.Workdir);
+            Console.WriteLine("Repository in folder: " + integrationHelper.Workdir);
         }
 
         public void Dispose() => integrationHelper.Dispose();
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CanFetchWithMixedUpCasingForTfsServerUrl()
         {
             CloneRepoWithTwoCommits();
@@ -32,7 +29,7 @@ namespace GitTfs.Test.Integration
             Assert.Equal(3, integrationHelper.GetCommitCount("MyProject"));
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CanFetchWithMixedUpCasingForLegacyTfsServerUrl()
         {
             CloneRepoWithTwoCommits();
@@ -46,7 +43,7 @@ namespace GitTfs.Test.Integration
             Assert.Equal(3, integrationHelper.GetCommitCount("MyProject"));
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CanFetchWithMixedUpCasingForTfsRepositoryPath()
         {
             CloneRepoWithTwoCommits();

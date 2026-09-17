@@ -1,14 +1,14 @@
-﻿using System.Text;
+using System.Text;
 
 using GitTfs.Core;
 
-using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class DelimitedReaderTests : BaseTest
     {
-        [Fact]
+        [TestMethod]
         public void ShouldParseTwoNullTerminatedStrings()
         {
             var bytes = new List<byte>();
@@ -22,7 +22,7 @@ namespace GitTfs.Test.Core
             Assert.Null(reader.Read());
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldParseWhenLastStringHasNoTerminator()
         {
             var bytes = new List<byte>();

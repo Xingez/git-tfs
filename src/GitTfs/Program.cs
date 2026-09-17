@@ -6,16 +6,17 @@ using GitTfs.Core.TfsInterop;
 using GitTfs.Util;
 using StructureMap;
 using StructureMap.Graph;
-using NLog;
-using NLog.Conditions;
-using NLog.Config;
-using NLog.Targets;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
+using Serilog.Sinks.SystemConsole.Themes;
 
 namespace GitTfs
 {
     public class Program
     {
         private static string _logFilePath;
+        private static LoggingLevelSwitch _consoleLevelSwitch;
 
         [STAThread]
         public static void Main(string[] args)
@@ -86,6 +87,7 @@ namespace GitTfs
             ConfigureLogger();
             var tfsPlugin = TfsPlugin.Find();
             initializer.Scan(x => { Initialize(x); tfsPlugin.Initialize(x); });
+            initializer.For<GitTfsSettings>().Use(GitTfsSettings.Load());
             initializer.For<IGitRepository>().Add<GitRepository>();
             AddGitChangeTypes(initializer);
             DoCustomConfiguration(initializer);
@@ -96,43 +98,26 @@ namespace GitTfs
         {
             try
             {
-                //Step 1.Create configuration object
-                var config = new LoggingConfiguration();
+                var logDirectory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "git-tfs");
+                Directory.CreateDirectory(logDirectory);
+                _logFilePath = Path.Combine(logDirectory, GitTfsConstants.LogFileName);
+                _consoleLevelSwitch = new LoggingLevelSwitch(LogEventLevel.Information);
 
-                // Step 2. Create targets and add them to the configuration
-                var consoleTarget = new ColoredConsoleTarget();
-                config.AddTarget("console", consoleTarget);
+                Log.Logger = new LoggerConfiguration()
+                    .MinimumLevel.Debug()
+                    .WriteTo.Console(
+                        levelSwitch: _consoleLevelSwitch,
+                        outputTemplate: "{Message:lj}{NewLine}",
+                        theme: SystemConsoleTheme.Literate)
+                    .WriteTo.File(
+                        _logFilePath,
+                        restrictedToMinimumLevel: LogEventLevel.Debug,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}")
+                    .CreateLogger();
 
-                var fileTarget = new FileTarget();
-                config.AddTarget("file", fileTarget);
-
-                if (Console.BackgroundColor == ConsoleColor.White)
-                {
-                    ChangeConsoleColorForLevel(consoleTarget, nameof(LogLevel.Info), ConsoleOutputColor.Black);
-                    ChangeConsoleColorForLevel(consoleTarget, nameof(LogLevel.Error), ConsoleOutputColor.Red);
-                }
-
-                // Step 3. Set target properties
-                consoleTarget.Layout = @"${message}";
-                fileTarget.FileName = @"${specialfolder:LocalApplicationData}\git-tfs\" + GitTfsConstants.LogFileName;
-                fileTarget.Layout = "${longdate} [${level}] ${message}";
-
-                // Step 4. Define rules
-                var consoleRule = new LoggingRule("*", LogLevel.Info, consoleTarget);
-                config.LoggingRules.Add(consoleRule);
-
-                var fileRule = new LoggingRule("*", LogLevel.Debug, fileTarget);
-                config.LoggingRules.Add(fileRule);
-
-                // Step 5. Activate the configuration
-                LogManager.Configuration = config;
-
-                var logger = LogManager.GetLogger("git-tfs");
-
-                Trace.Listeners.Add(new NLogTraceListener());
-
-                var logEventInfo = new LogEventInfo { TimeStamp = DateTime.Now };
-                _logFilePath = fileTarget.FileName.Render(logEventInfo);
+                Trace.Listeners.Add(new SerilogTraceListener());
             }
             catch (Exception ex)
             {
@@ -141,11 +126,7 @@ namespace GitTfs
             }
         }
 
-        private static void ChangeConsoleColorForLevel(ColoredConsoleTarget consoleTarget, string level, ConsoleOutputColor foregroundColor) => consoleTarget.RowHighlightingRules.Add(new ConsoleRowHighlightingRule
-        {
-            Condition = ConditionParser.ParseExpression("level == LogLevel." + level),
-            ForegroundColor = foregroundColor
-        });
+        internal static void EnableDebugLogging() => _consoleLevelSwitch?.MinimumLevel = LogEventLevel.Debug;
 
         public static void AddGitChangeTypes(ConfigurationExpression initializer)
         {

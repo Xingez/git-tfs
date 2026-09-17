@@ -1,13 +1,13 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 
 using Moq;
 
-using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class GlobalsTests : BaseTest
     {
         private readonly Globals _globals;
@@ -21,7 +21,7 @@ namespace GitTfs.Test.Core
             _tfsHelper = new Mock<ITfsHelper>().Object;
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenUserSpecifyARemote_ThenReturnIt()
         {
             _globals.UserSpecifiedRemoteId = "IWantThatRemote";
@@ -29,7 +29,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("IWantThatRemote", _globals.RemoteId);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenOnlyOneRemoteFoundInParentCommits_ThenReturnIt()
         {
             _gitRepositoryMock.Setup(r => r.GetLastParentTfsCommits("HEAD"))
@@ -46,7 +46,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("myRemote", _globals.RemoteId);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenTwoRemotesFoundInParentCommits_ThenReturnTheFirst()
         {
             _gitRepositoryMock.Setup(r => r.GetLastParentTfsCommits("HEAD"))
@@ -67,7 +67,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("mainRemote", _globals.RemoteId);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenNoRemotesFoundInParentCommits_AndNoRemotesInRepository_ThenReturnDefaultOne()
         {
             _gitRepositoryMock.Setup(r => r.GetLastParentTfsCommits("HEAD"))
@@ -77,7 +77,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("default", _globals.RemoteId);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenNoRemotesFoundInParentCommits_ThereIsOnlyOneRemoteInRepository_AndThisIsTheDefaultOne_ThenReturnIt()
         {
             _gitRepositoryMock.Setup(r => r.GetLastParentTfsCommits("HEAD"))
@@ -87,7 +87,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("default", _globals.RemoteId);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenNoRemotesFoundInParentCommits_AndThereIsOnlyOneRemoteInRepository_ThenThrowAnException()
         {
             _gitRepositoryMock.Setup(r => r.GetLastParentTfsCommits("HEAD"))
@@ -97,7 +97,7 @@ namespace GitTfs.Test.Core
             Assert.Throws<GitTfsException>(() => _globals.RemoteId);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenNoRemotesFoundInParentCommits_AndThereIsARemoteInRepository_ThenThrowAnException()
         {
             _gitRepositoryMock.Setup(r => r.GetLastParentTfsCommits("HEAD"))

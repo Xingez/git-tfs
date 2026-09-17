@@ -20,7 +20,7 @@
             while (-1 != (nextChar = _reader.Read()))
             {
                 nextString = nextString + (char)nextChar;
-                if (nextString.EndsWith(Delimiter))
+                if (nextString.EndsWith(Delimiter, StringComparison.Ordinal))
                 {
                     return nextString.Substring(0, nextString.Length - Delimiter.Length);
                 }

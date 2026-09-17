@@ -1,11 +1,11 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Core;
 using Moq;
 using StructureMap.AutoMocking;
-using Xunit;
 
 namespace GitTfs.Test.Commands
 {
+    [TestClass]
     public class ShelveDeleteTest : BaseTest
     {
         private readonly MoqAutoMocker<ShelveDelete> _mocks;
@@ -28,7 +28,7 @@ namespace GitTfs.Test.Commands
             gitRepositoryMock.Setup(r => r.ReadTfsRemote(It.IsAny<string>())).Returns(remoteMock.Object);
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailIfNoShelvesetNameProvided()
         {
             const string SHELVESET_NAME = "";
@@ -36,7 +36,7 @@ namespace GitTfs.Test.Commands
             Assert.NotEqual(GitTfsExitCodes.OK, _mocks.ClassUnderTest.Run(SHELVESET_NAME));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailIfInvalidShelvesetNameProvided()
         {
             const string NONEXISTENT_SHELVESET_NAME = "no-such-shelveset";
@@ -47,7 +47,7 @@ namespace GitTfs.Test.Commands
             Assert.NotEqual(GitTfsExitCodes.OK, _mocks.ClassUnderTest.Run(NONEXISTENT_SHELVESET_NAME));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldTellRemoteToDeleteShelveset()
         {
             const string SHELVESET_NAME = "Shelveset name";

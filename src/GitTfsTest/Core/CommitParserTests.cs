@@ -1,9 +1,9 @@
 using GitTfs.Core;
 
-using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class CommitParserTests : BaseTest
     {
         public static IEnumerable<object[]> Cases => new[] {
@@ -20,8 +20,8 @@ namespace GitTfs.Test.Core
                 };
 
 
-        [Theory]
-        [MemberData(nameof(Cases))]
+        [TestMethod]
+        [DynamicData(nameof(Cases))]
         public void Run(string message, bool expectParsed, int expectId)
         {
             int id;

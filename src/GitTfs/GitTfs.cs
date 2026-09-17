@@ -3,7 +3,6 @@ using StructureMap;
 using GitTfs.Commands;
 using GitTfs.Core;
 using GitTfs.Util;
-using NLog;
 
 namespace GitTfs
 {
@@ -53,12 +52,7 @@ namespace GitTfs
         private void UpdateLoggerOnDebugging()
         {
             if (_globals.DebugOutput)
-            {
-                var consoleRule = LogManager.Configuration.LoggingRules.First();
-                consoleRule.EnableLoggingForLevel(LogLevel.Debug);
-                //consoleRule.DisableLoggingForLevel(LogLevel.Trace);
-                LogManager.ReconfigExistingLoggers();
-            }
+                Program.EnableDebugLogging();
         }
 
         public int Main(GitTfsCommand command, IList<string> unparsedArgs)
@@ -104,6 +98,7 @@ namespace GitTfs
 
         public void InitializeGlobals()
         {
+            _globals.DebugOutput = true;
             if (_globals.GitDir != null)
             {
                 _globals.GitDirSetByUser = true;
@@ -159,7 +154,7 @@ namespace GitTfs
                     return command;
                 }
             }
-            return _container.GetInstance<Help>();
+            return _container.GetInstance<Commands.Help>();
         }
 
         public IList<string> ParseOptions(GitTfsCommand command, IList<string> args) => command.GetAllOptions(_container).Parse(args);

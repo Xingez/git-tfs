@@ -1,71 +1,48 @@
-﻿# Git-tfs config values
+# Configuration for migration
 
-Git-tfs uses git's configuration system to track most of the important
-information about repositories.
+## TFS server
 
-## Repository-wide configuration
+The current short form of `git tfs clone` reads the TFS collection URL from
+`appsettings.json`:
 
-By default, git-tfs sets these configuration values for the repository
-during `git tfs init`.
+```json
+{
+  "TargetServer": "https://dev.azure.com/your-organization"
+}
+```
 
-* `core.ignorecase` is set to `true`, in an attempt to deal with
-  casing issues.
-* `core.autocrlf` is set to `false`. This will make git preserve all
-  characters (including CR and LF) in all files. The reason for doing
-  this is to make the result of `git tfs clone` as nearly identical,
-  byte-wise, as possible, to the version in TFS.
+For an on-premises installation, use the collection URL, for example
+`http://tfs:8080/tfs/DefaultCollection`.
 
-There is other git-tfs configuration values for the repository:
+The file is loaded from the first existing location in this order:
 
-* `git-tfs.batch-size` define the number of changesets fetched in the same time
-  from TFS (Could also be set with the `clone` command).
-* `git-tfs.work-item-regex` could be used to define the regular expression to
-  extract workitems reference from commit message.
-* `git-tfs.workspace-dir` is used to define a new directory as the workspace
-  used by TFS to circumvent problem with long paths.
-  The path should be the shortest possible (i.e. "c:\w")
-* `git-tfs.export-metadatas` is set to `true` to export all metadata in the
-  commit messages.
-* `git-tfs.disable-gitignore-support` define if git-tfs should use the
-`.gitignore` file to filter changesets retrieved from TFVC.
+1. The file named by `GIT_TFS_APPSETTINGS`.
+2. `appsettings.json` beside `git-tfs.exe`.
+3. `appsettings.json` in the current directory.
 
-## Per-TFS remote
+Example:
 
-Git-tfs can map multiple TFS branches to git branches. Each TFS
-branch is tracked as a separate "remote", and several config values
-are stored for each branch.
+```powershell
+$env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
+```
 
-Each git-tfs remote is assigned an ID. All of a remote's config keys
-are prefixed with `tfs-remote.<id>.` So, for example, the full `url`
-key for the remote `default` is `tfs-remote.default.url`.
+`TargetServer` is trimmed and trailing slashes are removed when it is loaded.
+Credentials are not read from this file.
 
-* `url`
-  is the URL of the TFS project collection.
-* `legacy-urls`
-  is a list, comma-separated, of previous URLs of the TFS project
-  collection. For example, if you started your git-tfs clone from
-  a 2005 or 2008 TFS server ('http://tfs:8080/tfs'), and the server
-  migrated to 2010 or later, moving your project into a project
-  collection ('http://tfs:8080/tfs/DefaultCollection'), then the
-  `url` for your git-tfs remote should be the current url, and
-  `legacy-urls` would be the old url.
-* `repository`
-  is the TFS repository path that was cloned to the root of your
-  git-tfs project. Typically this is a TFS project path
-  (`$/MyProject`), but it can be a subdirectory (`$/MyProject/Dir`)
-  or a branch (`$/MyProject/trunk`).
-* `username` and `password`
-  are your TFS credentials. Normally, if you connect to a TFS
-  server on your local Windows domain, you won't need to provide
-  these values, because git-tfs defaults to using integrated
-  authentication.
-* `ignore-paths`
-  is a regular expression of TFS paths to ignore when fetching.
-* `autotag`
-  can be set to `true` to make git-tfs create a tag for each
-  TFS commit. This is disabled by default, because creating
-  a lot of tags will slow down your git operations.
-* `noparallel`
-   can be set to `true` to make disable parallel access to the TFS.
-   This can be useful in cases where the TFS has problems with 
-   parallel access and reports `TF400030`. (See issue #1242)
+## Git identity
+
+Git-tfs requires a Git user name and email before it creates imported commits:
+
+```powershell
+git config --global user.name "Migration User"
+git config --global user.email "migration@example.com"
+```
+
+## Authentication
+
+Use the normal Windows/Azure DevOps credential flow, or set `GIT_TFS_PAT` for
+non-interactive Azure DevOps authentication. Username and password can also be
+provided with the clone command, but should not be committed to scripts.
+
+See [Migrate from TFS/TFVC to Git](usecases/migrate_tfs_to_git.md) for the
+complete migration procedure.

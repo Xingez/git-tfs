@@ -53,7 +53,7 @@ Found matching Visual Studio version at C:\Program Files (x86)\Microsoft Visual 
 Currently, there is no way to select a specific installation of the same major version if `git-tfs` uses your VS2017 Premimun
 instead of the VS2017 Enterprise version. The only known *workaround* is to deinstall the other one.
 
-Pull requests to implement a better selection mechanism are welcome!
+A better selection mechanism can be implemented in the future.
 
 
 ## Visual Studio 2017 and 2019: checkin policies need to be registred in the private registry hive

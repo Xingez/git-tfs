@@ -1,11 +1,11 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Core;
 using GitTfs.Util;
 using StructureMap.AutoMocking;
-using Xunit;
 
 namespace GitTfs.Test.Util
 {
+    [TestClass]
     public class ShelveSpecificCheckinOptionsFactoryTests
     {
         private readonly MoqAutoMocker<CheckinOptionsFactory> mocks;
@@ -16,7 +16,7 @@ namespace GitTfs.Test.Util
             mocks.Get<Globals>().Repository = mocks.Get<IGitRepository>();
         }
 
-        [Fact]
+        [TestMethod]
         public void Adds_work_item_to_associate_and_removes_checkin_command_comment()
         {
             string commitMessage = @"test message

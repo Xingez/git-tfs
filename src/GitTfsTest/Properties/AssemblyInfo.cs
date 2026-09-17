@@ -1,6 +1,5 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.InteropServices;
-using Xunit;
 
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
@@ -34,6 +33,5 @@ using Xunit;
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
 
-//Remove this line to run the tests in parallel!
-//https://xunit.github.io/docs/running-tests-in-parallel.html#parallelism-in-test-frameworks
-[assembly: CollectionBehavior(MaxParallelThreads = 1)]
+// Remove this line to run the tests in parallel.
+[assembly: DoNotParallelize]

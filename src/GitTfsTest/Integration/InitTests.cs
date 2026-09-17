@@ -1,24 +1,22 @@
-﻿using GitTfs.Core.TfsInterop;
+using GitTfs.Core.TfsInterop;
 
-using Xunit.Abstractions;
 
 namespace GitTfs.Test.Integration
 {
+    [TestClass]
     public class InitTests : BaseTest, IDisposable
     {
-        private readonly ITestOutputHelper _output;
         private readonly IntegrationHelper h;
 
-        public InitTests(ITestOutputHelper output)
+        public InitTests()
         {
-            _output = output;
             h = new IntegrationHelper();
-            _output.WriteLine("Repository in folder: " + h.Workdir);
+            Console.WriteLine("Repository in folder: " + h.Workdir);
         }
 
         public void Dispose() => h.Dispose();
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void InitializesConfig()
         {
             h.SetupFake(r => { });
@@ -27,7 +25,7 @@ namespace GitTfs.Test.Integration
             h.AssertConfig("MyProject", "tfs-remote.default.repository", "$/MyProject");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void CanUseThatConfig()
         {
             h.SetupFake(r =>
@@ -43,7 +41,7 @@ namespace GitTfs.Test.Integration
             h.AssertRef("MyProject", "refs/tags/tfs/default/C1", expectedSha);
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void InitializesConfigUsingNoParallel()
         {
             h.SetupFake(r => { });
@@ -51,7 +49,7 @@ namespace GitTfs.Test.Integration
             h.AssertConfig("MyProject", "tfs-remote.default.noparallel", "true");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void InitializesWithInitialBranchArg()
         {
             h.SetupFake(r => { });
@@ -59,7 +57,7 @@ namespace GitTfs.Test.Integration
             h.AssertHead("MyProject", "refs/heads/customInitialBranch");
         }
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void InitializesWithGitignore()
         {
             // Tests both:

@@ -1,5 +1,5 @@
-﻿using System.ComponentModel;
-using NDesk.Options;
+using System.ComponentModel;
+using GitTfs.Util;
 using GitTfs.Core;
 using StructureMap;
 

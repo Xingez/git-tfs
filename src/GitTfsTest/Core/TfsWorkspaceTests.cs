@@ -1,12 +1,12 @@
 using GitTfs.Commands;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
-using Xunit;
 using System.Diagnostics;
 using Moq;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class TfsWorkspaceTests : BaseTest, IDisposable
     {
         private TfsWorkspace tfsWorkspace;
@@ -30,7 +30,7 @@ namespace GitTfs.Test.Core
         }
 
 
-        [Fact]
+        [TestMethod]
         public void Nothing_to_checkin()
         {
             workspace.Setup(w => w.GetPendingChanges()).Returns((IPendingChange[]) null);
@@ -43,7 +43,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("Nothing to checkin!", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_failed()
         {
             IPendingChange pendingChange = new Mock<IPendingChange>().Object;
@@ -81,7 +81,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("Checkin failed!", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void Policy_failed()
         {
             var logger = new StringWriter();
@@ -124,7 +124,7 @@ namespace GitTfs.Test.Core
             Assert.Contains("[ERROR] Policy: No work items associated.", logger.ToString());
         }
 
-        [Fact]
+        [TestMethod]
         public void Policy_failed_and_Force_without_an_OverrideReason()
         {
             var logger = new StringWriter();
@@ -169,7 +169,7 @@ namespace GitTfs.Test.Core
             Assert.Contains("[ERROR] Policy: No work items associated.", logger.ToString());
         }
 
-        [Fact]
+        [TestMethod]
         public void Policy_failed_and_Force_with_an_OverrideReason()
         {
             var logger = new StringWriter();

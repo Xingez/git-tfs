@@ -1,4 +1,4 @@
-﻿using NDesk.Options;
+using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
@@ -6,24 +6,19 @@ namespace GitTfs.Commands
     {
         public static OptionSet Merge(this OptionSet options, params OptionSet[] others)
         {
-            var merged = new MergableOptionSet();
-            merged.Merge(options);
+            var merged = new OptionSet();
+            Merge(merged, options);
             foreach (var other in others)
-                merged.Merge(other);
+                Merge(merged, other);
             return merged;
         }
 
-        private class MergableOptionSet : OptionSet
+        private static void Merge(OptionSet target, OptionSet source)
         {
-            public void Merge(OptionSet other)
+            foreach (var option in source)
             {
-                foreach (var option in other)
-                {
-                    if (!Contains(GetKeyForItem(option)))
-                    {
-                        Add(option);
-                    }
-                }
+                if (!target.Contains(option.GetNames()[0]))
+                    target.Add(option);
             }
         }
     }

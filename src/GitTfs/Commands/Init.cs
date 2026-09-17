@@ -1,9 +1,8 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using NDesk.Options;
-using GitTfs.Core;
 using GitTfs.Util;
+using GitTfs.Core;
 using StructureMap;
 
 namespace GitTfs.Commands
@@ -124,11 +123,21 @@ namespace GitTfs.Commands
 
         private void DoGitInitDb()
         {
+            var initializedRepository = false;
             if (!Directory.Exists(_globals.GitDir) || _initOptions.IsBare)
             {
                 _gitHelper.CommandNoisy(BuildInitCommand());
+                initializedRepository = true;
             }
             _globals.Repository = _gitHelper.MakeRepository(_globals.GitDir);
+
+            if (initializedRepository)
+            {
+                var initialBranch = _initOptions.GitInitDefaultBranch
+                    ?? _globals.Repository.GetConfig<string>("init.defaultBranch");
+                if (!string.IsNullOrWhiteSpace(initialBranch))
+                    _gitHelper.CommandNoisy("symbolic-ref", "HEAD", "refs/heads/" + initialBranch);
+            }
 
             if (!string.IsNullOrWhiteSpace(_initOptions.WorkspacePath))
             {
@@ -164,18 +173,22 @@ namespace GitTfs.Commands
                 initCommand.Add("--shared=" + _initOptions.GitInitShared);
             else if (_initOptions.GitInitShared != null)
                 initCommand.Add("--shared");
-            if (_initOptions.GitInitDefaultBranch != null)
-                initCommand.Add("--initial-branch=" + _initOptions.GitInitDefaultBranch);
             return initCommand.ToArray();
         }
 
-        private void GitTfsInit(string tfsUrl, string tfsRepositoryPath) => _globals.Repository.CreateTfsRemote(new RemoteInfo
+        private void GitTfsInit(string tfsUrl, string tfsRepositoryPath)
         {
-            Id = _globals.RemoteId,
-            Url = tfsUrl,
-            Repository = tfsRepositoryPath,
-            RemoteOptions = _remoteOptions,
-        });
+            // Azure DevOps throttles bursts aggressively. Keep the setting in the
+            // repository config as an explicit record of the safe default.
+            _remoteOptions.NoParallel = true;
+            _globals.Repository.CreateTfsRemote(new RemoteInfo
+            {
+                Id = _globals.RemoteId,
+                Url = tfsUrl,
+                Repository = tfsRepositoryPath,
+                RemoteOptions = _remoteOptions,
+            });
+        }
     }
 
     public static class Ext

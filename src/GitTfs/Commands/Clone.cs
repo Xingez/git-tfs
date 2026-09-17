@@ -1,34 +1,47 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using NDesk.Options;
+using GitTfs.Util;
 using GitTfs.Core;
 using StructureMap;
-using GitTfs.Util;
 using GitTfs.Core.TfsInterop;
 
 namespace GitTfs.Commands
 {
     [Pluggable("clone")]
-    [Description("clone [options] tfs-url-or-instance-name repository-path <git-repository-path>\n  ex : git tfs clone http://myTfsServer:8080/tfs/TfsRepository $/ProjectName/ProjectBranch\n")]
+    [Description("clone [options] repository-path\n  The target server is read from appsettings.json.\n  ex : git tfs clone $/ProjectName/ProjectBranch\n\n  Legacy form (server first) is still supported: git tfs clone <tfs-url> <repository-path> [git-repository-path]\n")]
     public class Clone : GitTfsCommand
     {
         private readonly Fetch _fetch;
         private readonly Init _init;
         private readonly Globals _globals;
         private readonly InitBranch _initBranch;
-        private bool _resumable;
+        private readonly GitTfsSettings _settings;
+        private bool _resumable = true;
 
-        public Clone(Globals globals, Fetch fetch, Init init, InitBranch initBranch)
+        public Clone(Globals globals, Fetch fetch, Init init, InitBranch initBranch, GitTfsSettings settings)
         {
             _fetch = fetch;
             _init = init;
             _globals = globals;
             _initBranch = initBranch;
+            _settings = settings;
             globals.GcCountdown = globals.GcPeriod;
         }
 
         public OptionSet OptionSet => _init.OptionSet.Merge(_fetch.OptionSet)
                            .Add("resumable", "if an error occurred, try to continue when you restart clone with same parameters", v => _resumable = v != null);
+
+        public int Run(string tfsRepositoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(_settings.TargetServer))
+            {
+                var source = string.IsNullOrWhiteSpace(_settings.SourcePath) ? "appsettings.json" : _settings.SourcePath;
+                throw new GitTfsException("TargetServer is not configured in " + source + ". Set it before using 'git tfs clone <repository-path>'.");
+            }
+
+            _resumable = true;
+            return Run(_settings.TargetServer, tfsRepositoryPath);
+        }
 
         public int Run(string tfsUrl, string tfsRepositoryPath)
         {

@@ -1,28 +1,25 @@
-﻿using GitTfs.Core;
+using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 
 using StructureMap;
 
-using Xunit;
-using Xunit.Abstractions;
 
 namespace GitTfs.Test.Integration
 {
+    [TestClass]
     public class GitRepositoryTests : BaseTest, IDisposable
     {
-        private readonly ITestOutputHelper _output;
         private readonly IntegrationHelper h = new IntegrationHelper();
 
-        public GitRepositoryTests(ITestOutputHelper output)
+        public GitRepositoryTests()
         {
-            _output = output;
             h.SetupFake(_ => { });
-            _output.WriteLine("Repository in folder: " + h.Workdir);
+            Console.WriteLine("Repository in folder: " + h.Workdir);
         }
 
         public void Dispose() => h.Dispose();
 
-        [Fact]
+        [TestMethod]
         public void GetCommit_WhenNoCommitIsFound_ThenReturnsNull()
         {
             h.SetupGitRepo("repo", g => { });
@@ -35,7 +32,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void GetTfsCommit_WhenNoCommitIsFound_ThenReturnsNull()
         {
             h.SetupGitRepo("repo", g => { });
@@ -48,7 +45,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void GetLastParentTfsCommits_WhenThereIsMoreThanTfsChangeset_ThenReturnTheLast()
         {
             h.SetupFake(r =>
@@ -76,7 +73,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void GetLastParentTfsCommits_WhenTheMergeCommitIsNotFromTfs_ThenReturnTheParentsFoundWithMainParentFromMasterFirst()
         {
             int ChangesetIdToTrickFetch = 1;
@@ -110,7 +107,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void GetLastParentTfsCommits_WhenTheMergeCommitIsFromTfs_ThenReturnThisCommit()
         {
             int ChangesetIdToTrickFetch = 1;
@@ -145,7 +142,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void GetLastParentTfsCommits_WhenNoCommitFromTfs_ThenReturnNothing()
         {
             h.SetupFake(r =>
@@ -169,7 +166,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void FindParentCommits()
         {
             //History of changesets:

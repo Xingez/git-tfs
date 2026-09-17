@@ -1,11 +1,11 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Core;
 using Moq;
 using StructureMap.AutoMocking;
-using Xunit;
 
 namespace GitTfs.Test.Commands
 {
+    [TestClass]
     public class ShelveTest : BaseTest
     {
         private readonly MoqAutoMocker<Shelve> mocks;
@@ -28,7 +28,7 @@ namespace GitTfs.Test.Commands
             gitTfsRemoteMock = Mock.Get(gitTfsRemote);
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailWithLessThanOneParents()
         {
             mocks.Get<Globals>().UserSpecifiedRemoteId = "default";
@@ -37,7 +37,7 @@ namespace GitTfs.Test.Commands
             Assert.NotEqual(GitTfsExitCodes.OK, mocks.ClassUnderTest.Run("don't care", "my-head"));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailWithMoreThanOneNonSubtreeParents()
         {
             mocks.Get<Globals>().UserSpecifiedRemoteId = "default";
@@ -48,7 +48,7 @@ namespace GitTfs.Test.Commands
             Assert.NotEqual(GitTfsExitCodes.OK, mocks.ClassUnderTest.Run("don't care", "my-head"));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailWithMoreThanOneParentsWhenSpecifiedParentIsNotAParent()
         {
             var globals = mocks.Get<Globals>();
@@ -59,7 +59,7 @@ namespace GitTfs.Test.Commands
             Assert.NotEqual(GitTfsExitCodes.OK, mocks.ClassUnderTest.Run("don't care", "my-head"));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldSucceedWithMoreThanOneParentsWhenCorrectParentSpecified()
         {
             var globals = mocks.Get<Globals>();
@@ -72,7 +72,7 @@ namespace GitTfs.Test.Commands
             Assert.Equal(GitTfsExitCodes.OK, mocks.ClassUnderTest.Run("don't care", "my-head"));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldSucceedWithParentsFromSubtreeAndOwner()
         {
             globalsMock.Object.UserSpecifiedRemoteId = "good-choice";
@@ -87,7 +87,7 @@ namespace GitTfs.Test.Commands
             Assert.Equal(GitTfsExitCodes.OK, mocks.ClassUnderTest.Run("don't care", "my-head"));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldSucceedForOneArgument()
         {
             mocks.Get<Globals>().UserSpecifiedRemoteId = "default";
@@ -99,7 +99,7 @@ namespace GitTfs.Test.Commands
             Assert.Equal(GitTfsExitCodes.OK, mocks.ClassUnderTest.Run("don't care"));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldAskForCorrectParent()
         {
             mocks.Get<Globals>().UserSpecifiedRemoteId = "default";
@@ -111,7 +111,7 @@ namespace GitTfs.Test.Commands
             mocks.ClassUnderTest.Run("shelveset name", "commit_to_shelve");
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldTellRemoteToShelve()
         {
             mocks.Get<Globals>().UserSpecifiedRemoteId = "default";
@@ -125,7 +125,7 @@ namespace GitTfs.Test.Commands
             gitTfsRemoteMock.Verify(x => x.Shelve("shelveset name", "HEAD", It.IsAny<TfsChangesetInfo>(), It.IsAny<CheckinOptions>(), false), Times.Once);
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldTellRemoteToShelveTreeish()
         {
             mocks.Get<Globals>().UserSpecifiedRemoteId = "default";
@@ -139,7 +139,7 @@ namespace GitTfs.Test.Commands
             gitTfsRemoteMock.Verify(x => x.Shelve("shelveset name", "treeish", It.IsAny<TfsChangesetInfo>(), It.IsAny<CheckinOptions>(), false), Times.Once);
         }
 
-        [Fact]
+        [TestMethod]
         public void FailureCodeWhenShelvesetExists()
         {
             WireUpMockRemote();
@@ -149,7 +149,7 @@ namespace GitTfs.Test.Commands
             Assert.Equal(GitTfsExitCodes.ForceRequired, exitCode);
         }
 
-        [Fact]
+        [TestMethod]
         public void DoesNotTryToShelveIfShelvesetExists()
         {
             WireUpMockRemote();
@@ -161,7 +161,7 @@ namespace GitTfs.Test.Commands
                 x => x.Shelve(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TfsChangesetInfo>(), It.IsAny<CheckinOptions>(), It.IsAny<bool>()), Times.Never);
         }
 
-        [Fact]
+        [TestMethod]
         public void DoesNotStopIfForceIsSpecified()
         {
             mocks.Get<CheckinOptions>().Force = true;

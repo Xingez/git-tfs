@@ -1,10 +1,10 @@
-﻿using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class GitTfsConstantsTest : BaseTest
     {
-        [Fact]
+        [TestMethod]
         public void TestTfsCommitInfoRegex_WhenTheRepositoryContainsSquareBrackets_ThenWeGetTheCorrectValues()
         {
             string url = "http://tfsserver:8080/tfs/MainProjectCollection";

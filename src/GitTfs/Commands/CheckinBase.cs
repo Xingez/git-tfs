@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using NDesk.Options;
+using GitTfs.Util;
 using GitTfs.Core;
 
 namespace GitTfs.Commands

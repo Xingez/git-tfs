@@ -1,10 +1,8 @@
-﻿using System.Text;
+using System.Text;
 using LibGit2Sharp;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 using GitTfs.VsFake;
-using Xunit;
-using Xunit.Sdk;
 
 namespace GitTfs.Test.Integration
 {
@@ -231,11 +229,12 @@ namespace GitTfs.Test.Integration
             var origScript = Environment.GetEnvironmentVariable(Script.EnvVar);
             var origNoSystem = Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
             var origGlobalConfig = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
+            var origLibGitGlobalPaths = GlobalSettings.GetConfigSearchPaths(ConfigurationLevel.Global).ToArray();
 
             try
             {
                 string testDirectory = Path.Combine(Workdir, workPath);
-                string globalConfigPath = Path.Combine(testDirectory, "global.gitconfig");
+                string globalConfigPath = Path.Combine(testDirectory, ".gitconfig");
                 WriteResourceToFile(configResource, globalConfigPath);
 
                 Environment.CurrentDirectory = testDirectory;
@@ -243,6 +242,7 @@ namespace GitTfs.Test.Integration
                 Environment.SetEnvironmentVariable(Script.EnvVar, FakeScript);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "true");
                 Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", globalConfigPath);
+                GlobalSettings.SetConfigSearchPaths(ConfigurationLevel.Global, testDirectory);
 
                 Console.WriteLine(">> git tfs " + QuoteArgs(args));
                 var argsWithDebug = new List<string>();
@@ -259,6 +259,7 @@ namespace GitTfs.Test.Integration
                 Environment.SetEnvironmentVariable(Script.EnvVar, origScript);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", origNoSystem);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", origGlobalConfig);
+                GlobalSettings.SetConfigSearchPaths(ConfigurationLevel.Global, origLibGitGlobalPaths);
                 Environment.CurrentDirectory = origPwd;
             }
         }
@@ -387,26 +388,7 @@ namespace GitTfs.Test.Integration
 
         public void AssertHead(string repodir, string headRef) => Assert.Equal(headRef, Repository(repodir).Head.CanonicalName);
 
-        public class NotEqualWithMessageException : XunitException {
-
-            public NotEqualWithMessageException(string message, Exception ex)
-                : base($"{message}: {ex.Message}", ex)
-            {
-
-            }
-        }
-
-        private void AssertEqual<T>(T expected, T actual, string message)
-        {
-            try
-            {
-                Assert.Equal(expected, actual);
-            }
-            catch (XunitException ex)
-            {
-                throw new NotEqualWithMessageException(message, ex);
-            }
-        }
+        private void AssertEqual<T>(T expected, T actual, string message) => Assert.Equal(expected, actual, message);
 
         private void WriteResourceToFile(string resourceName, string fileName)
         {

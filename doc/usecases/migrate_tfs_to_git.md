@@ -1,159 +1,221 @@
-Git-tfs could be easily used to migrate source history from TFSVC to a git repository.
+# Migrate from TFS/TFVC to Git
 
-## Migrate toward external git repository
+This guide covers the current git-tfs workflow for moving a TFS/TFVC project
+and its history into a Git repository.
 
-### Fetch TFS (TFVC) History
+> The command flow in this guide follows the current implementation. The
+> migration workflow is expected to change when the pending implementation
+> work is complete, so update this guide together with that work.
 
-Depending on the TFVC changesets history, git-tfs could have more or less difficulties to retrieve the history
-(Especially in case of renamed branches).
-Here are described, in order, the different options that could be tried to retrieve as much history as possible. 
-If you are not interested by all the history (because it could be very long), you could just choose the option that suits you the best...
+## Prerequisites
 
-#### Fetch all the history, for all branches
-First fetch all the source history (with all branches) in a local git repository:
+Install and verify the following on the Windows machine that performs the
+migration:
 
-    git tfs clone --branches=all https://tfs.codeplex.com:443/tfs/Collection $/project/trunk .
+- Git
+- `git-tfs.exe`, available on `PATH`
+- .NET 10 Desktop Runtime
+- A supported Visual Studio/TFS client installation
 
-See [clone](../commands/clone.md) command if you should use a password or an author file
- (recommended if you want an email address instead of a windows login in commit messages), ...
+Configure the Git identity that will be written to imported commits:
 
-Wait quite some time, fetching changesets from TFS is a slow process :(
+```powershell
+git config --global user.name "Migration User"
+git config --global user.email "migration@example.com"
+```
 
-#### Fetch all the history, for only merged branches
+Create or use an empty destination Git repository before the final push. Do
+not migrate directly into a repository that already contains unrelated
+commits.
 
-If only the complete history of the main branch is important for you, you could fetch only the history
-of the main branch and only the branches merged into it.
+## Configure the TFS server
 
-To do that, do not specify the `--branches` or use the default value of the option `--branches=auto`, like that:
+The short `clone` command reads the TFS collection URL from
+`appsettings.json`. The file is copied next to `git-tfs.exe` when the project
+is built. Set `TargetServer` to the collection or Azure DevOps organization
+that contains the project:
 
-    git tfs clone --branches=auto https://tfs.codeplex.com:443/tfs/Collection $/project/trunk .
+```json
+{
+  "TargetServer": "https://dev.azure.com/your-organization"
+}
+```
 
-#### Fetch all the history, for just the main branch (ignoring all the other branches)
+For an on-premises TFS collection, use its collection URL instead, for
+example:
 
-Unfortunately, the way how changesets are store in TFVC history, make that git-tfs is not able to handle every cases.
-If you still want to retrieve the history, one of the solution is to fetch the history of only one branch ignoring 
-all the other branches and the merge changesets.
+```json
+{
+  "TargetServer": "http://tfs:8080/tfs/DefaultCollection"
+}
+```
 
+The file is searched for in this order:
 
-To do that, use the option `--branches=none`, like that:
+1. The path in `GIT_TFS_APPSETTINGS`, if set.
+2. The directory containing `git-tfs.exe`.
+3. The current working directory.
 
-    git tfs clone --branches=none https://tfs.codeplex.com:443/tfs/Collection $/project/trunk .
+To use a settings file outside the executable directory:
 
-#### Ignoring history before a specific changeset
+```powershell
+$env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
+```
 
-Sometimes, the history is too long and take too much time too retrieve. Or too messy and git-tfs fails to retrieve it :(
-In this case, you could try to retrieve less history by passing to git-tfs, the id of a changeset from where to fetch the history.
+Do not put passwords or personal access tokens in `appsettings.json`.
 
-To do that, use the option `--changeset=3245`, and run:
+## Authenticate to TFS
 
-    git tfs clone --changeset=3245 https://tfs.codeplex.com:443/tfs/Collection $/project/trunk .
+By default, git-tfs uses the normal Windows or Azure DevOps credential flow.
+For a non-interactive migration, set an Azure DevOps personal access token in
+`GIT_TFS_PAT`:
 
-#### Fetch only the last changeset
+```powershell
+$env:GIT_TFS_PAT = 'your-token'
+```
 
-In the last resort, when none of the solution before has worked, your only solution remains to clone only the last Changeset.
-Even if it's the way that Microsoft recommend to migrate to git (surely because they don't provide a better way!?!), that's 
-for us the last solution to try (or if you don't care about your history...).
-You could do it by running:
+Alternatively, use the existing command-line options when required:
 
-    git tfs quick-clone https://tfs.codeplex.com:443/tfs/Collection $/project/trunk .
+```powershell
+git tfs clone $/Project/Trunk --username 'DOMAIN\user' --password 'password'
+```
 
-#### Speed up process by providing a `.gitignore` file
+Avoid putting credentials in scripts or committing them to a repository.
 
-For every way to clone, you could provide to git-tfs a `.gitignore` file.
-That way, all the files that will be ignored won't be downloaded, speeding the process.
-That could be particulary usefull to ignore dependencies packages that has been commited but that should not...
+## Clone the TFS history
 
-### Verify that all the cloning went well
+The TFS path is supplied after `clone`; the server does not need to be
+repeated on the command line:
 
-For the current git-tfs remote:
+```powershell
+git tfs clone $/Project/Trunk
+```
 
-    git tfs verify
+This creates a Git repository in a directory named after the final part of
+the TFS path, such as `Trunk`. To migrate all branches, use the trunk path and
+`--branches=all`:
 
-For all the git-tfs remotes:
+```powershell
+git tfs clone $/Project/Trunk --branches=all
+```
 
-    git tfs verify --all
+Use the following strategies depending on the source repository:
 
+- `--branches=all` imports all recognized TFS branches and merge changesets.
+- `--branches=auto` is the default; it imports the main branch and branches
+  discovered through merges.
+- `--branches=none` imports only the requested TFS path. Use it when branch
+  history is too complex for automatic branch handling.
 
-Note: This operation could be long because git-tfs download again all the files of the last changeset(s)
-to verify the content with the one in the git repository.
+If the full history is too large or contains unsupported TFS history, try a
+bounded migration:
 
-### Clean commits (optional)
+```powershell
+git tfs clone $/Project/Trunk --changeset=3245
+```
 
-This step is optional. It could be done if you really don't want to keep these metadata.
-But most of the time, it really doesn't worth the effort.
-It could be interesting to keep it to be able to match the git commit to the changeset in TFVC for later verification.
+As a last resort, import only the current state without the full history:
 
-Clean all the git-tfs metadatas from the commit messages:
+```powershell
+git tfs quick-clone $/Project/Trunk
+```
 
-    git filter-branch -f --msg-filter "sed 's/^git-tfs-id:.*$//g'" -- --all
+This creates the repository in a directory named after the TFS path. The
+legacy server-first syntax remains supported while the current implementation
+is being replaced:
 
-Then verify that all is ok and delete the folder `.git/refs/original` ( to delete old branches)
+```powershell
+git tfs quick-clone <server-url> $/Project/Trunk <destination-folder>
+```
 
-If you want to keep the old changesets ids in a more human format, you could use instead something like:
+Clones are resumable. If a full clone is interrupted, rerun the same command
+from the same location and allow it to continue.
 
-    git filter-branch -f --msg-filter "sed 's/^git-tfs-id:.*;C\([0-9]*\)$/Changeset:\1/g'" -- --all
+### Map TFS users to Git identities
 
-Note: __if you do that, you won't be able to fetch tfs changesets any more.__
-You should do that **ONLY** if you want to migrate definitively away of TFS(VC)!
+To preserve useful author information, create an authors file with one mapping
+per line:
 
-### Add a remote toward git central repository
+```text
+DOMAIN\jane.doe = Jane Doe <jane.doe@example.com>
+```
 
-Add a remote in your local repository toward an empty git (bare) central repository :
+Pass it to `clone`:
 
-    git remote add origin https://github.com/user/project.git
+```powershell
+git tfs clone $/Project/Trunk --branches=all --authors 'C:\migration\authors.txt'
+```
 
-### Push all the source history
+### Optional clone settings
 
-Push all the branches on your remote repository:
+For large or unusual repositories, these options may help:
 
-    git push --all origin
+```powershell
+git tfs clone $/Project/Trunk `
+  --branches=all `
+  --batch-size=50 `
+  --workspace='C:\w' `
+  --gitignore='C:\migration\.gitignore'
+```
 
-Migration is done!
+Use a local drive for the clone. A short `--workspace` path can avoid Windows
+path-length problems. A supplied `.gitignore` excludes unwanted files from
+the imported tree; review it carefully because ignored content will not be
+available in Git.
 
-## Migrate toward TFS2013 git repository (keeping workitems)
+## Verify the migration
 
-### Migrate your work-items
-Use [Total Tfs Migration](https://totaltfsmigration.codeplex.com/) (or even [here](https://github.com/pmiossec/TotalTfsMigrationTool) for a version with some more bugfixes) to migrate your work-items from your old TFS(VC) project to your new TFS(Git) project.
+Enter the directory created by `clone` and verify the imported content:
 
-When process is done, you should have in the subdirectory `map` of the application,
- a file named `ID_map_[Project1]_to_[Project2].txt` containing the mapping between
- old work items and new work-items ids.
+```powershell
+cd .\Trunk
+git status
+git log --all --decorate --oneline
+git tfs verify --all
+```
 
-Note :
-- For the moment, 'Tfs Integration Platform' doesn't support TFS2013 and consequently doesn't permit to migrate work items to a TFS(Git) project.
-- If one day, it is possible, mapping between old work items and new work-items ids is store in the table 'RUNTIME_MIGRATION_ITEMS' of the database 'Tfs_IntegrationPlatform'.
-Extract the data to create a file with each line formatted following: OldWorkItemId|NewWorkItemId
+Review at least the following before publishing:
 
-### Fetch All History
+- The expected branches and latest changeset are present.
+- Important files and folder casing are correct.
+- Commit authors and messages are acceptable.
+- `git tfs verify --all` reports no content differences.
 
-First fetch all the source history (with all branches) in a local git repository exporting work-items metadatas (using the mapping file obtained in the previous step):
+Keep the `git-tfs-id` metadata in commit messages unless there is a strong
+reason to remove it. It provides an audit trail back to the original TFS
+changeset. Removing it is a one-way history rewrite and prevents further
+git-tfs synchronization.
 
-    git tfs clone --branches=all --export --export-work-item-mapping="c:\workitems\mapping\file.txt" https://tfs.codeplex.com:443/tfs/Collection $/project/trunk .
+## Publish the Git repository
 
-See [clone](../commands/clone.md) command if you should use a password or an author file
- (recommended if you want an mail address instead of a windows login in commit messages), ...
+Add the empty destination repository and push all imported branches:
 
-Wait quite some time, fetching changesets from TFS is a slow process :(
+```powershell
+git remote add origin https://git.example.com/team/project.git
+git push --all origin
+```
 
-### Verify that all the cloning went well
+If the migration created tags, push them as well:
 
-See same section above.
+```powershell
+git push --tags origin
+```
 
-### Clean commits (optional)
+The migration is complete when the destination Git repository contains the
+verified branches and history.
 
-See same section above.
+## Cut over from TFS to Git
 
-### Add a remote toward TFS(Git) repository
+For a final production cutover:
 
-Add a remote in your local repository toward an empty git (bare) central repository :
+1. Announce a TFS check-in freeze.
+2. Fetch or rerun the migration so the last approved TFS changeset is present.
+3. Run `git tfs verify --all` again.
+4. Push the final branches to the Git server.
+5. Give developers the Git repository URL and Git workflow.
+6. Make the TFS project read-only or retire it according to the team’s
+   retention policy.
 
-    git remote add origin http://tfsserver:8080/tfs/defaultcollection/_git/MyGitProject
-
-### Push all the source history
-
-Push all the branches on your remote repository:
-
-    git push --all origin
-
-Migration is done!
-
+After cutover, use Git as the source of truth. Do not continue normal
+development in both TFS and Git unless a separate synchronization process has
+been agreed upon.

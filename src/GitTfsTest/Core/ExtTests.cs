@@ -4,15 +4,15 @@ using System.Diagnostics;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 
-using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class ExtTests : BaseTest
     {
         #region Action.And()
 
-        [Fact]
+        [TestMethod]
         public void ShouldCombineActionsInOne_And_Call()
         {
             var action1 = new Action<IDictionary>(d => d["action1"] = true);
@@ -26,7 +26,7 @@ namespace GitTfs.Test.Core
             Assert.True((bool)record["action3"], "action3 should have been executed.");
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldCombineActionsInAChainOfAndCalls()
         {
             var action1 = new Action<IDictionary>(d => d["action1"] = true);
@@ -44,7 +44,7 @@ namespace GitTfs.Test.Core
 
         #region ProcessStartInfo.SetArguments()
 
-        [Fact]
+        [TestMethod]
         public void ShouldSetProcessStartInfoArguments()
         {
             var info = new ProcessStartInfo();
@@ -52,7 +52,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("a b c", info.Arguments);
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldQuoteSpacesInProcessStartInfoArguments()
         {
             var info = new ProcessStartInfo();
@@ -64,20 +64,20 @@ namespace GitTfs.Test.Core
 
         #region CombinePaths()
 
-        [Fact]
+        [TestMethod]
         public void ShouldReturnSingleArgumentWhenProvided() => Assert.Equal("a", Ext.CombinePaths("a"));
 
-        [Fact]
+        [TestMethod]
         public void ShouldCombineSeveralPaths() => Assert.Equal(Path.Combine(Path.Combine("a", "b"), "c"), Ext.CombinePaths("a", "b", "c"));
 
-        [FactExceptOnUnix]
+        [TestMethod]
         public void ShouldIgnorePathPartsBeforeAbsolute() => Assert.Equal("c:\\x\\y", Ext.CombinePaths("a", "b", "c:\\x", "y"));
 
         #endregion
 
         #region FormatForGit()
 
-        [Fact]
+        [TestMethod]
         public void ShouldFormatDateForGit()
         {
             var date = new DateTime(2000, 1, 2, 12, 34, 56);
@@ -88,10 +88,10 @@ namespace GitTfs.Test.Core
 
         #region ChangeType.IncludesOneOf()
 
-        [Fact]
+        [TestMethod]
         public void ShouldNotDetectUnincludedChangeTypes() => Assert.False(TfsChangeType.Add.IncludesOneOf(TfsChangeType.Branch, TfsChangeType.Delete, TfsChangeType.Edit, TfsChangeType.Encoding, TfsChangeType.Lock, TfsChangeType.Merge, TfsChangeType.None, TfsChangeType.Rename, TfsChangeType.Undelete));
 
-        [Fact]
+        [TestMethod]
         public void ShouldNotDetectUnincludedChangeType()
         {
             var everythingExceptAdd = TfsChangeType.Branch | TfsChangeType.Delete | TfsChangeType.Edit |
@@ -100,19 +100,19 @@ namespace GitTfs.Test.Core
             Assert.False(everythingExceptAdd.IncludesOneOf(TfsChangeType.Add));
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldDetectIncludedChangeTypeForExactMatch() => Assert.True(TfsChangeType.Add.IncludesOneOf(TfsChangeType.Add));
 
-        [Fact]
+        [TestMethod]
         public void ShouldDetectIncludedChangeTypeForOneOfSeveral() => Assert.True(TfsChangeType.Add.IncludesOneOf(TfsChangeType.Branch, TfsChangeType.Add));
 
-        [Fact]
+        [TestMethod]
         public void ShouldDetectIncludedChangeTypeForMultivalue() => Assert.True((TfsChangeType.Add | TfsChangeType.Branch).IncludesOneOf(TfsChangeType.Branch));
 
-        [Fact]
+        [TestMethod]
         public void ShouldNotDetectMultivaluesThatIntersectWithoutBeingSubset() => Assert.False((TfsChangeType.Add | TfsChangeType.Branch).IncludesOneOf(TfsChangeType.Branch | TfsChangeType.Edit));
 
-        [Fact]
+        [TestMethod]
         public void ShouldDetectMultivaluesThatIntersectAndAreASubset() => Assert.True((TfsChangeType.Add | TfsChangeType.Branch | TfsChangeType.Edit).IncludesOneOf(TfsChangeType.Branch | TfsChangeType.Edit));
 
         #endregion

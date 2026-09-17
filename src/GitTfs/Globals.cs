@@ -1,7 +1,6 @@
 using System.Diagnostics;
-using NDesk.Options;
-using GitTfs.Core;
 using GitTfs.Util;
+using GitTfs.Core;
 
 namespace GitTfs
 {
@@ -26,7 +25,9 @@ namespace GitTfs
         public bool ShowHelp { get; set; }
         public bool ShowVersion { get; set; }
 
-        public bool DebugOutput { get; set; }
+        // This build intentionally keeps the verbose request trace enabled so a
+        // long-running/resumed import can always be diagnosed after the fact.
+        public bool DebugOutput { get; set; } = true;
 
         public string UserSpecifiedRemoteId { get; set; }
 

@@ -1,11 +1,11 @@
-﻿using GitTfs.Core.TfsInterop;
+using GitTfs.Core.TfsInterop;
 using GitTfs.Test;
 using GitTfs.VsCommon;
 using StructureMap.AutoMocking;
-using Xunit;
 
 namespace GitTfsTest.Core
 {
+    [TestClass]
     public class TfsApiBridgeTest : BaseTest
     {
         private readonly MoqAutoMocker<TfsApiBridge> _mocks;
@@ -16,10 +16,10 @@ namespace GitTfsTest.Core
             _mocks.MockObjectFactory();
         }
 
-        [Fact]
+        [TestMethod]
         public void ConvertsEnum() => Assert.Equal(OriginalEnum.Value2, _mocks.ClassUnderTest.Convert<OriginalEnum>(WrappedEnum.Value2));
 
-        [Fact]
+        [TestMethod]
         public void WrapsAndUnwrapsObject()
         {
             var originalObject = new OriginalType();
@@ -27,7 +27,7 @@ namespace GitTfsTest.Core
             Assert.Equal(originalObject, _mocks.ClassUnderTest.Unwrap<OriginalType>(wrappedObject));
         }
 
-        [Fact]
+        [TestMethod]
         public void WrapsObjectWithBridge()
         {
             var originalObject = new OriginalType();
@@ -35,7 +35,7 @@ namespace GitTfsTest.Core
             Assert.NotNull(wrappedObject.Bridge);
         }
 
-        [Fact]
+        [TestMethod]
         public void WrapsAndUnwrapsArray()
         {
             var originalObjects = new[] { new OriginalType() };
@@ -44,28 +44,28 @@ namespace GitTfsTest.Core
             Assert.Equal(originalObjects[0], _mocks.ClassUnderTest.Unwrap<OriginalType>(wrappedObjects)[0]);
         }
 
-        [Fact]
+        [TestMethod]
         public void WrapsNullAsNull()
         {
             OriginalType obj = null;
             Assert.Null(_mocks.ClassUnderTest.Wrap<WrapperForOriginalType, OriginalType>(obj));
         }
 
-        [Fact]
+        [TestMethod]
         public void WrapsNullArrayAsNull()
         {
             OriginalType[] obj = null;
             Assert.Null(_mocks.ClassUnderTest.Wrap<WrapperForOriginalType, OriginalType>(obj));
         }
 
-        [Fact]
+        [TestMethod]
         public void UnwrapsNullAsNull()
         {
             WrapperForOriginalType obj = null;
             Assert.Null(_mocks.ClassUnderTest.Unwrap<OriginalType>(obj));
         }
 
-        [Fact]
+        [TestMethod]
         public void UnwrapsNullArrayAsNull()
         {
             WrapperForOriginalType[] obj = null;

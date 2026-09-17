@@ -1,4 +1,4 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 using GitTfs.VsFake;
@@ -7,10 +7,10 @@ using Moq;
 
 using StructureMap.AutoMocking;
 
-using Xunit;
 
 namespace GitTfs.Test.Commands
 {
+    [TestClass]
     public class InitBranchTest : BaseTest
     {
         #region Test Init
@@ -55,10 +55,10 @@ namespace GitTfs.Test.Commands
         #endregion
 
         #region Init a Branch
-        [Fact]
+        [TestMethod]
         public void ShouldInitBranchWhenNoBranchGitNameProposed() => ShouldInitBranch(null);
 
-        [Fact]
+        [TestMethod]
         public void ShouldInitBranchWhenBranchGitNameProposed() => ShouldInitBranch("MyBranch");
 
         private void ShouldInitBranch(string expectedGitBranchName)
@@ -91,7 +91,7 @@ namespace GitTfs.Test.Commands
             newBranchRemoteMock.Verify();
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldDoNothingBecauseRemoteAlreadyExisting()
         {
             const string GIT_BRANCH_TO_INIT = "myBranch";
@@ -128,7 +128,7 @@ namespace GitTfs.Test.Commands
             newBranchRemoteMock.Verify();
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailBecauseRootChangeSetNotFound()
         {
             const string GIT_BRANCH_TO_INIT = "MyBranch";
@@ -146,7 +146,7 @@ namespace GitTfs.Test.Commands
             gitRepository.Verify();
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailBecauseGitCommitCorrespondingToChangeSetNotFound()
         {
             const string GIT_BRANCH_TO_INIT = "MyBranch";
@@ -170,7 +170,7 @@ namespace GitTfs.Test.Commands
 
         #region Init All branches
 
-        [Fact]
+        [TestMethod]
         public void ShouldInitAllBranches()
         {
             const string GIT_BRANCH_TO_INIT1 = "MyBranch1";
@@ -227,7 +227,7 @@ namespace GitTfs.Test.Commands
             newBranch2RemoteMock.Verify();
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenCloningASubBranch_ThenInitAllBranchesShouldSucceedWithInitializingOnlyChildrenBranches()
         {
             const string GIT_BRANCH_TO_INIT1 = "MyBranch1";
@@ -289,7 +289,7 @@ namespace GitTfs.Test.Commands
             newBranch2RemoteMock.Verify();
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailInitAllBranchesBecauseNoFetchWasSpecified()
         {
             mocks.ClassUnderTest.CloneAllBranches = true;
@@ -299,7 +299,7 @@ namespace GitTfs.Test.Commands
             Assert.Equal("error: --no-fetch cannot be used with --all", ex.Message);
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldFailInitAllBranchesBecauseCloneWasNotMadeFromABranch()
         {
             const string GIT_BRANCH_TO_INIT1 = "MyBranch1";
@@ -351,7 +351,7 @@ namespace GitTfs.Test.Commands
         #endregion
 
         #region Help Command
-        [Fact]
+        [TestMethod]
         public void ShouldCallCommandHelp()
         {
             var gitRepositoryMock = new Mock<IGitRepository>();

@@ -1,7 +1,6 @@
 using System.Diagnostics;
-using NDesk.Options;
-using GitTfs.Core;
 using GitTfs.Util;
+using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 
 namespace GitTfs.Commands

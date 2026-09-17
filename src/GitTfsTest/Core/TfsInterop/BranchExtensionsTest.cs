@@ -1,14 +1,14 @@
-﻿using GitTfs.Core.TfsInterop;
+using GitTfs.Core.TfsInterop;
 
 using Moq;
 
-using Xunit;
 
 namespace GitTfs.Test.Core.TfsInterop
 {
+    [TestClass]
     public class BranchExtensionsTest : BaseTest
     {
-        [Fact]
+        [TestMethod]
         public void AllChildrenAlwaysReturnsAnEnumerable()
         {
             IEnumerable<BranchTree> result = ((BranchTree)null).GetAllChildren();
@@ -29,7 +29,7 @@ namespace GitTfs.Test.Core.TfsInterop
             return branchTree;
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenGettingChildrenOfTopBranch_ThenReturnAllTheChildren()
         {
             var trunk = CreateBranchTree("$/Project/Trunk");
@@ -45,7 +45,7 @@ namespace GitTfs.Test.Core.TfsInterop
             Assert.Equal(new List<BranchTree> { branch1, branch2, branch3 }, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenGettingChildrenOfOneBranch_ThenReturnChildrenOfThisBranch()
         {
             var trunk = CreateBranchTree("$/Project/Trunk");
@@ -64,7 +64,7 @@ namespace GitTfs.Test.Core.TfsInterop
             Assert.Equal(new List<BranchTree> { branch1_1, branch1_2 }, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenGettingChildrenOfLowerBranch_ThenReturnNothing()
         {
             var trunk = CreateBranchTree("$/Project/Trunk");
@@ -77,7 +77,7 @@ namespace GitTfs.Test.Core.TfsInterop
             Assert.Empty(result);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenFindingChildrenOfTopBranchByPath_ThenReturnAllTheChildren()
         {
             var trunk = CreateBranchTree("$/Project/Trunk");
@@ -93,7 +93,7 @@ namespace GitTfs.Test.Core.TfsInterop
             Assert.Equal(new List<BranchTree> { branch1, branch2, branch3 }, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenFindingChildrenOfOneBranchByPath_ThenReturnChildrenOfThisBranch()
         {
             var trunk = CreateBranchTree("$/Project/Trunk");
@@ -112,7 +112,7 @@ namespace GitTfs.Test.Core.TfsInterop
             Assert.Equal(new List<BranchTree> { branch1_1, branch1_2 }, result);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenFindingChildrenOfLowerBranchByPath_ThenReturnNothing()
         {
             var trunk = CreateBranchTree("$/Project/Trunk");

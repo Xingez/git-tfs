@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using System.Runtime.Serialization.Formatters.Binary;
+using System.Text.Json;
 
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
@@ -10,33 +10,14 @@ namespace GitTfs.VsFake
     {
         public const string EnvVar = "GIT_TFS_VSFAKE_SCRIPT";
 
-        public static Script Load(string path) => new Script().Tap(script => Load(path, script));
+        public static Script Load(string path) =>
+            JsonSerializer.Deserialize<Script>(File.ReadAllText(path)) ?? new Script();
 
-        private static void Load(string path, Script script)
-        {
-            var formatter = new BinaryFormatter();
-            using (var stream = File.OpenRead(path))
-            {
-                script.RootBranches.AddRange((List<ScriptedRootBranch>)formatter.Deserialize(stream));
-                script.Changesets.AddRange((List<ScriptedChangeset>)formatter.Deserialize(stream));
-            }
-        }
+        public void Save(string path) => File.WriteAllText(path, JsonSerializer.Serialize(this));
 
-        public void Save(string path)
-        {
-            var formatter = new BinaryFormatter();
-            using (var stream = File.Create(path))
-            {
-                formatter.Serialize(stream, RootBranches);
-                formatter.Serialize(stream, Changesets);
-            }
-        }
+        public List<ScriptedChangeset> Changesets { get; set; } = new List<ScriptedChangeset>();
 
-        private readonly List<ScriptedChangeset> _changesets = new List<ScriptedChangeset>();
-        public List<ScriptedChangeset> Changesets => _changesets;
-
-        private readonly List<ScriptedRootBranch> _rootBranches = new List<ScriptedRootBranch>();
-        public List<ScriptedRootBranch> RootBranches => _rootBranches;
+        public List<ScriptedRootBranch> RootBranches { get; set; } = new List<ScriptedRootBranch>();
     }
 
     [Serializable]
@@ -46,7 +27,7 @@ namespace GitTfs.VsFake
         public int Id { get; set; }
         public string Comment { get; set; }
         public DateTime CheckinDate { get; set; }
-        public List<ScriptedChange> Changes => _changes;
+        public List<ScriptedChange> Changes { get; set; } = new List<ScriptedChange>();
 
         public bool IsBranchChangeset { get; set; }
         public BranchChangesetDatas BranchChangesetDatas { get; set; }
@@ -55,7 +36,6 @@ namespace GitTfs.VsFake
         public MergeChangesetDatas MergeChangesetDatas { get; set; }
         public string Committer { get; set; }
 
-        private readonly List<ScriptedChange> _changes = new List<ScriptedChange>();
     }
 
     [Serializable]

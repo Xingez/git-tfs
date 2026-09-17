@@ -1,16 +1,16 @@
-﻿using Xunit;
 using GitTfs.Util;
 
 namespace GitTfs.Test.Util
 {
+    [TestClass]
     public class BouncerTest : BaseTest
     {
         private readonly Bouncer bouncer = new Bouncer();
 
-        [Fact]
+        [TestMethod]
         public void NoExpressionsMeansNotMatched() => Assert.False(bouncer.IsIncluded("$/Any/Path"));
 
-        [Fact]
+        [TestMethod]
         public void IgnoreNullExpressions()
         {
             bouncer.Include(null);
@@ -18,14 +18,14 @@ namespace GitTfs.Test.Util
             Assert.False(bouncer.IsIncluded("$/Any/Path"));
         }
 
-        [Fact]
+        [TestMethod]
         public void IncludesEverything()
         {
             bouncer.Include(".*");
             Assert.True(bouncer.IsIncluded("$/Any/Path"));
         }
 
-        [Fact]
+        [TestMethod]
         public void IncludesEverythingExceptSomething()
         {
             bouncer.Include(".*");
@@ -34,7 +34,7 @@ namespace GitTfs.Test.Util
             Assert.False(bouncer.IsIncluded("$/something/Path"));
         }
 
-        [Fact]
+        [TestMethod]
         public void IgnoresCase()
         {
             bouncer.Include("thing");
@@ -43,7 +43,7 @@ namespace GitTfs.Test.Util
             Assert.False(bouncer.IsIncluded("$/Other/Thing/Path"));
         }
 
-        [Fact]
+        [TestMethod]
         public void PrefersExclusion()
         {
             bouncer.Include(".*");
@@ -51,7 +51,7 @@ namespace GitTfs.Test.Util
             Assert.False(bouncer.IsIncluded("$/Any/Path"));
         }
 
-        [Fact]
+        [TestMethod]
         public void IncludesAndExcludesAll()
         {
             bouncer.Include("\\.exe$");

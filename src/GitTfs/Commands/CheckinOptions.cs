@@ -1,5 +1,4 @@
-﻿using System.Text.RegularExpressions;
-using NDesk.Options;
+using System.Text.RegularExpressions;
 using GitTfs.Util;
 
 namespace GitTfs.Commands

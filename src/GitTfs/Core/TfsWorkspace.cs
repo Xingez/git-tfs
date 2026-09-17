@@ -220,15 +220,15 @@ namespace GitTfs.Core
 
         public void Get(int changesetId) => _workspace.GetSpecificVersion(changesetId);
 
-        public void Get(int changesetId, IEnumerable<IItem> items) => _workspace.GetSpecificVersion(changesetId, items, Remote.RemoteInfo.NoParallel);
+        public void Get(int changesetId, IEnumerable<IItem> items) => _workspace.GetSpecificVersion(changesetId, items, noParallel: true);
 
-        public void Get(IChangeset changeset) => _workspace.GetSpecificVersion(changeset, Remote.RemoteInfo.NoParallel);
+        public void Get(IChangeset changeset) => _workspace.GetSpecificVersion(changeset, noParallel: true);
 
         public void Get(int changesetId, IEnumerable<IChange> changes)
         {
             if (changes.Any())
             {
-                _workspace.GetSpecificVersion(changesetId, changes, Remote.RemoteInfo.NoParallel);
+                _workspace.GetSpecificVersion(changesetId, changes, noParallel: true);
             }
         }
 

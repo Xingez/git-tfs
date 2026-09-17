@@ -1,45 +1,45 @@
-﻿using GitTfs.Core;
+using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 
 using Moq;
 
 using StructureMap.AutoMocking;
 
-using Xunit;
 
 namespace GitTfs.Test.Core
 {
+    [TestClass]
     public class GitTfsRemoteTests : BaseTest
     {
-        [Fact]
+        [TestMethod]
         public void MatchesUrlAndRepositoryPath_should_be_case_insensitive_for_tfs_url()
         {
             var remote = BuildRemote(url: "http://testvcs:8080/tfs/test", repository: "test");
             Assert.True(remote.MatchesUrlAndRepositoryPath("http://testvcs:8080/tfs/Test", "test"));
         }
 
-        [Fact]
+        [TestMethod]
         public void MatchesUrlAndRepositoryPath_should_be_false_if_no_match_for_tfs_url()
         {
             var remote = BuildRemote(url: "http://testvcs:8080/tfs/test", repository: "test");
             Assert.False(remote.MatchesUrlAndRepositoryPath("http://adifferenturl:8080/tfs/Test", "test"));
         }
 
-        [Fact]
+        [TestMethod]
         public void MatchesUrlAndRepositoryPath_should_be_case_insensitive_for_legacy_urls()
         {
             var remote = BuildRemote(legacyUrls: new[] { "http://testvcs:8080/tfs/test", "AnotherUrlThatDoesntMatch" }, repository: "test");
             Assert.True(remote.MatchesUrlAndRepositoryPath("http://testvcs:8080/tfs/Test", "test"));
         }
 
-        [Fact]
+        [TestMethod]
         public void MatchesUrlAndRepositoryPath_should_be_case_insensitive_for_tfs_repository_path()
         {
             var remote = BuildRemote(url: "test", repository: "$/Test");
             Assert.True(remote.MatchesUrlAndRepositoryPath("test", "$/test"));
         }
 
-        [Fact]
+        [TestMethod]
         public void MatchesUrlAndRepositoryPath_should_be_false_if_no_match_for_tfs_repository_path()
         {
             var remote = BuildRemote(url: "test", repository: "$/Test");
@@ -63,7 +63,7 @@ namespace GitTfs.Test.Core
             return mocks.ClassUnderTest;
         }
 
-        [Fact]
+        [TestMethod]
         public void GivenTheTfsPathsInTheBranchFolder_WhenGettingPathInGitRepo_ThenShouldGetRelativePaths()
         {
             var remote = BuildRemote(url: "test", repository: "$/Project/MyBranch_other");
@@ -71,7 +71,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("file.txt", remote.GetPathInGitRepo("$/Project/MyBranch_other/file.txt"));
         }
 
-        [Fact]
+        [TestMethod]
         public void GivenTheTfsPathsInAnotherBranchFolder_WhenGettingPathInGitRepo_ThenShouldGetNothing()
         {
             var remote = BuildRemote(url: "test", repository: "$/Project/MyBranch");
@@ -79,7 +79,7 @@ namespace GitTfs.Test.Core
             Assert.Null(remote.GetPathInGitRepo("$/Project/MyBranch_other/file.txt"));
         }
 
-        [Fact]
+        [TestMethod]
         public void GivenTheTfsPathsAreInOneOfTheSubRemotes_WhenGettingPathInGitRepoInSubtree_ThenShouldGetRelativePathes()
         {
             var subtreeRemote = BuildSubTreeOwnerRemote(new List<IGitTfsRemote>
@@ -91,7 +91,7 @@ namespace GitTfs.Test.Core
             Assert.Equal("MyBranch_other/file.txt", subtreeRemote.GetPathInGitRepo("$/Project/MyBranch_other/file.txt"));
         }
 
-        [Fact]
+        [TestMethod]
         public void GivenTheTfsPathsAreNotInOneOfTheSubRemotes_WhenGettingPathInGitRepoInSubtree_ThenShouldGetNothing()
         {
             var subtreeRemote = BuildSubTreeOwnerRemote(new List<IGitTfsRemote>

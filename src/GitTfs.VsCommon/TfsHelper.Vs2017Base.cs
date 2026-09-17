@@ -199,7 +199,7 @@ namespace GitTfs.VsCommon
 
                 vssCred = HasCredentials
                     ? new VssClientCredentials(new WindowsCredential(GetCredential()))
-                    : VssClientCredentials.LoadCachedCredentials(uri, false, CredentialPromptType.PromptIfNeeded);
+                    : VssCredentials.LoadCachedCredentials(uri, false);
 
                 Trace.WriteLine("Identity-based VSS credentials created.");
             }

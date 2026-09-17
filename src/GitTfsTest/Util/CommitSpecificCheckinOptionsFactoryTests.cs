@@ -1,12 +1,12 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Util;
-using Xunit;
 using StructureMap.AutoMocking;
 using GitTfs.Core;
 using Moq;
 
 namespace GitTfs.Test.Util
 {
+    [TestClass]
     public class CommitSpecificCheckinOptionsFactoryTests : BaseTest
     {
         private readonly MoqAutoMocker<CheckinOptionsFactory> mocks;
@@ -30,7 +30,7 @@ namespace GitTfs.Test.Util
             return new CheckinOptionsFactory(mocks.Get<Globals>());
         }
 
-        [Fact]
+        [TestMethod]
         public void Sets_commit_message_as_checkin_comments()
         {
             string originalCheckinComment = "command-line input";
@@ -47,7 +47,7 @@ namespace GitTfs.Test.Util
             Assert.Equal(commitMessage, specificCheckinOptions.CheckinComment);
         }
 
-        [Fact]
+        [TestMethod]
         public void Adds_work_item_to_associate_and_removes_checkin_command_comment()
         {
             string commitMessage = @"test message
@@ -69,7 +69,7 @@ namespace GitTfs.Test.Util
             Assert.Equal(expectedCheckinComment, specificCheckinOptions.CheckinComment);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_does_not_require_action()
         {
             string commitMessage = @"test message
@@ -81,7 +81,7 @@ namespace GitTfs.Test.Util
             Assert.Single(specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_hash()
         {
             string commitMessage = @"test workitem #5676";
@@ -91,7 +91,7 @@ namespace GitTfs.Test.Util
             Assert.Contains("5676", specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_user_defined_regex_non_matching()
         {
             string commitMessage = @"test workitem #5676";
@@ -100,7 +100,7 @@ namespace GitTfs.Test.Util
             Assert.Empty(specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_user_defined_regex_matching()
         {
             string commitMessage = @"test workitem id:5676";
@@ -110,7 +110,7 @@ namespace GitTfs.Test.Util
             Assert.Contains("5676", specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_user_defined_invalid_regex()
         {
             string commitMessage = @"test workitem #5676";
@@ -119,7 +119,7 @@ namespace GitTfs.Test.Util
             Assert.Empty(specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_user_defined_empty_regex()
         {
             string commitMessage = @"test workitem #5676";
@@ -129,7 +129,7 @@ namespace GitTfs.Test.Util
             Assert.Contains("5676", specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_hash2()
         {
             string commitMessage = @"test workitem #56p76";
@@ -139,7 +139,7 @@ namespace GitTfs.Test.Util
             Assert.Contains("56", specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_hash_wrong_format()
         {
             string commitMessage = @"test workitem #f5676";
@@ -148,7 +148,7 @@ namespace GitTfs.Test.Util
             Assert.Empty(specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_hash_2_styles()
         {
             string commitMessage = @"test workitem #5676 1 only
@@ -160,7 +160,7 @@ namespace GitTfs.Test.Util
             Assert.Contains("5676", specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Checkin_regex_with_hash_same_workitems()
         {
             string commitMessage = @"test workitem #5676
@@ -171,7 +171,7 @@ namespace GitTfs.Test.Util
             Assert.Contains("5676", specificCheckinOptions.WorkItemsToAssociate);
         }
 
-        [Fact]
+        [TestMethod]
         public void Adds_work_item_to_resolve_and_removes_checkin_command_comment()
         {
             string commitMessage = @"test message
@@ -192,7 +192,7 @@ namespace GitTfs.Test.Util
             Assert.Equal(expectedCheckinComment.Replace(Environment.NewLine, "NEWLINE"), specificCheckinOptions.CheckinComment.Replace(Environment.NewLine, "NEWLINE"));
         }
 
-        [Fact]
+        [TestMethod]
         public void Adds_multiple_work_items_and_removes_checkin_command_comment()
         {
             string commitMessage = @"test message
@@ -218,7 +218,7 @@ namespace GitTfs.Test.Util
             Assert.Equal(expectedCheckinComment.Replace(Environment.NewLine, "NEWLINE"), specificCheckinOptions.CheckinComment.Replace(Environment.NewLine, "NEWLINE"));
         }
 
-        [Fact]
+        [TestMethod]
         public void Adds_reviewers_and_removes_checkin_command_comment()
         {
             string commitMessage =

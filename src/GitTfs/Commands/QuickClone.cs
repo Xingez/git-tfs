@@ -1,5 +1,6 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using StructureMap;
+using GitTfs.Core;
 
 namespace GitTfs.Commands
 {
@@ -7,8 +8,8 @@ namespace GitTfs.Commands
     [Description("quick-clone [options] tfs-url-or-instance-name repository-path <git-repository-path>")]
     public class QuickClone : Clone
     {
-        public QuickClone(Globals globals, Init init, QuickFetch fetch)
-            : base(globals, fetch, init, null)
+        public QuickClone(Globals globals, Init init, QuickFetch fetch, GitTfsSettings settings)
+            : base(globals, fetch, init, null, settings)
         {
         }
     }

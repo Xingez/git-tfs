@@ -1,12 +1,12 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Core;
-using Xunit;
 
 namespace GitTfs.Test.Commands
 {
+    [TestClass]
     public class ExtTest : BaseTest
     {
-        [Fact]
+        [TestMethod]
         public void AssertValidTfsPathTest()
         {
             "$/test".AssertValidTfsPath();
@@ -17,7 +17,7 @@ namespace GitTfs.Test.Commands
             "$/".AssertValidTfsPathOrRoot();
         }
 
-        [Fact]
+        [TestMethod]
         public void ToGitRefNameTest()
         {
             Assert.Equal("test", "test".ToGitRefName());
@@ -39,7 +39,7 @@ namespace GitTfs.Test.Commands
             Assert.Equal("repo/test/test2", "$/repo/te:st/test2".ToGitRefName());
         }
 
-        [Fact]
+        [TestMethod]
         public void GetAGitBranchNameFromTfsRepositoryPath()
         {
             Assert.Equal("test", "test".ToGitBranchNameFromTfsRepositoryPath());

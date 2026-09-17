@@ -79,8 +79,6 @@ namespace GitTfs.Core
 
             public override void Close() => _helper.Close(_process);
 
-            public override System.Runtime.Remoting.ObjRef CreateObjRef(Type requestedType) => _process.StandardOutput.CreateObjRef(requestedType);
-
             protected override void Dispose(bool disposing)
             {
                 if (disposing && _process != null)
@@ -93,8 +91,6 @@ namespace GitTfs.Core
             public override bool Equals(object obj) => _process.StandardOutput.Equals(obj);
 
             public override int GetHashCode() => _process.StandardOutput.GetHashCode();
-
-            public override object InitializeLifetimeService() => _process.StandardOutput.InitializeLifetimeService();
 
             public override int Peek() => _process.StandardOutput.Peek();
 

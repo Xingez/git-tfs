@@ -1,12 +1,11 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
 using GitTfs.Util;
 using Moq;
 using StructureMap.AutoMocking;
-using NDesk.Options;
-using Xunit;
 
 namespace GitTfs.Test.Util
 {
+    [TestClass]
     public class GitTfsCommandRunnerTests : BaseTest
     {
         #region Base implementation of GitTfsCommand, for tests
@@ -46,10 +45,10 @@ namespace GitTfs.Test.Util
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void ReturnsCommandReturnValue() => Assert.Equal(99, _mocks.ClassUnderTest.Run(new UsesList(), Args()));
 
-        [Fact]
+        [TestMethod]
         public void CallsListWithZeroArgs()
         {
             var command = new UsesList();
@@ -74,7 +73,7 @@ namespace GitTfs.Test.Util
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void CallsOverloadWithOneArg()
         {
             var command = new UsesOverloads();
@@ -85,7 +84,7 @@ namespace GitTfs.Test.Util
             Assert.Equal(args, command.Calls[0].Args);
         }
 
-        [Fact]
+        [TestMethod]
         public void CallsOverloadWithTwoArgs()
         {
             var command = new UsesOverloads();
@@ -96,14 +95,14 @@ namespace GitTfs.Test.Util
             Assert.Equal(args, command.Calls[0].Args);
         }
 
-        [Fact]
+        [TestMethod]
         public void ReturnsHelpForTooFewArgs()
         {
             Mock.Get(_mocks.Get<IHelpHelper>()).Setup(x => x.ShowHelpForInvalidArguments(It.IsAny<GitTfsCommand>())).Returns(33);
             Assert.Equal(33, _mocks.ClassUnderTest.Run(new UsesOverloads(), Args()));
         }
 
-        [Fact]
+        [TestMethod]
         public void ReturnsHelpForTooManyArgs()
         {
             Mock.Get(_mocks.Get<IHelpHelper>()).Setup(x => x.ShowHelpForInvalidArguments(It.IsAny<GitTfsCommand>())).Returns(33);
@@ -129,7 +128,7 @@ namespace GitTfs.Test.Util
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void CallsOverloadOrDefaultWithZeroArgs()
         {
             var command = new UsesOverloadsOrDefault();
@@ -140,7 +139,7 @@ namespace GitTfs.Test.Util
             Assert.Equal(args, command.Calls[0].Args);
         }
 
-        [Fact]
+        [TestMethod]
         public void CallsOverloadOrDefaultWithOneArg()
         {
             var command = new UsesOverloadsOrDefault();
@@ -151,7 +150,7 @@ namespace GitTfs.Test.Util
             Assert.Equal(args, command.Calls[0].Args);
         }
 
-        [Fact]
+        [TestMethod]
         public void CallsOverloadOrDefaultWithTwoArgs()
         {
             var command = new UsesOverloadsOrDefault();

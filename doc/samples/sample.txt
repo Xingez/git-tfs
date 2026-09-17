@@ -57,8 +57,8 @@ SomeDir
 ./ANewDirectory/SomeDir:
 readme.txt  sayhi.bat
 >>> echo another line >> ANewDirectory/SomeDir/readme.txt
->>> git commit -a -m "Contributed using git-tfs."
-[master a72b561] Contributed using git-tfs.
+>>> git commit -a -m "Committed using git-tfs."
+[master a72b561] Committed using git-tfs.
  1 files changed, 1 insertions(+), 0 deletions(-)
 >>> git tfs shelve
 Usage: git-tfs shelve [options] shelveset-name [ref-to-shelve]

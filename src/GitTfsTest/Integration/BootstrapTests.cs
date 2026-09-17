@@ -1,25 +1,22 @@
-﻿using GitTfs.Core.TfsInterop;
+using GitTfs.Core.TfsInterop;
 
-using Xunit;
-using Xunit.Abstractions;
 
 namespace GitTfs.Test.Integration
 {
+    [TestClass]
     public class BootstrapTests : BaseTest, IDisposable
     {
-        private readonly ITestOutputHelper _output;
         private readonly IntegrationHelper h = new IntegrationHelper();
 
-        public BootstrapTests(ITestOutputHelper output)
+        public BootstrapTests()
         {
-            _output = output;
             h.SetupFake(_ => { });
-            _output.WriteLine("Repository in folder: " + h.Workdir);
+            Console.WriteLine("Repository in folder: " + h.Workdir);
         }
 
         public void Dispose() => h.Dispose();
 
-        [Fact]
+        [TestMethod]
         public void BootstrapWithNoRemotes()
         {
             h.SetupGitRepo("repo", g =>
@@ -30,7 +27,7 @@ namespace GitTfs.Test.Integration
             h.AssertNoRef("repo", "tfs/default");
         }
 
-        [Fact]
+        [TestMethod]
         public void BootstrapWithARemoteAtHead()
         {
             string c1 = null;
@@ -42,7 +39,7 @@ namespace GitTfs.Test.Integration
             h.AssertRef("repo", "tfs/default", c1);
         }
 
-        [Fact]
+        [TestMethod]
         public void BootstrapWithARemoteAsAParentOfHead()
         {
             string c1 = null;
@@ -55,7 +52,7 @@ namespace GitTfs.Test.Integration
             h.AssertRef("repo", "tfs/default", c1);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenUsingIOption_ThenAutoBootstrapingMaster()
         {
             int ChangesetIdToTrickFetch = 1;
@@ -75,7 +72,7 @@ namespace GitTfs.Test.Integration
             h.AssertRef("repo", "tfs/default", c1);
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenUsingIOption_ThenAutoBootstrapingOneBrancheInAdditionToMaster()
         {
             int ChangesetIdToTrickFetch = 1;
@@ -108,7 +105,7 @@ namespace GitTfs.Test.Integration
             }
         }
 
-        [Fact]
+        [TestMethod]
         public void WhenUsingIOption_ThenAutoBootstrapingAMergeCommit()
         {
             int ChangesetIdToTrickFetch = 1;

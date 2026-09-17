@@ -1,14 +1,15 @@
-﻿using GitTfs.Commands;
+using GitTfs.Commands;
+using GitTfs;
 using StructureMap.AutoMocking;
-using NDesk.Options;
-using Xunit;
-using NLog;
+using GitTfs.Util;
 using System.Diagnostics;
-using NLog.Config;
-using NLog.Targets;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 namespace GitTfs.Test.Commands
 {
+    [TestClass]
     public class HelpTest : BaseTest
     {
         private readonly MoqAutoMocker<Help> mocks;
@@ -18,22 +19,21 @@ namespace GitTfs.Test.Commands
             mocks = new MoqAutoMocker<Help>();
         }
 
-        public MemoryTarget GetTestLogger()
+        public MemorySink GetTestLogger()
         {
-            var memoryTarget = new MemoryTarget() { Layout = @"${message}" };
+            var memorySink = new MemorySink();
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .WriteTo.Sink(memorySink)
+                .CreateLogger();
 
-            var config = new LoggingConfiguration();
-            config.AddTarget("memory", memoryTarget);
-            config.LoggingRules.Add(new LoggingRule("*", LogLevel.Info, memoryTarget));
+            Trace.Listeners.Clear();
+            Trace.Listeners.Add(new SerilogTraceListener());
 
-            LogManager.Configuration = config;
-
-            Trace.Listeners.Add(new NLogTraceListener());
-
-            return memoryTarget;
+            return memorySink;
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldWriteGeneralHelp()
         {
             var memoryTarget = GetTestLogger();
@@ -42,13 +42,13 @@ namespace GitTfs.Test.Commands
             mocks.Container.Inject<GitTfsCommand>("test", new TestCommand());
             mocks.ClassUnderTest.Run();
 
-            memoryTarget.Logs[0].Equals("Usage: git-tfs [command] [options]");
-            memoryTarget.Logs[1].Contains("test");
-            memoryTarget.Logs[2].Equals(" (use 'git-tfs help [command]' or 'git-tfs [command] --help' for more information)");
-            memoryTarget.Logs[3].Equals("Find more help in our online help : https://github.com/git-tfs/git-tfs");
+            Assert.Equal("Usage: git-tfs [command] [options]", memoryTarget.Logs[0]);
+            Assert.Contains("test", memoryTarget.Logs[1]);
+            Assert.Equal(" (use 'git-tfs help [command]' or 'git-tfs [command] --help' for more information)", memoryTarget.Logs[2]);
+            Assert.Contains("Find more help in our online help : https://github.com/git-tfs/git-tfs", memoryTarget.Logs[3]);
         }
 
-        [Fact]
+        [TestMethod]
         public void ShouldWriteCommandHelp()
         {
             var memoryTarget = GetTestLogger();
@@ -69,6 +69,13 @@ namespace GitTfs.Test.Commands
             public OptionSet OptionSet => TestOptions;
 
             public int Run(IList<string> args) => throw new System.NotImplementedException();
+        }
+
+        public sealed class MemorySink : ILogEventSink
+        {
+            public List<string> Logs { get; } = new List<string>();
+
+            public void Emit(LogEvent logEvent) => Logs.Add(logEvent.RenderMessage());
         }
     }
 }

@@ -1,13 +1,13 @@
-﻿using System.Text;
+using System.Text;
 using GitTfs.Util;
 using GitTfs.Core;
-using Xunit;
 
 namespace GitTfs.Test.Util
 {
+    [TestClass]
     public class AuthorsFileUnitTest : BaseTest
     {
-        [Fact]
+        [TestMethod]
         public void AuthorsFileEmptyFile()
         {
             MemoryStream ms = new MemoryStream();
@@ -18,7 +18,7 @@ namespace GitTfs.Test.Util
             Assert.Empty(authFile.Authors);
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileSimpleRecord()
         {
             string author = @"Domain\Test.User = Test User <TestUser@example.com>";
@@ -32,7 +32,7 @@ namespace GitTfs.Test.Util
             Assert.Equal("TestUser@example.com", auth.Email);
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileCaseInsensitiveRecord()
         {
             string author = @"DOMAIN\Test.User = Test User <TestUser@example.com>";
@@ -46,7 +46,7 @@ namespace GitTfs.Test.Util
             Assert.Equal("TestUser@example.com", auth.Email);
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileMultiLineRecord()
         {
             string author =
@@ -68,7 +68,7 @@ Domain\Different.User = Three Name User < TestUser@example.com >";
             Assert.Equal(" TestUser@example.com ", auth.Email);
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileMultiLineRecordWithBlankLine()
         {
             string author =
@@ -79,7 +79,7 @@ Domain\Different.User = Three Name User < TestUser@example.com >";
             Assert.Throws<GitTfsException>(() => authFile.Parse(new StreamReader(new MemoryStream(Encoding.ASCII.GetBytes(author)))));
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileTestBadRecord()
         {
             string author =
@@ -88,7 +88,7 @@ Domain\Different.User = Three Name User < TestUser@example.com >";
             Assert.Throws<GitTfsException>(() => authFile.Parse(new StreamReader(new MemoryStream(Encoding.ASCII.GetBytes(author)))));
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileCommentCharacterStartOfLine()
         {
             string author =
@@ -103,7 +103,7 @@ Domain\Different.User = Three Name User < TestUser@example.com >";
             Assert.False(authFile.Authors.ContainsKey(@"Domain\Different.User"));
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileCommentCharacterMiddleOfLine()
         {
             string author =
@@ -118,7 +118,7 @@ D#omain\Different.User = Three Name User < TestUser@example.com >";
             Assert.True(authFile.Authors.ContainsKey(@"D#omain\Different.User"));
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileInternationalCharacters()
         {
             string author = @"DOMAIN\Blåbærsyltetøy = ÆØÅ User <ÆØÅ@example.com>";
@@ -132,7 +132,7 @@ D#omain\Different.User = Three Name User < TestUser@example.com >";
             Assert.Equal("ÆØÅ@example.com", auth.Email);
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileInternationalCharactersMultiLine()
         {
             string author = @"DOMAIN\Blåbærsyltetøy = ÆØÅ User <ÆØÅ@example.com>
@@ -152,7 +152,7 @@ differentDomain\Blåbærsyltetøy = ÆØÅ User <ÆØÅ@example.com>";
             Assert.Equal("ÆØÅ@example.com", auth.Email);
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileInternationalCharactersCommented()
         {
             string author = @"DOMAIN\Blåbærsyltetøy = ÆØÅ User <ÆØÅ@example.com>
@@ -189,7 +189,7 @@ differentDomain\Blåbærsyltetøy = ÆØÅ User <ÆØÅ@example.com>";
             return authFile;
         }
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileMultipleUsers()
         {
             string[] authors = {
@@ -215,7 +215,7 @@ differentDomain\Blåbærsyltetøy = ÆØÅ User <ÆØÅ@example.com>";
         }
 
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileDifferentIdsForUsersWithSameEmail()
         {
             string[] authors = {
@@ -250,7 +250,7 @@ differentDomain\Blåbærsyltetøy = ÆØÅ User <ÆØÅ@example.com>";
 
 
 
-        [Fact]
+        [TestMethod]
         public void AuthorsFileFindAuthors()
         {
             string[] authors = {
