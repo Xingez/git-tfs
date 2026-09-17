@@ -22,6 +22,9 @@
     <Compile Include="..\GitTfs.VsCommon\TfsHelper.Vs2022Base.cs">
       <Link>TfsHelper.Vs2022Base.cs</Link>
     </Compile>
+    <Compile Include="..\GitTfs.VsCommon\TfsRequestLoggingChannel.cs">
+      <Link>TfsRequestLoggingChannel.cs</Link>
+    </Compile>
     <Compile Include="..\GitTfs.VsCommon\TfsPlugin.cs">
       <Link>TfsPlugin.cs</Link>
     </Compile>

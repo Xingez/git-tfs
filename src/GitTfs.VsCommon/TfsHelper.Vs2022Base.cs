@@ -206,7 +206,14 @@ namespace GitTfs.VsCommon
                 Trace.WriteLine("Identity-based VSS credentials created.");
             }
 
-            return new TfsTeamProjectCollection(uri, vssCred);
+            var collection = new TfsTeamProjectCollection(uri, vssCred);
+            var channelFactoryProperty = typeof(TfsConnection).GetProperty(nameof(TfsConnection.ChannelFactory), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var channelFactorySetter = channelFactoryProperty?.GetSetMethod(true);
+            if (channelFactorySetter == null)
+                throw new GitTfsException("The TFS client does not expose a channel factory setter.");
+
+            channelFactorySetter.Invoke(collection, new object[] { new TfsRequestLoggingChannelFactory(collection.ChannelFactory) });
+            return collection;
 #pragma warning restore 618
         }
 
