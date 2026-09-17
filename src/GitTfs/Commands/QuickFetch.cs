@@ -3,8 +3,7 @@ namespace GitTfs.Commands
 {
     using global::GitTfs.Core;
     // This isn't intended to ever be a command. The intent is that
-    // you create a repository with quick-clone, and then use
-    // fetch to stay up-to-date.
+    // It is used internally for fast initial imports and is not a command.
     //
     // This cannot be a command until the following are sorted out:
     //  1. How to choose a parent commit.

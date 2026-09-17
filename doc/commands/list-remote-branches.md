@@ -60,5 +60,4 @@ If the TFS server needs an authentication, you could use the _--username_ and _-
 ## See also
 
 * [clone](clone.md)
-* [quick-clone](quick-clone.md)
 * [init-branch](init-branch.md)

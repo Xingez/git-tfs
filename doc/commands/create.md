@@ -71,5 +71,4 @@ TFS will create in the same the other components for the project (ALM, issue man
 
 * [clone](clone.md)
 * [init](init.md)
-* [quick-clone](quick-clone.md)
 * [fetch](fetch.md)

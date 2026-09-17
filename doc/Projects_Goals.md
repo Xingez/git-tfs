@@ -22,7 +22,7 @@ Here are some things I'd like to do with git-tfs:
   * add a config param for using git commits in the tfs checkin comment (inspired by https://github.com/hammerdr/git-tfs/commit/7d9863775a53fd1664022cf3ff7e3920c4579f96)
 * Use a newer build of henon/gitsharp to fix [the out of memory problem](https://github.com/git-tfs/git-tfs/issues/22).
 * Clean up the object model.
-* Faster import (clone and/or quick-clone) ([in progress](https://github.com/git-tfs/git-tfs/issues/173))
+* Faster import for clone ([in progress](https://github.com/git-tfs/git-tfs/issues/173))
   * git-fast-import?
   * TFS get specific version, then add?
 * Config params to support a more concise notation for TFS server URLs and/or a default server URL.
