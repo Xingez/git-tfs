@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
+using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
+using GitTfs;
 
 using Microsoft.TeamFoundation.Build.Client;
 using Microsoft.TeamFoundation.Client;
@@ -13,7 +15,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Setup.Configuration;
 
-using StructureMap;
+using Microsoft.Extensions.DependencyInjection;
 
 using WindowsCredential = Microsoft.VisualStudio.Services.Common.WindowsCredential;
 
@@ -54,8 +56,8 @@ namespace GitTfs.VsCommon
         /// </summary>
         private ExternalSettingsManager myExternalSettingsManager;
 
-        public TfsHelperVS2017Base(TfsApiBridge bridge, IContainer container, int majorVersion)
-            : base(bridge, container)
+        public TfsHelperVS2017Base(TfsApiBridge bridge, IServiceProvider services, Janitor janitor, ConfigProperties properties, int majorVersion)
+            : base(bridge, services, janitor, properties)
         {
             myMajorVersion = majorVersion;
             myVisualStudioInstallationPath = GetVsInstallDir();

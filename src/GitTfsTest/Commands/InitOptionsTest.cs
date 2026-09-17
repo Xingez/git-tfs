@@ -1,5 +1,5 @@
 using GitTfs.Commands;
-using StructureMap.AutoMocking;
+using GitTfs.Test;
 using GitTfs.Util;
 
 namespace GitTfs.Test.Commands

@@ -33,10 +33,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="14.102.0" />
     <PackageReference Include="Microsoft.TeamFoundationServer.ExtendedClient" Version="14.102.0" GeneratePathProperty="true" />
-    <PackageReference Include="StructureMap" Version="2.6.4.1" />
+    <PackageReference Include="Microsoft.VisualStudio.Services.InteractiveClient" Version="14.102.0" GeneratePathProperty="true" ExcludeAssets="compile" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="$(PkgMicrosoft_TeamFoundationServer_ExtendedClient)\lib\net45\*.dll" Private="true" />
+    <Reference Include="$(PkgMicrosoft_VisualStudio_Services_InteractiveClient)\lib\net45\*.dll" Private="true" />
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="xcopy /y /I &quot;$(TargetDir)*.dll&quot; &quot;$(SolutionDir)GitTfs\$(OutDir)$(ProjectName)&quot;" />

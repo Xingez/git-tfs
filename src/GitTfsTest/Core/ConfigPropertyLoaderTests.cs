@@ -1,9 +1,6 @@
 using GitTfs.Core;
 using GitTfs.Util;
 
-using StructureMap;
-
-
 namespace GitTfs.Test.Integration
 {
     [TestClass]
@@ -28,7 +25,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var configProperties = new ConfigProperties(new ConfigPropertyLoader(new Globals() { Repository = gitRepository }));
                 Assert.Equal(100, configProperties.BatchSize);
             }
@@ -45,7 +42,7 @@ namespace GitTfs.Test.Integration
             h.SetConfig("repo", GitTfsConstants.BatchSize, "25");
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var configProperties = new ConfigProperties(new ConfigPropertyLoader(new Globals() { Repository = gitRepository }));
 
                 configProperties.BatchSize = 10;
@@ -64,7 +61,7 @@ namespace GitTfs.Test.Integration
             h.SetConfig("repo", GitTfsConstants.BatchSize, "5");
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var configProperties = new ConfigProperties(new ConfigPropertyLoader(new Globals() { Repository = gitRepository }));
 
                 Assert.Equal(5, configProperties.BatchSize);
@@ -81,7 +78,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var configProperties = new ConfigProperties(new ConfigPropertyLoader(new Globals() { Repository = gitRepository }));
 
                 configProperties.BatchSize = 7;

@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using StructureMap;
+using GitTfs.Util;
 using GitTfs.Core;
 
 namespace GitTfs.Commands

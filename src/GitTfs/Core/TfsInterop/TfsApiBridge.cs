@@ -2,20 +2,21 @@ using System.Collections;
 
 using GitTfs.Core.TfsInterop;
 
-using StructureMap;
+using GitTfs.Util;
 
 namespace GitTfs.VsCommon
 {
     public class TfsApiBridge
     {
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
 
-        public TfsApiBridge(IContainer container)
+        public TfsApiBridge(IServiceProvider services)
         {
-            _container = container;
+            _services = services;
         }
 
-        public TWrapper Wrap<TWrapper, TWrapped>(TWrapped wrapped) where TWrapper : class => wrapped == null ? null : _container.With(this).With(wrapped).GetInstance<TWrapper>();
+        public TWrapper Wrap<TWrapper, TWrapped>(TWrapped wrapped) where TWrapper : class =>
+            wrapped == null ? null : _services.CreateInstance<TWrapper>(this, wrapped);
 
         public TWrapper[] Wrap<TWrapper, TWrapped>(IEnumerable wrapped) where TWrapper : class => wrapped == null ? null : wrapped.OfType<TWrapped>().Select(x => Wrap<TWrapper, TWrapped>(x)).ToArray();
 

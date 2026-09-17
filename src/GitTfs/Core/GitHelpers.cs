@@ -1,13 +1,13 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using StructureMap;
 using System.Text;
+using GitTfs.Util;
 
 namespace GitTfs.Core
 {
     public class GitHelpers : IGitHelpers
     {
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
 
         /// <summary>
         /// Starting with version 1.7.10, Git uses UTF-8.
@@ -15,9 +15,9 @@ namespace GitTfs.Core
         /// </summary>
         private static readonly Encoding _encoding = new UTF8Encoding(false, true);
 
-        public GitHelpers(IContainer container)
+        public GitHelpers(IServiceProvider services)
         {
-            _container = container;
+            _services = services;
         }
 
         /// <summary>
@@ -204,9 +204,8 @@ namespace GitTfs.Core
             }
         }
 
-        public IGitRepository MakeRepository(string dir) => _container
-                .With("gitDir").EqualTo(dir)
-                .GetInstance<IGitRepository>();
+        public IGitRepository MakeRepository(string dir) =>
+            _services.CreateInstance<GitRepository>(dir, _services, _services.GetService<Globals>(), _services.GetRequiredService<RemoteConfigConverter>());
 
         private static readonly Regex ValidCommandName = new Regex("^[a-z0-9A-Z_-]+$");
         private static void AssertValidCommand(string[] command)

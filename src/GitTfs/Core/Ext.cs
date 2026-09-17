@@ -2,7 +2,6 @@ using GitTfs.Commands;
 
 using GitTfs.Util;
 
-using StructureMap;
 
 using System.Diagnostics;
 using System.Text;
@@ -85,7 +84,7 @@ namespace GitTfs.Core
 
         public static bool IsEmpty<T>(this IEnumerable<T> c) => c == null || !c.Any();
 
-        public static OptionSet GetAllOptions(this GitTfsCommand command, IContainer container) => container.GetInstance<Globals>().OptionSet.Merge(command.OptionSet);
+        public static OptionSet GetAllOptions(this GitTfsCommand command, IServiceProvider services) => services.GetRequiredService<Globals>().OptionSet.Merge(command.OptionSet);
 
         private static readonly Regex sha1OnlyRegex = new Regex("^" + GitTfsConstants.Sha1 + "$");
         public static void AssertValidSha(this String sha)

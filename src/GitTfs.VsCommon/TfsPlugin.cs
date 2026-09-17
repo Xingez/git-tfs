@@ -1,15 +1,12 @@
-﻿
+using Microsoft.Extensions.DependencyInjection;
+
 namespace GitTfs
 {
     internal class TfsPlugin : Core.TfsInterop.TfsPlugin
     {
-        public override void Initialize(StructureMap.Graph.IAssemblyScanner scan)
-        {
-            base.Initialize(scan);
-            scan.AssemblyContainingType(typeof(Microsoft.TeamFoundation.Client.TfsTeamProjectCollection));
-        }
+        public override IEnumerable<System.Reflection.Assembly> GetServiceAssemblies() => base.GetServiceAssemblies();
 
-        public override void Initialize(StructureMap.ConfigurationExpression config) => base.Initialize(config);
+        public override void ConfigureServices(IServiceCollection services) => base.ConfigureServices(services);
 
         public override bool IsViable() => null != typeof(Microsoft.TeamFoundation.Client.TfsTeamProjectCollection).Assembly;
     }

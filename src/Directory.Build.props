@@ -20,4 +20,7 @@
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
 </Project>

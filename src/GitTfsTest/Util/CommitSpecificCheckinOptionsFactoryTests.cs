@@ -1,6 +1,6 @@
 using GitTfs.Commands;
 using GitTfs.Util;
-using StructureMap.AutoMocking;
+using GitTfs.Test;
 using GitTfs.Core;
 using Moq;
 

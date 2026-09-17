@@ -1,5 +1,4 @@
 using GitTfs.Util;
-using StructureMap;
 using System.Diagnostics;
 
 namespace GitTfs.Commands
@@ -7,18 +6,18 @@ namespace GitTfs.Commands
     [Pluggable("diagnostics")]
     public class Diagnostics : GitTfsCommand
     {
-        private readonly IContainer _container;
+        private readonly ServiceCatalog _catalog;
 
-        public Diagnostics(IContainer container)
+        public Diagnostics(ServiceCatalog catalog)
         {
-            _container = container;
+            _catalog = catalog;
         }
 
         public OptionSet OptionSet => new OptionSet();
 
         public int Run()
         {
-            Trace.TraceInformation(_container.WhatDoIHave());
+            Trace.TraceInformation(_catalog.Describe());
             return GitTfsExitCodes.OK;
         }
     }

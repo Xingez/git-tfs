@@ -3,7 +3,7 @@ using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
-    [StructureMapSingleton]
+    [SingletonService]
     public class CheckinOptions
     {
         public OptionSet OptionSet => new OptionSet

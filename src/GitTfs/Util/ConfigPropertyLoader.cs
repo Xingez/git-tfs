@@ -1,7 +1,7 @@
 namespace GitTfs.Util
 {
     // Manages configurable values.
-    [StructureMapSingleton]
+    [SingletonService]
     public class ConfigPropertyLoader
     {
         private readonly Globals _globals;

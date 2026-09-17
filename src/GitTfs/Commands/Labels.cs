@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using GitTfs.Util;
 using GitTfs.Core;
-using StructureMap;
 
 namespace GitTfs.Commands
 {

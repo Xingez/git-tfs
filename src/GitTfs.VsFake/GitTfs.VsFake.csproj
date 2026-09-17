@@ -9,7 +9,6 @@
     <ProjectReference Include="..\GitTfs\GitTfs.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="StructureMap" Version="2.6.4.1" />
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="xcopy /y /I &quot;$(TargetPath)&quot; &quot;$(SolutionDir)GitTfs\$(OutDir)*&quot;" />

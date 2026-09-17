@@ -1,7 +1,6 @@
 using GitTfs.Core.TfsInterop;
 using GitTfs.Test;
 using GitTfs.VsCommon;
-using StructureMap.AutoMocking;
 
 namespace GitTfsTest.Core
 {

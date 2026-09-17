@@ -1,7 +1,7 @@
 using GitTfs.Core;
 using GitTfs.Core.Changes.Git;
 
-using StructureMap;
+using Moq;
 
 
 namespace GitTfs.Test.Core
@@ -60,8 +60,8 @@ namespace GitTfs.Test.Core
         private IGitChangedFile GetChangeItem(string diffTreeLine)
         {
             // This method is similar to BuildGitChangedFile in GitRepository.
-            var container = new Container(x => { Program.AddGitChangeTypes(x); });
-            return GitChangeInfo.Parse(diffTreeLine).ToGitChangedFile(container.With((IGitRepository)null));
+            var services = TestServices.Create();
+            return GitChangeInfo.Parse(diffTreeLine).ToGitChangedFile(services, new Mock<IGitRepository>().Object);
         }
 
         [TestMethod]

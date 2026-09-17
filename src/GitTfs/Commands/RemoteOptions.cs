@@ -2,7 +2,7 @@ using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
-    [StructureMapSingleton]
+    [SingletonService]
     public class RemoteOptions
     {
         public OptionSet OptionSet => new OptionSet

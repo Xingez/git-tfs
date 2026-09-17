@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using StructureMap;
 using LibGit2Sharp;
 using GitTfs.Commands;
 using Branch = LibGit2Sharp.Branch;
@@ -10,16 +9,16 @@ namespace GitTfs.Core
 {
     public class GitRepository : GitHelpers, IGitRepository
     {
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
         private readonly Globals _globals;
         private IDictionary<string, IGitTfsRemote> _cachedRemotes;
         private readonly Repository _repository;
         private readonly RemoteConfigConverter _remoteConfigReader;
 
-        public GitRepository(string gitDir, IContainer container, Globals globals, RemoteConfigConverter remoteConfigReader)
-            : base(container)
+        public GitRepository(string gitDir, IServiceProvider services, Globals globals, RemoteConfigConverter remoteConfigReader)
+            : base(services)
         {
-            _container = container;
+            _services = services;
             _globals = globals;
             GitDir = gitDir;
             _repository = new Repository(GitDir);
@@ -232,8 +231,8 @@ namespace GitTfs.Core
             return remotes;
         }
 
-        private IGitTfsRemote BuildRemote(RemoteInfo remoteInfo)
-            => _container.With(remoteInfo).With<IGitRepository>(this).GetInstance<IGitTfsRemote>();
+        private IGitTfsRemote BuildRemote(RemoteInfo remoteInfo) =>
+            _services.CreateInstance<GitTfsRemote>(remoteInfo, this);
 
         public bool HasRemote(string remoteId) => GetTfsRemotes().ContainsKey(remoteId);
 
@@ -367,7 +366,7 @@ namespace GitTfs.Core
             var match = GitTfsConstants.TfsCommitInfoRegex.Match(gitTfsMetaInfo);
             if (match.Success)
             {
-                var commitInfo = _container.GetInstance<TfsChangesetInfo>();
+                var commitInfo = _services.GetRequiredService<TfsChangesetInfo>();
                 commitInfo.Remote = ReadTfsRemote(match.Groups["url"].Value, match.Groups["repository"].Success ? match.Groups["repository"].Value : null);
                 commitInfo.ChangesetId = Convert.ToInt32(match.Groups["changeset"].Value);
                 commitInfo.GitCommit = commit;
@@ -454,7 +453,7 @@ namespace GitTfs.Core
             }
         }
 
-        private IGitChangedFile BuildGitChangedFile(GitChangeInfo change) => change.ToGitChangedFile(_container.With((IGitRepository)this));
+        private IGitChangedFile BuildGitChangedFile(GitChangeInfo change) => change.ToGitChangedFile(_services, this);
 
         public bool WorkingCopyHasUnstagedOrUncommitedChanges
         {

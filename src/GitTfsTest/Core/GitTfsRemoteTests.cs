@@ -3,7 +3,7 @@ using GitTfs.Core.TfsInterop;
 
 using Moq;
 
-using StructureMap.AutoMocking;
+using GitTfs.Test;
 
 
 namespace GitTfs.Test.Core

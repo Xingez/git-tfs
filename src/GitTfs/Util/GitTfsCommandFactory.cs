@@ -1,15 +1,15 @@
-﻿using StructureMap;
-
 namespace GitTfs.Util
 {
-    [StructureMapSingleton]
+    [SingletonService]
     public class GitTfsCommandFactory
     {
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
+        private readonly ServiceCatalog _catalog;
 
-        public GitTfsCommandFactory(IContainer container)
+        public GitTfsCommandFactory(IServiceProvider services, ServiceCatalog catalog)
         {
-            _container = container;
+            _services = services;
+            _catalog = catalog;
         }
 
         private Dictionary<string, string> _aliasMap;
@@ -18,16 +18,14 @@ namespace GitTfs.Util
         private Dictionary<string, string> CreateAliasMap()
         {
             var aliasMap = new Dictionary<string, string>();
-            var commandPluginType = _container.Model.PluginTypes.First(p => p.PluginType == typeof(GitTfsCommand));
-
-            foreach (var instance in commandPluginType.Instances)
+            foreach (var instance in _catalog.Commands)
             {
-                var attribte = instance.ConcreteType.GetCustomAttributes(typeof(PluggableWithAliases), true)
+                var attribute = instance.ImplementationType.GetCustomAttributes(typeof(PluggableWithAliases), true)
                     .Cast<PluggableWithAliases>().FirstOrDefault();
 
-                if (attribte != null)
+                if (attribute != null)
                 {
-                    foreach (var alias in attribte.Aliases)
+                    foreach (var alias in attribute.Aliases)
                     {
                         aliasMap[alias] = instance.Name;
                     }
@@ -37,7 +35,11 @@ namespace GitTfs.Util
             return aliasMap;
         }
 
-        public GitTfsCommand GetCommand(string name) => _container.TryGetInstance<GitTfsCommand>(GetCommandName(name));
+        public GitTfsCommand GetCommand(string name)
+        {
+            var commandType = _catalog.GetCommandType(GetCommandName(name));
+            return commandType == null ? null : (GitTfsCommand)_services.GetRequiredService(commandType);
+        }
 
         private string GetCommandName(string name)
         {

@@ -1,5 +1,3 @@
-﻿using StructureMap;
-
 namespace GitTfs.Util
 {
     public class PluggableWithAliases : PluggableAttribute

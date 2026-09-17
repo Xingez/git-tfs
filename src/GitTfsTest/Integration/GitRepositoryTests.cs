@@ -1,9 +1,6 @@
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 
-using StructureMap;
-
-
 namespace GitTfs.Test.Integration
 {
     [TestClass]
@@ -26,7 +23,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
 
                 Assert.Null(gitRepository.GetCommit("b1accc619681b0348aaec303f0fce6f463890c74"));
             }
@@ -39,7 +36,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
 
                 Assert.Null(gitRepository.GetTfsCommit("b1accc619681b0348aaec303f0fce6f463890c74"));
             }
@@ -66,7 +63,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var changesets = gitRepository.GetLastParentTfsCommits("HEAD");
                 Assert.Single(changesets);
                 Assert.Equal(c3, changesets.First().GitCommit);
@@ -98,7 +95,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var changesets = gitRepository.GetLastParentTfsCommits("HEAD");
                 Assert.Equal(2, changesets.Count());
                 //C3 must be returned first because that's the parent commit of the master branch where the other branch is merged
@@ -135,7 +132,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var changesets = gitRepository.GetLastParentTfsCommits("HEAD");
                 Assert.Single(changesets);
                 Assert.Equal(c4, changesets.First().GitCommit);
@@ -160,7 +157,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 var changesets = gitRepository.GetLastParentTfsCommits("HEAD");
                 Assert.Empty(changesets);
             }
@@ -203,7 +200,7 @@ namespace GitTfs.Test.Integration
 
             using (var repo = h.Repository("repo"))
             {
-                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, new Container(), null, new RemoteConfigConverter());
+                var gitRepository = new GitRepository(repo.Info.WorkingDirectory, TestServices.Create(), null, new RemoteConfigConverter());
                 //string revList = gitRepository.CommandOneline("rev-list", "--parents", "--ancestry-path", "--first-parent", "--reverse", c1 + ".." + c4);
 
                 var changesets = gitRepository.FindParentCommits(c5, c1);

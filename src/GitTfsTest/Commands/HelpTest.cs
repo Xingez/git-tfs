@@ -1,6 +1,6 @@
 using GitTfs.Commands;
 using GitTfs;
-using StructureMap.AutoMocking;
+using GitTfs.Test;
 using GitTfs.Util;
 using System.Diagnostics;
 using Serilog;
@@ -38,8 +38,7 @@ namespace GitTfs.Test.Commands
         {
             var memoryTarget = GetTestLogger();
 
-            mocks.Container.PluginGraph.FindFamily(typeof(GitTfsCommand)).AddType(typeof(TestCommand), "test");
-            mocks.Container.Inject<GitTfsCommand>("test", new TestCommand());
+            mocks.RegisterCommand("test", new TestCommand());
             mocks.ClassUnderTest.Run();
 
             Assert.Equal("Usage: git-tfs [command] [options]", memoryTarget.Logs[0]);
@@ -52,9 +51,7 @@ namespace GitTfs.Test.Commands
         public void ShouldWriteCommandHelp()
         {
             var memoryTarget = GetTestLogger();
-            mocks.Container.PluginGraph.CreateFamily(typeof(GitTfsCommand));
-            mocks.Container.PluginGraph.FindFamily(typeof(GitTfsCommand)).AddType(typeof(TestCommand), "test");
-            mocks.Container.Inject<GitTfsCommand>("test", new TestCommand());
+            mocks.RegisterCommand("test", new TestCommand());
             mocks.ClassUnderTest.Run(new[] { "test" });
 
             memoryTarget.Logs[0].Equals("Usage: git-tfs test [options]");

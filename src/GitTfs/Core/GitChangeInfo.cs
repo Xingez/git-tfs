@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
-using StructureMap;
+using GitTfs.Util;
 
 using FileMode = LibGit2Sharp.Mode;
 
@@ -183,6 +183,10 @@ namespace GitTfs.Core
         public string pathTo => _match.Groups["dstpath"].Value;
         public string score => _match.Groups["score"].Value;
 
-        public IGitChangedFile ToGitChangedFile(ExplicitArgsExpression builder) => builder.With(this).GetInstance<IGitChangedFile>(Status);
+        public IGitChangedFile ToGitChangedFile(IServiceProvider services, IGitRepository repository)
+        {
+            var implementationType = services.GetRequiredService<ServiceCatalog>().GetChangedFileType(Status);
+            return (IGitChangedFile)services.CreateInstance(implementationType, repository, this);
+        }
     }
 }

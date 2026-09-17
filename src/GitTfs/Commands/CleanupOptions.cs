@@ -2,7 +2,7 @@ using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
-    [StructureMapSingleton]
+    [SingletonService]
     public class CleanupOptions
     {
         private readonly Globals _globals;

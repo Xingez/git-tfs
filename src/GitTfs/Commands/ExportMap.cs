@@ -4,7 +4,6 @@ using GitTfs.Core;
 
 using GitTfs.Util;
 
-using StructureMap;
 
 namespace GitTfs.Commands
 {

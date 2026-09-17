@@ -3,8 +3,6 @@ using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 using GitTfs.Util;
 
-using StructureMap;
-
 using System.Diagnostics;
 
 namespace GitTfs.VsFake
@@ -22,13 +20,13 @@ namespace GitTfs.VsFake
     {
         #region misc/null
 
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
         private readonly Script _script;
         private readonly FakeVersionControlServer _versionControlServer;
 
-        public TfsHelper(IContainer container, Script script)
+        public TfsHelper(IServiceProvider services, Script script)
         {
-            _container = container;
+            _services = services;
             _script = script;
             _versionControlServer = new FakeVersionControlServer(_script);
         }
@@ -83,8 +81,8 @@ namespace GitTfs.VsFake
         private ITfsChangeset BuildTfsChangeset(ScriptedChangeset changeset, IGitTfsRemote remote)
         {
             TfsChangesetInfo tfsChangesetInfo = new TfsChangesetInfo { ChangesetId = changeset.Id, Remote = remote };
-            var tfsChangeset = _container.With<ITfsHelper>(this).With<IChangeset>(new Changeset(_versionControlServer, changeset)).With(tfsChangesetInfo).GetInstance<TfsChangeset>();
-            return tfsChangeset;
+            return _services.CreateInstance<TfsChangeset>(
+                this, new Changeset(_versionControlServer, changeset), tfsChangesetInfo);
         }
 
         private class Changeset : IChangeset
@@ -169,12 +167,7 @@ namespace GitTfs.VsFake
         {
             Trace.WriteLine("Setting up a TFS workspace at " + localDirectory);
             var fakeWorkspace = new FakeWorkspace(localDirectory, remote.TfsRepositoryPath);
-            var workspace = _container.With("localDirectory").EqualTo(localDirectory)
-                .With("remote").EqualTo(remote)
-                .With("contextVersion").EqualTo(versionToFetch)
-                .With("workspace").EqualTo(fakeWorkspace)
-                .With("tfsHelper").EqualTo(this)
-                .GetInstance<TfsWorkspace>();
+            var workspace = _services.CreateInstance<TfsWorkspace>(fakeWorkspace, localDirectory, versionToFetch, remote, this);
             action(workspace);
         }
 
@@ -182,12 +175,7 @@ namespace GitTfs.VsFake
         {
             Trace.WriteLine("Setting up a TFS workspace at " + directory);
             var fakeWorkspace = new FakeWorkspace(directory, remote.TfsRepositoryPath);
-            var workspace = _container.With("localDirectory").EqualTo(directory)
-                .With("remote").EqualTo(remote)
-                .With("contextVersion").EqualTo(versionToFetch)
-                .With("workspace").EqualTo(fakeWorkspace)
-                .With("tfsHelper").EqualTo(this)
-                .GetInstance<TfsWorkspace>();
+            var workspace = _services.CreateInstance<TfsWorkspace>(fakeWorkspace, directory, versionToFetch, remote, this);
             action(workspace);
         }
 

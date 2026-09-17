@@ -4,7 +4,7 @@ using System.Diagnostics;
 
 namespace GitTfs.Core
 {
-    [StructureMapSingleton]
+    [SingletonService]
     public class Janitor : IDisposable
     {
         private readonly Queue<Action> _actions = new Queue<Action>();

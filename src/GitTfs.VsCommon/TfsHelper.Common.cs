@@ -6,12 +6,12 @@ using Microsoft.TeamFoundation.VersionControl.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.Win32;
 using GitTfs.Commands;
+using GitTfs;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
 using GitTfs.Extensions;
 using GitTfs.Util;
-using StructureMap;
-using StructureMap.Attributes;
+using Microsoft.Extensions.DependencyInjection;
 using ChangeType = Microsoft.TeamFoundation.VersionControl.Client.ChangeType;
 using IdentityNotFoundException = Microsoft.TeamFoundation.VersionControl.Client.IdentityNotFoundException;
 using Microsoft.TeamFoundation.Build.Client;
@@ -21,17 +21,19 @@ namespace GitTfs.VsCommon
     public abstract class TfsHelperBase : ITfsHelper
     {
         protected readonly TfsApiBridge _bridge;
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
         protected TfsTeamProjectCollection _server;
         private static bool _resolverInstalled;
         private AuthorsFile _authorsFile;
         private Uri _lastAuthenticatedUri;
 
-        public TfsHelperBase(TfsApiBridge bridge, IContainer container)
+        public TfsHelperBase(TfsApiBridge bridge, IServiceProvider services, Janitor janitor, ConfigProperties properties)
         {
             _bridge = bridge;
-            _container = container;
-            _authorsFile = _container.GetInstance<AuthorsFile>();
+            _services = services;
+            _authorsFile = _services.GetRequiredService<AuthorsFile>();
+            Janitor = janitor;
+            this.properties = properties;
             if (!_resolverInstalled)
             {
                 AppDomain.CurrentDomain.AssemblyResolve += LoadFromVsFolder;
@@ -39,11 +41,9 @@ namespace GitTfs.VsCommon
             }
         }
 
-        [SetterProperty]
-        public Janitor Janitor { get; set; }
+        public Janitor Janitor { get; }
 
-        [SetterProperty]
-        public ConfigProperties properties { get; set; }
+        public ConfigProperties properties { get; }
 
         public string TfsClientLibraryVersion => typeof(TfsTeamProjectCollection).Assembly.GetName().Version + " (MS)";
 
@@ -557,12 +557,8 @@ namespace GitTfs.VsCommon
                 }));
                 Janitor.CleanThisUpWhenWeClose(() => TryToDeleteWorkspace(workspace));
             }
-            var tfsWorkspace = _container.With("localDirectory").EqualTo(localDirectory)
-                .With("remote").EqualTo(remote)
-                .With("contextVersion").EqualTo(versionToFetch)
-                .With("workspace").EqualTo(_bridge.Wrap<WrapperForWorkspace, Workspace>(workspace))
-                .With("tfsHelper").EqualTo(this)
-                .GetInstance<TfsWorkspace>();
+            var tfsWorkspace = _services.CreateInstance<TfsWorkspace>(
+                _bridge.Wrap<WrapperForWorkspace, Workspace>(workspace), localDirectory, versionToFetch, remote, this);
             action(tfsWorkspace);
         }
 
@@ -572,12 +568,8 @@ namespace GitTfs.VsCommon
             var workspace = Retry.Do(() => GetWorkspace(new WorkingFolder(remote.TfsRepositoryPath, localDirectory)));
             try
             {
-                var tfsWorkspace = _container.With("localDirectory").EqualTo(localDirectory)
-                    .With("remote").EqualTo(remote)
-                    .With("contextVersion").EqualTo(versionToFetch)
-                    .With("workspace").EqualTo(_bridge.Wrap<WrapperForWorkspace, Workspace>(workspace))
-                    .With("tfsHelper").EqualTo(this)
-                    .GetInstance<TfsWorkspace>();
+                var tfsWorkspace = _services.CreateInstance<TfsWorkspace>(
+                    _bridge.Wrap<WrapperForWorkspace, Workspace>(workspace), localDirectory, versionToFetch, remote, this);
                 action(tfsWorkspace);
             }
             finally

@@ -35,7 +35,7 @@ namespace GitTfs.Util
         #endregion
     }
 
-    [StructureMapSingleton]
+    [SingletonService]
     public class AuthorsFile
     {
         private readonly Dictionary<string, Author> _authorsByTfsUserId = new Dictionary<string, Author>(StringComparer.OrdinalIgnoreCase);

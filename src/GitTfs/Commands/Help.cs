@@ -1,9 +1,6 @@
 using System.ComponentModel;
 using GitTfs.Util;
 using GitTfs.Core;
-using StructureMap;
-using StructureMap.Query;
-using IContainer = StructureMap.IContainer;
 using System.Diagnostics;
 
 namespace GitTfs.Commands
@@ -13,12 +10,14 @@ namespace GitTfs.Commands
     public class Help : GitTfsCommand
     {
         private readonly GitTfsCommandFactory _commandFactory;
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
+        private readonly ServiceCatalog _catalog;
 
-        public Help(GitTfsCommandFactory commandFactory, IContainer container)
+        public Help(GitTfsCommandFactory commandFactory, IServiceProvider services, ServiceCatalog catalog)
         {
             _commandFactory = commandFactory;
-            _container = container;
+            _services = services;
+            _catalog = catalog;
         }
 
         public OptionSet OptionSet => new OptionSet();
@@ -75,7 +74,7 @@ namespace GitTfs.Commands
 
             Trace.TraceInformation("Usage: git-tfs " + GetCommandUsage(command));
             var writer = new StringWriter();
-            command.GetAllOptions(_container).WriteOptionDescriptions(writer);
+            command.GetAllOptions(_services).WriteOptionDescriptions(writer);
             Trace.TraceInformation(writer.ToString());
 
             Trace.TraceInformation("\nFind more help in our online help : https://github.com/git-tfs/git-tfs/blob/master/doc/commands/" + GetCommandName(command) + ".md");
@@ -90,14 +89,10 @@ namespace GitTfs.Commands
                 .ToDictionary(s => s, s => _commandFactory.GetAliasesForCommandName(s));
 
         private string GetCommandName(GitTfsCommand command) => (from instance in GetCommandInstances()
-                                                                 where instance.ConcreteType == command.GetType()
+                                                                 where instance.ImplementationType == command.GetType()
                                                                  select instance.Name).Single();
 
-        private IEnumerable<InstanceRef> GetCommandInstances() => _container.Model
-                .PluginTypes
-                .Single(p => p.PluginType == typeof(GitTfsCommand))
-                .Instances
-                .Where(i => i != null);
+        private IEnumerable<ServiceCatalog.ServiceRegistration> GetCommandInstances() => _catalog.Commands;
 
         private string GetCommandUsage(GitTfsCommand command)
         {
@@ -119,14 +114,14 @@ namespace GitTfs.Commands
 
     public class HelpHelper : IHelpHelper
     {
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
 
-        public HelpHelper(IContainer container)
+        public HelpHelper(IServiceProvider services)
         {
-            _container = container;
+            _services = services;
         }
 
-        public int ShowHelp(GitTfsCommand command) => _container.GetInstance<Help>().Run(command);
+        public int ShowHelp(GitTfsCommand command) => _services.GetRequiredService<Help>().Run(command);
 
         public int ShowHelpForInvalidArguments(GitTfsCommand command)
         {

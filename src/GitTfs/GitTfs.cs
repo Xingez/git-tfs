@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using StructureMap;
+using Microsoft.Extensions.DependencyInjection;
 using GitTfs.Commands;
 using GitTfs.Core;
 using GitTfs.Util;
@@ -11,18 +11,18 @@ namespace GitTfs
         private readonly IGitTfsVersionProvider _gitTfsVersionProvider;
         private readonly GitTfsCommandFactory _commandFactory;
         private readonly IHelpHelper _help;
-        private readonly IContainer _container;
+        private readonly IServiceProvider _services;
         private readonly GitTfsCommandRunner _runner;
         private readonly Globals _globals;
         private readonly Bootstrapper _bootstrapper;
         private readonly AuthorsFile _authorsFileHelper;
 
-        public GitTfs(GitTfsCommandFactory commandFactory, IHelpHelper help, IContainer container,
+        public GitTfs(GitTfsCommandFactory commandFactory, IHelpHelper help, IServiceProvider services,
             IGitTfsVersionProvider gitTfsVersionProvider, GitTfsCommandRunner runner, Globals globals, Bootstrapper bootstrapper, AuthorsFile authorsFileHelper)
         {
             _commandFactory = commandFactory;
             _help = help;
-            _container = container;
+            _services = services;
             _gitTfsVersionProvider = gitTfsVersionProvider;
             _runner = runner;
             _globals = globals;
@@ -74,7 +74,7 @@ namespace GitTfs
             }
             finally
             {
-                _container.GetInstance<Janitor>().Dispose();
+                _services.GetRequiredService<Janitor>().Dispose();
             }
         }
 
@@ -84,7 +84,7 @@ namespace GitTfs
         {
             try
             {
-                _container.GetInstance<AuthorsFile>().Parse(_globals.AuthorsFilePath, _globals.GitDir, couldSaveAuthorFile);
+            _services.GetRequiredService<AuthorsFile>().Parse(_globals.AuthorsFilePath, _globals.GitDir, couldSaveAuthorFile);
             }
             catch (Exception ex)
             {
@@ -112,7 +112,7 @@ namespace GitTfs
 
         public void AssertValidGitRepository()
         {
-            var git = _container.GetInstance<IGitHelpers>();
+            var git = _services.GetRequiredService<IGitHelpers>();
             if (!Directory.Exists(_globals.GitDir))
             {
                 if (_globals.GitDirSetByUser)
@@ -154,9 +154,9 @@ namespace GitTfs
                     return command;
                 }
             }
-            return _container.GetInstance<Commands.Help>();
+            return _services.GetRequiredService<Commands.Help>();
         }
 
-        public IList<string> ParseOptions(GitTfsCommand command, IList<string> args) => command.GetAllOptions(_container).Parse(args);
+        public IList<string> ParseOptions(GitTfsCommand command, IList<string> args) => command.GetAllOptions(_services).Parse(args);
     }
 }

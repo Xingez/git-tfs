@@ -2,7 +2,7 @@ using GitTfs.Util;
 
 namespace GitTfs.Commands
 {
-    [StructureMapSingleton]
+    [SingletonService]
     public class InitOptions
     {
         private const string DefaultAutocrlf = "false";

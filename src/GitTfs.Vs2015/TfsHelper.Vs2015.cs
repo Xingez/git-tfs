@@ -1,14 +1,16 @@
 using System.Diagnostics;
 using System.Reflection;
 
+using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
+using GitTfs;
 using GitTfs.VsCommon;
 
 using Microsoft.TeamFoundation.Build.Client;
 using Microsoft.TeamFoundation.Client;
 using Microsoft.TeamFoundation.Server;
 
-using StructureMap;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs.Vs2015
 {
@@ -18,8 +20,8 @@ namespace GitTfs.Vs2015
 
         private string TfsVersionString => "14.0";
 
-        public TfsHelper(TfsApiBridge bridge, IContainer container)
-            : base(bridge, container)
+        public TfsHelper(TfsApiBridge bridge, IServiceProvider services, Janitor janitor, ConfigProperties properties)
+            : base(bridge, services, janitor, properties)
         { }
 
         protected override string GetDialogAssemblyPath()

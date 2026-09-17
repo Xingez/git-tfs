@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using GitTfs.Util;
 using GitTfs.Core;
-using StructureMap;
 using System.Diagnostics;
 
 namespace GitTfs.Commands

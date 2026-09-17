@@ -1,13 +1,15 @@
+using GitTfs.Core;
 using GitTfs.VsCommon;
+using GitTfs;
 
-using StructureMap;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs.Vs2017
 {
     public class TfsHelper : TfsHelperVS2017Base
     {
-        public TfsHelper(TfsApiBridge bridge, IContainer container)
-            : base(bridge, container, 15)
+        public TfsHelper(TfsApiBridge bridge, IServiceProvider services, Janitor janitor, ConfigProperties properties)
+            : base(bridge, services, janitor, properties, 15)
         {
         }
     }

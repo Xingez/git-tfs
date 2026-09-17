@@ -4,8 +4,7 @@ using GitTfs.Core;
 using GitTfs.Core.Changes.Git;
 using GitTfs.Core.TfsInterop;
 using GitTfs.Util;
-using StructureMap;
-using StructureMap.Graph;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
@@ -34,8 +33,8 @@ namespace GitTfs
 
         public static int MainCore(string[] args)
         {
-            var container = Initialize();
-            return container.GetInstance<GitTfs>().Run(new List<string>(args));
+            using var services = Initialize();
+            return services.GetRequiredService<GitTfs>().Run(new List<string>(args));
         }
 
         private static void ReportException(Exception e)
@@ -71,8 +70,7 @@ namespace GitTfs
                 e = e.InnerException;
             while (e != null)
             {
-                var gitCommandException = e as GitCommandException;
-                if (gitCommandException != null)
+                if (e is GitCommandException gitCommandException)
                     Trace.TraceError("error running command: " + gitCommandException.Process.StartInfo.FileName + " " + gitCommandException.Process.StartInfo.Arguments);
 
                 Trace.TraceError(e.Message);
@@ -80,18 +78,25 @@ namespace GitTfs
             }
         }
 
-        private static IContainer Initialize() => new Container(Initialize);
-
-        private static void Initialize(ConfigurationExpression initializer)
+        private static ServiceProvider Initialize()
         {
             ConfigureLogger();
             var tfsPlugin = TfsPlugin.Find();
-            initializer.Scan(x => { Initialize(x); tfsPlugin.Initialize(x); });
-            initializer.For<GitTfsSettings>().Use(GitTfsSettings.Load());
-            initializer.For<IGitRepository>().Add<GitRepository>();
-            AddGitChangeTypes(initializer);
-            DoCustomConfiguration(initializer);
-            tfsPlugin.Initialize(initializer);
+            var services = new ServiceCollection();
+            var catalog = new ServiceCatalog();
+
+            services.AddSingleton(catalog);
+            services.AddGitTfsServices(catalog,
+                new[] { typeof(Program).Assembly }
+                    .Concat(tfsPlugin.GetServiceAssemblies())
+                    .Distinct()
+                    .ToArray());
+            services.AddTransient<IGitHelpers, GitHelpers>();
+            services.AddSingleton<GitTfsSettings>(_ => GitTfsSettings.Load());
+            AddGitChangeTypes(catalog);
+            tfsPlugin.ConfigureServices(services);
+
+            return services.BuildServiceProvider();
         }
 
         private static void ConfigureLogger()
@@ -128,34 +133,17 @@ namespace GitTfs
 
         internal static void EnableDebugLogging() => _consoleLevelSwitch?.MinimumLevel = LogEventLevel.Debug;
 
-        public static void AddGitChangeTypes(ConfigurationExpression initializer)
+        public static void AddGitChangeTypes(ServiceCatalog catalog)
         {
             // See git-diff-tree(1).
-            initializer.For<IGitChangedFile>().Use<Add>().Named(GitChangeInfo.ChangeType.ADD);
-            initializer.For<IGitChangedFile>().Use<Copy>().Named(GitChangeInfo.ChangeType.COPY);
-            initializer.For<IGitChangedFile>().Use<Modify>().Named(GitChangeInfo.ChangeType.MODIFY);
-            //initializer.For<IGitChangedFile>().Use<TypeChange>().Named(GitChangeInfo.GitChange.TYPECHANGE);
-            initializer.For<IGitChangedFile>().Use<Delete>().Named(GitChangeInfo.ChangeType.DELETE);
-            initializer.For<IGitChangedFile>().Use<RenameEdit>().Named(GitChangeInfo.ChangeType.RENAMEEDIT);
-            //initializer.For<IGitChangedFile>().Use<Unmerged>().Named(GitChangeInfo.GitChange.UNMERGED);
-            //initializer.For<IGitChangedFile>().Use<Unknown>().Named(GitChangeInfo.GitChange.UNKNOWN);
-        }
-
-        private static void Initialize(IAssemblyScanner scan)
-        {
-            scan.WithDefaultConventions();
-            scan.TheCallingAssembly();
-        }
-
-        private static void DoCustomConfiguration(ConfigurationExpression initializer)
-        {
-            foreach (var type in typeof(Program).Assembly.GetTypes())
-            {
-                foreach (ConfiguresStructureMap attribute in type.GetCustomAttributes(typeof(ConfiguresStructureMap), false))
-                {
-                    attribute.Initialize(initializer, type);
-                }
-            }
+            catalog.AddChangedFile(GitChangeInfo.ChangeType.ADD, typeof(Add));
+            catalog.AddChangedFile(GitChangeInfo.ChangeType.COPY, typeof(Copy));
+            catalog.AddChangedFile(GitChangeInfo.ChangeType.MODIFY, typeof(Modify));
+            //catalog.AddChangedFile(GitChangeInfo.ChangeType.TYPECHANGE, typeof(TypeChange));
+            catalog.AddChangedFile(GitChangeInfo.ChangeType.DELETE, typeof(Delete));
+            catalog.AddChangedFile(GitChangeInfo.ChangeType.RENAMEEDIT, typeof(RenameEdit));
+            //catalog.AddChangedFile(GitChangeInfo.ChangeType.UNMERGED, typeof(Unmerged));
+            //catalog.AddChangedFile(GitChangeInfo.ChangeType.UNKNOWN, typeof(Unknown));
         }
     }
 }

@@ -4,7 +4,7 @@ using GitTfs.Core;
 
 namespace GitTfs
 {
-    [StructureMapSingleton]
+    [SingletonService]
     public class Globals
     {
         public OptionSet OptionSet => new OptionSet

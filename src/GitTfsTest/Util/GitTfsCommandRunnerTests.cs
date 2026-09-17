@@ -1,7 +1,7 @@
 using GitTfs.Commands;
 using GitTfs.Util;
 using Moq;
-using StructureMap.AutoMocking;
+using GitTfs.Test;
 
 namespace GitTfs.Test.Util
 {

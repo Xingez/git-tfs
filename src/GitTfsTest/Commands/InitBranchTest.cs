@@ -5,7 +5,7 @@ using GitTfs.VsFake;
 
 using Moq;
 
-using StructureMap.AutoMocking;
+using GitTfs.Test;
 
 
 namespace GitTfs.Test.Commands

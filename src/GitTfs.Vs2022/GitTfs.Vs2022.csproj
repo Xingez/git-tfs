@@ -34,14 +34,15 @@
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="16.170.0" GeneratePathProperty="true" ExcludeAssets="compile" />
     <PackageReference Include="Microsoft.TeamFoundationServer.ExtendedClient" Version="16.170.0" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.VisualStudio.Services.Client" Version="16.170.0" GeneratePathProperty="true" ExcludeAssets="compile" />
+    <PackageReference Include="Microsoft.VisualStudio.Services.InteractiveClient" Version="16.170.0" GeneratePathProperty="true" ExcludeAssets="compile" />
     <PackageReference Include="Microsoft.VisualStudio.Settings.15.0" Version="17.0.32112.339" />
     <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.0.4496" />
-    <PackageReference Include="StructureMap" Version="2.6.4.1" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="$(PkgMicrosoft_TeamFoundationServer_Client)\lib\net462\*.dll" Private="true" />
     <Reference Include="$(PkgMicrosoft_TeamFoundationServer_ExtendedClient)\lib\net462\*.dll" Private="true" />
     <Reference Include="$(PkgMicrosoft_VisualStudio_Services_Client)\lib\net462\*.dll" Private="true" />
+    <Reference Include="$(PkgMicrosoft_VisualStudio_Services_InteractiveClient)\lib\net462\*.dll" Private="true" />
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="xcopy /y /I &quot;$(TargetDir)*.dll&quot; &quot;$(SolutionDir)GitTfs\$(OutDir)$(ProjectName)&quot;" />
@@ -50,6 +51,7 @@
   <Target Name="PreferDesktopTfsClientAssemblies" BeforeTargets="CoreCompile">
     <ItemGroup>
       <ReferencePath Remove="$(PkgMicrosoft_VisualStudio_Services_Client)\lib\netstandard2.0\*.dll" />
+      <ReferencePath Remove="$(PkgMicrosoft_VisualStudio_Services_InteractiveClient)\lib\netstandard2.0\*.dll" />
     </ItemGroup>
   </Target>
 </Project>

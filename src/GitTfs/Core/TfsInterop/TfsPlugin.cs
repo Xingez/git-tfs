@@ -1,10 +1,6 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Reflection;
-
-using StructureMap;
-using StructureMap.Graph;
-#if NETFRAMEWORK
-#endif
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs.Core.TfsInterop
 {
@@ -20,8 +16,6 @@ namespace GitTfs.Core.TfsInterop
                        pluginLoader.Fail("Unable to load TFS version specified in GIT_TFS_CLIENT (" + explicitVersion + ")!");
             }
 
-            // The loop will return the first first entry, as in practice loading
-            // the GitTFS.VSxxxx assembly only fails if it isn't build or can't be found.
             foreach (string version in SupportedVersions)
             {
                 TfsPlugin plugin = pluginLoader.TryLoadVsPluginVersion(version);
@@ -33,19 +27,13 @@ namespace GitTfs.Core.TfsInterop
         }
 
         public static IReadOnlyList<string> SupportedVersions =>
-                // Filter out the Fake version, as this is only internal for testing
-                // and we don't it to show up in user facing output/help messages.
-                PluginLoader.SupportedVersions.Except(new[] { "Fake" }).ToList();
+            PluginLoader.SupportedVersions.Except(new[] { "Fake" }).ToList();
 
         private class PluginLoader
         {
             private readonly List<Exception> _failures = new List<Exception>();
             private static string VsPluginAssemblyFolder { get; set; }
 
-            /// <summary>
-            /// List of supported Visual Studio versions. The order matters, as it influences
-            /// the priority in which we try to load the corresponding <see cref="TfsPlugin"/>.
-            /// </summary>
             public static IReadOnlyList<string> SupportedVersions => new List<string>
             {
                 "2022",
@@ -57,7 +45,7 @@ namespace GitTfs.Core.TfsInterop
 
             public TfsPlugin TryLoadVsPluginVersion(string version)
             {
-                if (!SupportedVersions.Contains(version, StringComparison.OrdinalIgnoreCase))
+                if (!SupportedVersions.Contains(version, StringComparer.OrdinalIgnoreCase))
                 {
                     Trace.WriteLine("Visual Studio " + version + " not supported...");
                     return null;
@@ -75,9 +63,7 @@ namespace GitTfs.Core.TfsInterop
                 {
                     var plugin = (TfsPlugin)Activator.CreateInstance(Assembly.Load(assembly).GetType(pluginType));
                     if (plugin.IsViable())
-                    {
                         return plugin;
-                    }
                 }
                 catch (Exception e)
                 {
@@ -92,8 +78,7 @@ namespace GitTfs.Core.TfsInterop
                 string folderPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 string assemblyPath = Path.Combine(folderPath, VsPluginAssemblyFolder, new AssemblyName(args.Name).Name + ".dll");
                 if (File.Exists(assemblyPath) == false) return null;
-                Assembly assembly = Assembly.LoadFrom(assemblyPath);
-                return assembly;
+                return Assembly.LoadFrom(assemblyPath);
             }
 
             public TfsPlugin Fail() => throw new PluginLoaderException(_failures);
@@ -114,12 +99,17 @@ namespace GitTfs.Core.TfsInterop
             }
         }
 
-        public virtual void Initialize(IAssemblyScanner scan) => scan.AssemblyContainingType(GetType());
+        public virtual IEnumerable<Assembly> GetServiceAssemblies() => new[] { GetType().Assembly };
 
-        public virtual void Initialize(ConfigurationExpression config) =>
+        public virtual void ConfigureServices(IServiceCollection services)
+        {
             // Mark the ITfsHelper as a singleton to ensure that we create it only once.
             // Otherwise, it is created e.g. for every remote which is wasteful.
-            config.For<ITfsHelper>().Singleton();
+            var helperType = GetType().Assembly.GetTypes()
+                .FirstOrDefault(type => type.IsClass && !type.IsAbstract && typeof(ITfsHelper).IsAssignableFrom(type));
+            if (helperType != null)
+                services.AddSingleton(typeof(ITfsHelper), helperType);
+        }
 
         public abstract bool IsViable();
     }

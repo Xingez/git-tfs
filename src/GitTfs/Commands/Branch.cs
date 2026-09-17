@@ -3,7 +3,6 @@ using System.Diagnostics;
 using GitTfs.Util;
 using GitTfs.Core;
 using GitTfs.Core.TfsInterop;
-using StructureMap;
 using System.Text;
 
 namespace GitTfs.Commands

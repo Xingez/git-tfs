@@ -1,18 +1,16 @@
 using GitTfs.Core;
 using GitTfs.VsFake;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GitTfs
 {
     internal class TfsPlugin : Core.TfsInterop.TfsPlugin
     {
-        /*
-        public override void Initialize(StructureMap.Graph.IAssemblyScanner scan)
+        public override void ConfigureServices(IServiceCollection services)
         {
-            base.Initialize(scan);
+            base.ConfigureServices(services);
+            services.AddSingleton(_ => Script.Load(ScriptPath));
         }
-        */
-
-        public override void Initialize(StructureMap.ConfigurationExpression config) => config.For<Script>().Use(() => Script.Load(ScriptPath));
 
         public override bool IsViable() => ScriptPath.Try(File.Exists);
 

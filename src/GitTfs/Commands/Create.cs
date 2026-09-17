@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using GitTfs.Util;
-using StructureMap;
 using GitTfs.Core.TfsInterop;
 using System.Diagnostics;
 
