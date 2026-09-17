@@ -2,6 +2,7 @@
 namespace GitTfs.Core
 {
     using global::System.Text.Json;
+    using global::System.Text.Json.Serialization;
     /// <summary>
     /// Settings that apply to the local git-tfs executable. Credentials are kept
     /// out of this file and continue to use the existing TFS credential flow.
@@ -9,6 +10,16 @@ namespace GitTfs.Core
     public sealed class GitTfsSettings
     {
         public string TargetServer { get; set; }
+
+        public bool Resumable { get; set; } = true;
+
+        [JsonPropertyName("batch-size")]
+        public int BatchSize { get; set; } = 1;
+
+        [JsonPropertyName("no-parallel")]
+        public bool NoParallel { get; set; } = true;
+
+        public bool Debug { get; set; } = true;
 
         public string SourcePath { get; private set; }
 

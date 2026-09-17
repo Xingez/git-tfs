@@ -67,7 +67,7 @@ namespace GitTfs.Test.Integration
                                                  .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "File contents")
                                                  .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tldr");
                                             });
-            integrationHelper.Run("clone", integrationHelper.TfsUrl, "$/MyProject");
+            integrationHelper.Run("clone", "$/MyProject", "MyProject");
             integrationHelper.AssertGitRepo("MyProject");
         }
 

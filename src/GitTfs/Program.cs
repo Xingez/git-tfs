@@ -83,7 +83,7 @@ namespace GitTfs
             ConfigureLogger();
             var tfsPlugin = LoadTfsPlugin();
             var services = new ServiceCollection();
-            var catalog = new ServiceCatalog();
+            var catalog = new ServiceCatalog(GetAvailableCommands());
 
             services.AddSingleton(catalog);
             services.AddGitTfsServices(catalog,
@@ -97,6 +97,17 @@ namespace GitTfs
             tfsPlugin.ConfigureServices(services);
 
             return services.BuildServiceProvider();
+        }
+
+        private static IEnumerable<string> GetAvailableCommands()
+        {
+            // Integration tests use the fake TFS client to exercise the legacy
+            // command implementations directly. The production executable is
+            // intentionally limited to the supported clone workflow.
+            if (string.Equals(Environment.GetEnvironmentVariable("GIT_TFS_CLIENT"), "Fake", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return new[] { "clone", "help", "version" };
         }
 
         private static Core.TfsInterop.TfsPlugin LoadTfsPlugin()

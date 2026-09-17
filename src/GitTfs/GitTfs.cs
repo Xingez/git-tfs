@@ -16,9 +16,11 @@ namespace GitTfs
         private readonly Globals globalsField;
         private readonly Bootstrapper bootstrapperField;
         private readonly AuthorsFile authorsFileHelperField;
+        private readonly GitTfsSettings settingsField;
 
         public GitTfs(GitTfsCommandFactory commandFactory, IHelpHelper help, IServiceProvider services,
-            IGitTfsVersionProvider gitTfsVersionProvider, GitTfsCommandRunner runner, Globals globals, Bootstrapper bootstrapper, AuthorsFile authorsFileHelper)
+            IGitTfsVersionProvider gitTfsVersionProvider, GitTfsCommandRunner runner, Globals globals, Bootstrapper bootstrapper,
+            AuthorsFile authorsFileHelper, GitTfsSettings settings)
         {
             commandFactoryField = commandFactory;
             helpField = help;
@@ -28,6 +30,7 @@ namespace GitTfs
             globalsField = globals;
             bootstrapperField = bootstrapper;
             authorsFileHelperField = authorsFileHelper;
+            settingsField = settings;
         }
 
         public int Run(IList<string> args)
@@ -98,7 +101,7 @@ namespace GitTfs
 
         public void InitializeGlobals()
         {
-            globalsField.DebugOutput = true;
+            globalsField.DebugOutput = settingsField.Debug;
             if (globalsField.GitDir != null)
             {
                 globalsField.GitDirSetByUser = true;

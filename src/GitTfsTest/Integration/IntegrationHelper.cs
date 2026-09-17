@@ -2,6 +2,7 @@
 namespace GitTfs.Test.Integration
 {
     using global::System.Text;
+    using global::System.Text.Json;
     using global::LibGit2Sharp;
     using global::GitTfs.Core;
     using global::GitTfs.Core.TfsInterop;
@@ -229,19 +230,23 @@ namespace GitTfs.Test.Integration
             var origScript = Environment.GetEnvironmentVariable(Script.EnvVar);
             var origNoSystem = Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
             var origGlobalConfig = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
+            var origAppSettings = Environment.GetEnvironmentVariable("GIT_TFS_APPSETTINGS");
             var origLibGitGlobalPaths = GlobalSettings.GetConfigSearchPaths(ConfigurationLevel.Global).ToArray();
 
             try
             {
                 string testDirectory = Path.Combine(Workdir, workPath);
                 string globalConfigPath = Path.Combine(testDirectory, ".gitconfig");
+                string appSettingsPath = Path.Combine(testDirectory, "appsettings.json");
                 WriteResourceToFile(configResource, globalConfigPath);
+                File.WriteAllText(appSettingsPath, "{\"TargetServer\":" + JsonSerializer.Serialize(TfsUrl) + "}");
 
                 Environment.CurrentDirectory = testDirectory;
                 Environment.SetEnvironmentVariable("GIT_TFS_CLIENT", "Fake");
                 Environment.SetEnvironmentVariable(Script.EnvVar, FakeScript);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "true");
                 Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", globalConfigPath);
+                Environment.SetEnvironmentVariable("GIT_TFS_APPSETTINGS", appSettingsPath);
                 GlobalSettings.SetConfigSearchPaths(ConfigurationLevel.Global, testDirectory);
 
                 Console.WriteLine(">> git tfs " + QuoteArgs(args));
@@ -259,6 +264,7 @@ namespace GitTfs.Test.Integration
                 Environment.SetEnvironmentVariable(Script.EnvVar, origScript);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", origNoSystem);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", origGlobalConfig);
+                Environment.SetEnvironmentVariable("GIT_TFS_APPSETTINGS", origAppSettings);
                 GlobalSettings.SetConfigSearchPaths(ConfigurationLevel.Global, origLibGitGlobalPaths);
                 Environment.CurrentDirectory = origPwd;
             }

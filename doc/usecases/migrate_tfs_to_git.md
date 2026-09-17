@@ -40,7 +40,11 @@ that contains the project:
 
 ```json
 {
-  "TargetServer": "https://dev.azure.com/your-organization"
+  "TargetServer": "https://dev.azure.com/your-organization",
+  "resumable": true,
+  "batch-size": 1,
+  "no-parallel": true,
+  "debug": true
 }
 ```
 
@@ -80,26 +84,24 @@ $env:GIT_TFS_PAT = 'your-token'
 Alternatively, use the existing command-line options when required:
 
 ```powershell
-git tfs clone $/Project/Trunk --username 'DOMAIN\user' --password 'password'
+git tfs clone $/Project/Trunk C:\migration\Trunk --username 'DOMAIN\user' --password 'password'
 ```
 
 Avoid putting credentials in scripts or committing them to a repository.
 
 ## Clone the TFS history
 
-The TFS path is supplied after `clone`; the server does not need to be
-repeated on the command line:
+The TFS subfolder and output path are supplied after `clone`; the server does
+not need to be repeated on the command line:
 
 ```powershell
-git tfs clone $/Project/Trunk
+git tfs clone $/Project/Trunk C:\migration\Trunk
 ```
 
-This creates a Git repository in a directory named after the final part of
-the TFS path, such as `Trunk`. To migrate all branches, use the trunk path and
-`--branches=all`:
+To migrate all branches, use the trunk path and `--branches=all`:
 
 ```powershell
-git tfs clone $/Project/Trunk --branches=all
+git tfs clone $/Project/Trunk C:\migration\Trunk --branches=all
 ```
 
 Use the following strategies depending on the source repository:
@@ -114,21 +116,7 @@ If the full history is too large or contains unsupported TFS history, try a
 bounded migration:
 
 ```powershell
-git tfs clone $/Project/Trunk --changeset=3245
-```
-
-As a last resort, import only the current state without the full history:
-
-```powershell
-git tfs quick-clone $/Project/Trunk
-```
-
-This creates the repository in a directory named after the TFS path. The
-legacy server-first syntax remains supported while the current implementation
-is being replaced:
-
-```powershell
-git tfs quick-clone <server-url> $/Project/Trunk <destination-folder>
+git tfs clone $/Project/Trunk C:\migration\Trunk --changeset=3245
 ```
 
 Clones are resumable. If a full clone is interrupted, rerun the same command
@@ -146,7 +134,7 @@ DOMAIN\jane.doe = Jane Doe <jane.doe@example.com>
 Pass it to `clone`:
 
 ```powershell
-git tfs clone $/Project/Trunk --branches=all --authors 'C:\migration\authors.txt'
+git tfs clone $/Project/Trunk C:\migration\Trunk --branches=all --authors 'C:\migration\authors.txt'
 ```
 
 ### Optional clone settings
@@ -154,7 +142,7 @@ git tfs clone $/Project/Trunk --branches=all --authors 'C:\migration\authors.txt
 For large or unusual repositories, these options may help:
 
 ```powershell
-git tfs clone $/Project/Trunk `
+git tfs clone $/Project/Trunk C:\migration\Trunk `
   --branches=all `
   --batch-size=50 `
   --workspace='C:\w' `
@@ -174,7 +162,6 @@ Enter the directory created by `clone` and verify the imported content:
 cd .\Trunk
 git status
 git log --all --decorate --oneline
-git tfs verify --all
 ```
 
 Review at least the following before publishing:
@@ -182,7 +169,7 @@ Review at least the following before publishing:
 - The expected branches and latest changeset are present.
 - Important files and folder casing are correct.
 - Commit authors and messages are acceptable.
-- `git tfs verify --all` reports no content differences.
+- `git status` is clean after reviewing the imported files.
 
 Keep the `git-tfs-id` metadata in commit messages unless there is a strong
 reason to remove it. It provides an audit trail back to the original TFS
@@ -213,7 +200,7 @@ For a final production cutover:
 
 1. Announce a TFS check-in freeze.
 2. Fetch or rerun the migration so the last approved TFS changeset is present.
-3. Run `git tfs verify --all` again.
+3. Run `git status` and review the final imported history again.
 4. Push the final branches to the Git server.
 5. Give developers the Git repository URL and Git workflow.
 6. Make the TFS project read-only or retire it according to the team’s

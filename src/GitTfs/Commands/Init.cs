@@ -177,9 +177,6 @@ namespace GitTfs.Commands
 
         private void GitTfsInit(string tfsUrl, string tfsRepositoryPath)
         {
-            // Azure DevOps throttles bursts aggressively. Keep the setting in the
-            // repository config as an explicit record of the safe default.
-            remoteOptionsField.NoParallel = true;
             globalsField.Repository.CreateTfsRemote(new RemoteInfo
             {
                 Id = globalsField.RemoteId,

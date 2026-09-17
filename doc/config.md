@@ -7,7 +7,11 @@ The current short form of `git tfs clone` reads the TFS collection URL from
 
 ```json
 {
-  "TargetServer": "https://dev.azure.com/your-organization"
+  "TargetServer": "https://dev.azure.com/your-organization",
+  "resumable": true,
+  "batch-size": 1,
+  "no-parallel": true,
+  "debug": true
 }
 ```
 
@@ -27,6 +31,13 @@ $env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
 ```
 
 `TargetServer` is trimmed and trailing slashes are removed when it is loaded.
+The remaining values are applied automatically by `git tfs clone`:
+
+- `resumable`: keep the output repository so an interrupted clone can resume.
+- `batch-size`: number of changesets fetched in one batch.
+- `no-parallel`: serialize requests to TFS.
+- `debug`: enable detailed console logging.
+
 Credentials are not read from this file.
 
 ## Git identity

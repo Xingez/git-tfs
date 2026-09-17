@@ -10,12 +10,22 @@ namespace GitTfs.Util
     {
         private readonly Dictionary<string, Type> commandsField = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Type> changedFilesField = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> allowedCommandsField;
+
+        public ServiceCatalog(IEnumerable<string> allowedCommands = null)
+        {
+            if (allowedCommands != null)
+                allowedCommandsField = new HashSet<string>(allowedCommands, StringComparer.OrdinalIgnoreCase);
+        }
 
         public IEnumerable<ServiceRegistration> Commands =>
             commandsField.OrderBy(pair => pair.Key).Select(pair => new ServiceRegistration(pair.Key, pair.Value));
 
         public void AddCommand(string name, Type implementationType)
         {
+            if (allowedCommandsField != null && !allowedCommandsField.Contains(name))
+                return;
+
             if (commandsField.ContainsKey(name))
                 throw new InvalidOperationException($"A command named '{name}' is already registered.");
 

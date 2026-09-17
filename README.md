@@ -22,7 +22,11 @@ sync with that work.
 
    ```json
    {
-     "TargetServer": "https://dev.azure.com/your-organization"
+     "TargetServer": "https://dev.azure.com/your-organization",
+     "resumable": true,
+     "batch-size": 1,
+     "no-parallel": true,
+     "debug": true
    }
    ```
 
@@ -37,7 +41,7 @@ sync with that work.
    should be migrated:
 
    ```powershell
-   git tfs clone $/Project/Trunk --branches=all
+   git tfs clone $/Project/Trunk . --branches=all
    ```
 
 5. Enter the created directory, verify the content, and push it to the empty
@@ -45,7 +49,7 @@ sync with that work.
 
    ```powershell
    cd .\Trunk
-   git tfs verify --all
+   git status
    git remote add origin https://git.example.com/team/project.git
    git push --all origin
    ```

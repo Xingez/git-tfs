@@ -4,36 +4,31 @@ Creates a Git repository from a TFS/TFVC path and imports its changeset
 history. For the complete migration process, see
 [Migrate from TFS/TFVC to Git](../usecases/migrate_tfs_to_git.md).
 
-## Current syntax
+## Syntax
 
 Configure the server in `appsettings.json` first:
 
 ```json
 {
-  "TargetServer": "https://dev.azure.com/your-organization"
+  "TargetServer": "https://dev.azure.com/your-organization",
+  "resumable": true,
+  "batch-size": 1,
+  "no-parallel": true,
+  "debug": true
 }
 ```
 
-Then pass the TFS path:
+Then pass both the TFS subfolder and the output path:
 
 ```powershell
-git tfs clone $/Project/Trunk
+git tfs clone $/Project/Trunk C:\migration\Project
 ```
 
-The repository is created in a directory named after the last part of the TFS
-path. To migrate all recognized branches:
+The server and the values in `appsettings.json` are applied automatically. To
+migrate all recognized branches:
 
 ```powershell
-git tfs clone $/Project/Trunk --branches=all
-```
-
-## Temporary compatibility syntax
-
-The server-first form remains supported while the current implementation is
-being replaced:
-
-```powershell
-git tfs clone <server-url> <tfs-path> [destination-folder]
+git tfs clone $/Project/Trunk C:\migration\Project --branches=all
 ```
 
 ## Branch strategies

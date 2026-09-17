@@ -8,8 +8,9 @@ namespace GitTfs.Commands
     [Description("quick-clone [options] tfs-url-or-instance-name repository-path <git-repository-path>")]
     public class QuickClone : Clone
     {
-        public QuickClone(Globals globals, Init init, QuickFetch fetch, GitTfsSettings settings)
-            : base(globals, fetch, init, null, settings)
+        public QuickClone(Globals globals, Init init, QuickFetch fetch, GitTfsSettings settings,
+            ConfigProperties properties, RemoteOptions remoteOptions)
+            : base(globals, fetch, init, null, settings, properties, remoteOptions)
         {
         }
     }

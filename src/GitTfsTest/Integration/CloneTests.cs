@@ -28,7 +28,7 @@ namespace GitTfs.Test.Integration
                 r.Changeset(1, "Project created from template", DateTime.Parse("2012-01-01 12:12:12 -05:00"))
                     .Change(TfsChangeType.Add, TfsItemType.Folder, "$/MyProject");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject");
+            h.Run("clone", "$/MyProject", "MyProject");
             h.AssertEmptyWorkspace("MyProject");
             AssertNewClone("MyProject", RefsInNewClone,
                 commit: "4053764b2868a2be71ae7f5f113ad84dff8a052a",
@@ -47,7 +47,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "File contents")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tldr");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject");
+            h.Run("clone", "$/MyProject", "MyProject");
             h.AssertCommitMessage("MyProject", "HEAD", "First commit", "", "git-tfs-id: [" + h.TfsUrl + "]$/MyProject;C2");
             h.AssertFileInWorkspace("MyProject", "Folder/File.txt", "File contents");
             h.AssertFileInWorkspace("MyProject", "README", "tldr");
@@ -67,7 +67,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.Folder, "$/MyProject/ÆØÅ")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/ÆØÅ/äöü.txt", "File contents");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject");
+            h.Run("clone", "$/MyProject", "MyProject");
             h.AssertFileInWorkspace("MyProject", "ÆØÅ/äöü.txt", "File contents");
             AssertNewClone("MyProject", RefsInNewClone,
                 commit: "4faa9a5f32e6af118b84071a537228d3f7da7d9d",
@@ -85,7 +85,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.Folder, "$/MyProject/Folder")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "Blåbærsyltetøy er godt!"); // "Blueberry jam is tasty!"
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject");
+            h.Run("clone", "$/MyProject", "MyProject");
             h.AssertFileInWorkspace("MyProject", "Folder/File.txt", "Blåbærsyltetøy er godt!");
             AssertNewClone("MyProject", RefsInNewClone,
                 commit: "5bd7660fa145ce0c38b5c279502478ce205a0cfb",
@@ -103,7 +103,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.Folder, "$/MyProject/Folder")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "File contents");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject");
+            h.Run("clone", "$/MyProject", "MyProject");
 
             h.AssertCommitMessage("MyProject", "HEAD", "Blåbærsyltetøy", "", "git-tfs-id: [http://does/not/matter]$/MyProject;C2");
             AssertNewClone("MyProject", RefsInNewClone,
@@ -126,7 +126,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Edit, TfsItemType.File, "$/myproject/foo/BAR/file.txt", "Updated file contents in path with different casing")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/myproject/FOO/bar/file2.txt", "Another file in the same folder, but with different casing");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject");
+            h.Run("clone", "$/MyProject", "MyProject");
             h.AssertCleanWorkspace("MyProject");
             AssertNewClone("MyProject", RefsInNewClone,
                 commit: "175420603e41cd0175e3c25581754726bd21cb96",
@@ -168,7 +168,7 @@ namespace GitTfs.Test.Integration
         {
             CreateFakeRepositoryWithMergeChangeset();
 
-            h.Run("clone", h.TfsUrl, "$/MyProject/Main", "MyProject", "--branches=all");
+            h.Run("clone", "$/MyProject/Main", "MyProject", "--branches=all");
 
             h.AssertFileInWorkspace("MyProject", "File.txt", "File contents_main_branch=>_merge");
             AssertNewClone("MyProject", RefsInNewClone,
@@ -184,7 +184,7 @@ namespace GitTfs.Test.Integration
         {
             CreateFakeRepositoryWithMergeChangeset();
 
-            h.Run("clone", h.TfsUrl, "$/MyProject/Main", "MyProject");
+            h.Run("clone", "$/MyProject/Main", "MyProject");
 
             h.AssertFileInWorkspace("MyProject", "File.txt", "File contents_main_branch=>_merge");
             AssertNewClone("MyProject", RefsInNewClone,
@@ -204,7 +204,7 @@ namespace GitTfs.Test.Integration
                 vtccds.Prepare(r);
             });
             h.TfsUrl = "https://tfs.codeplex.com:443/tfs/TFS16";
-            h.Run("clone", h.TfsUrl, "$/vtccds/trunk", "Vtccds", "--branches=all");
+            h.Run("clone", "$/vtccds/trunk", "Vtccds", "--branches=all");
 
             AssertNewClone("Vtccds", new[] { "refs/heads/master", "refs/remotes/tfs/default" }, commit: "e7d54b14fbdcbbc184d58e82931b7c1ac4a2be70");
             AssertNewClone("Vtccds", new[] { "refs/heads/b1", "refs/remotes/tfs/b1" }, commit: "3cdb2a311ac7cbda1e892a9b3371a76c871a696a");
@@ -241,7 +241,7 @@ namespace GitTfs.Test.Integration
                 vtccds.Prepare(r);
             });
             h.TfsUrl = "https://tfs.codeplex.com:443/tfs/TFS16";
-            h.Run("clone", h.TfsUrl, "$/vtccds/trunk", "Vtccds", "--branches=all", $"--gitignore={gitignoreFile}");
+            h.Run("clone", "$/vtccds/trunk", "Vtccds", "--branches=all", $"--gitignore={gitignoreFile}");
 
             // The commit hashes for all of the refs below (except for refs/remotes/tfs/branch_from_nowhere - see above) reflect the fact
             // that the first commit to the repository is the .gitignore specified with the --gitignore option. As a result, these hashes
@@ -264,7 +264,7 @@ namespace GitTfs.Test.Integration
         {
             CreateFakeRepositoryWithMergeChangeset();
 
-            h.Run("clone", h.TfsUrl, "$/MyProject/Main", "MyProject", "--branches=none");
+            h.Run("clone", "$/MyProject/Main", "MyProject", "--branches=none");
 
             h.AssertFileInWorkspace("MyProject", "File.txt", "File contents_main_branch=>_merge");
             AssertNewClone("MyProject", RefsInNewClone,
@@ -310,7 +310,7 @@ namespace GitTfs.Test.Integration
                  .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tldr\nanother line\n")
                  .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/app.exe", "Do not include");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject", "--ignore-regex=.exe$");
+            h.Run("clone", "$/MyProject", "MyProject", "--ignore-regex=.exe$");
             h.AssertNoFileInWorkspace("MyProject", "app.exe");
         }
 
@@ -326,7 +326,7 @@ namespace GitTfs.Test.Integration
                 r.Changeset(3, "Add an ignored file", DateTime.Parse("2012-01-03 12:12:12 -05:00"))
                  .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/app.exe", "Do not include");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject", "--ignore-regex=.exe$");
+            h.Run("clone", "$/MyProject", "MyProject", "--ignore-regex=.exe$");
             h.AssertFileInWorkspace("MyProject", "README", "tldr\nanother line\n");
             h.AssertNoFileInWorkspace("MyProject", "app.exe");
         }
@@ -341,7 +341,7 @@ namespace GitTfs.Test.Integration
                 r.Changeset(2, "Add some files", DateTime.Parse("2012-01-02 12:12:12 -05:00"))
                  .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tld \r\n another line \r\n");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject","--autocrlf=true");
+            h.Run("clone", "$/MyProject", "MyProject", "--autocrlf=true");
             
             h.AssertFileInWorkspace("MyProject", "README", "tld \r\n another line \r\n");
             h.AssertFileInIndex("MyProject", "README", "tld \n another line \n");
@@ -357,7 +357,7 @@ namespace GitTfs.Test.Integration
                 r.Changeset(2, "Add some files", DateTime.Parse("2012-01-02 12:12:12 -05:00"))
                  .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tld \r\n another line \r\n");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject", "--autocrlf=false");
+            h.Run("clone", "$/MyProject", "MyProject", "--autocrlf=false");
             h.AssertFileInWorkspace("MyProject", "README", "tld \r\n another line \r\n");
             h.AssertFileInIndex("MyProject", "README", "tld \r\n another line \r\n");
         }
@@ -378,7 +378,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", readmeContent);
             });
 
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject", "--autocrlf=false", $"--gitignore={gitignoreFile}");
+            h.Run("clone", "$/MyProject", "MyProject", "--autocrlf=false", $"--gitignore={gitignoreFile}");
 
             // The file given in --gitignore parameter is imported as .gitignore, no line ending conversion
             h.AssertFileInWorkspace("MyProject", ".gitignore", gitignoreContent);
@@ -408,7 +408,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Rename, TfsItemType.File, "$/MyProject/foreverignored.exe", itemId: 103, contents: "originalname: alwaysignored.exe")
                     .Change(TfsChangeType.Rename, TfsItemType.File, "$/MyProject/included.txt", itemId: 104, contents: "originalname: neverignored.txt");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject", "--ignore-regex=.exe$");
+            h.Run("clone", "$/MyProject", "MyProject", "--ignore-regex=.exe$");
             h.AssertTreeEntries("MyProject", "HEAD", "README", "ignoredatfirst.txt", "included.txt");
         }
 
@@ -438,7 +438,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Branch, TfsItemType.Folder, "$/MyTeamProject/Branch");
             });
 
-            h.Run("clone", h.TfsUrl, "$/MyTeamProject/Root", "MyTeamProject", "--branches=all");
+            h.Run("clone", "$/MyTeamProject/Root", "MyTeamProject", "--branches=all");
 
             h.AssertGitRepo("MyTeamProject");
 
@@ -488,7 +488,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "File contents")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tldr");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "--initial-branch=customInitialBranch");
+            h.Run("clone", "$/MyProject", "MyProject", "--initial-branch=customInitialBranch");
             h.AssertCommitMessage("MyProject", "HEAD", "First commit", "", "git-tfs-id: [" + h.TfsUrl + "]$/MyProject;C2");
             h.AssertFileInWorkspace("MyProject", "Folder/File.txt", "File contents");
             h.AssertFileInWorkspace("MyProject", "README", "tldr");
@@ -516,7 +516,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "File contents")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tldr");
             });
-            h.RunInWithConfig(".", "GitTfs.Test.Integration.GlobalConfigs.mainDefaultBranch.gitconfig", "clone", h.TfsUrl, "$/MyProject", "MyProject", $"--gitignore={gitignoreFile}");
+            h.RunInWithConfig(".", "GitTfs.Test.Integration.GlobalConfigs.mainDefaultBranch.gitconfig", "clone", "$/MyProject", "MyProject", $"--gitignore={gitignoreFile}");
             h.AssertCommitMessage("MyProject", "HEAD", "First commit", "", "git-tfs-id: [" + h.TfsUrl + "]$/MyProject;C2");
             h.AssertFileInWorkspace("MyProject", "Folder/File.txt", "File contents");
             h.AssertFileInWorkspace("MyProject", "README", "tldr");
@@ -540,7 +540,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "File contents")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tldr");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject");
+            h.Run("clone", "$/MyProject", "MyProject");
             h.AssertCommitMessage("MyProject", "HEAD", "Second TFS changeset: one folder and two files added", "", "git-tfs-id: [" + h.TfsUrl + "]$/MyProject;C2");
             h.AssertFileInWorkspace("MyProject", "Folder/File.txt", "File contents");
             h.AssertFileInWorkspace("MyProject", "README", "tldr");
@@ -567,7 +567,7 @@ namespace GitTfs.Test.Integration
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/Folder/File.txt", "File contents")
                     .Change(TfsChangeType.Add, TfsItemType.File, "$/MyProject/README", "tldr");
             });
-            h.Run("clone", h.TfsUrl, "$/MyProject", "MyProject", $"--gitignore={gitignoreFile}");
+            h.Run("clone", "$/MyProject", "MyProject", $"--gitignore={gitignoreFile}");
             h.AssertCommitMessage("MyProject", "HEAD", "Second TFS changeset: one folder and two files added", "", "git-tfs-id: [" + h.TfsUrl + "]$/MyProject;C2");
             h.AssertFileInWorkspace("MyProject", "Folder/File.txt", "File contents");
             h.AssertFileInWorkspace("MyProject", "README", "tldr");
