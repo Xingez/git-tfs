@@ -33,8 +33,18 @@ namespace GitTfs.Core
             {
                 IsRenameChangeset = true;
             }
-            changesetField.Get(workspace, sieve.GetChangesToFetch(), ignorableErrorHandler);
-            foreach (var change in sieve.GetChangesToApply())
+            var changesToFetch = sieve.GetChangesToFetch().ToArray();
+            var changesToApply = sieve.GetChangesToApply().ToArray();
+            var filesToDownload = changesToApply.Count(change => change.Type == ChangeType.Update);
+            if (filesToDownload > 0)
+                Trace.TraceInformation("C{0}: downloading {1} file(s)...", changesetField.ChangesetId, filesToDownload);
+
+            changesetField.Get(workspace, changesToFetch, ignorableErrorHandler);
+
+            if (filesToDownload > 0)
+                Trace.TraceInformation("C{0}: downloaded {1}/{1} file(s) (100%).", changesetField.ChangesetId, filesToDownload);
+
+            foreach (var change in changesToApply)
             {
                 ignorableErrorHandler.Catch(() =>
                 {
@@ -107,12 +117,14 @@ namespace GitTfs.Core
             var itemsCopied = 0;
             var maxChangesetId = 0;
             var tfsTreeEntries = GetTree().ToArray();
+            var totalFiles = tfsTreeEntries.Length;
             if (tfsTreeEntries.Length == 0)
             {
                 maxChangesetId = changesetField.ChangesetId;
             }
             else
             {
+                Trace.TraceInformation("C{0}: downloading {1} file(s) (0%).", changesetField.ChangesetId, totalFiles);
                 workspace.Get(changesetField.ChangesetId, tfsTreeEntries.Select(e => e.Item));
                 foreach (var entry in tfsTreeEntries)
                 {
@@ -122,10 +134,12 @@ namespace GitTfs.Core
                     itemsCopied++;
                     if (DateTime.Now - startTime > TimeSpan.FromSeconds(30))
                     {
-                        Trace.TraceInformation("{0} objects created...", itemsCopied);
+                        var percent = totalFiles == 0 ? 100 : itemsCopied * 100 / totalFiles;
+                        Trace.TraceInformation("C{0}: {1}/{2} file(s) processed ({3}%).", changesetField.ChangesetId, itemsCopied, totalFiles, percent);
                         startTime = DateTime.Now;
                     }
                 }
+                Trace.TraceInformation("C{0}: downloaded {1}/{1} file(s) (100%).", changesetField.ChangesetId, totalFiles);
             }
             return MakeNewLogEntry(maxChangesetId == changesetField.ChangesetId ? changesetField : tfsField.GetChangeset(maxChangesetId));
         }
