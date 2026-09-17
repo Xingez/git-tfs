@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>git-tfs</AssemblyName>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <ResolveAssemblyReferencesFindRelatedSatellites>false</ResolveAssemblyReferencesFindRelatedSatellites>
     <UseWindowsForms>true</UseWindowsForms>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
