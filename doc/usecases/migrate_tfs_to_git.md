@@ -44,7 +44,8 @@ that contains the project:
   "resumable": true,
   "batch-size": 1,
   "no-parallel": true,
-  "debug": true
+  "debug": true,
+  "proxy": null
 }
 ```
 

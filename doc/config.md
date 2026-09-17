@@ -11,7 +11,8 @@ The current short form of `git tfs clone` reads the TFS collection URL from
   "resumable": true,
   "batch-size": 1,
   "no-parallel": true,
-  "debug": true
+  "debug": true,
+  "proxy": null
 }
 ```
 
@@ -37,6 +38,8 @@ The remaining values are applied automatically by `git tfs clone`:
 - `batch-size`: number of changesets fetched in one batch.
 - `no-parallel`: serialize requests to TFS.
 - `debug`: enable detailed console logging.
+- `proxy`: proxy URI for all TFS HTTP(S) requests; null, empty, or `none`
+  uses direct connections.
 
 Credentials are not read from this file.
 

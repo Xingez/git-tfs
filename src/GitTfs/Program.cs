@@ -81,6 +81,8 @@ namespace GitTfs
         private static ServiceProvider Initialize()
         {
             ConfigureLogger();
+            var settings = GitTfsSettings.Load();
+            settings.ApplyProxySettings();
             var tfsPlugin = LoadTfsPlugin();
             var services = new ServiceCollection();
             var catalog = new ServiceCatalog(GetAvailableCommands());
@@ -92,7 +94,7 @@ namespace GitTfs
                     .Distinct()
                     .ToArray());
             services.AddTransient<IGitHelpers, GitHelpers>();
-            services.AddSingleton<GitTfsSettings>(_ => GitTfsSettings.Load());
+            services.AddSingleton(settings);
             AddGitChangeTypes(catalog);
             tfsPlugin.ConfigureServices(services);
 

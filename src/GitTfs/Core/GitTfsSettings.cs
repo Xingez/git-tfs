@@ -1,6 +1,8 @@
 
 namespace GitTfs.Core
 {
+    using global::System.Diagnostics;
+    using global::System.Net;
     using global::System.Text.Json;
     using global::System.Text.Json.Serialization;
     /// <summary>
@@ -21,7 +23,29 @@ namespace GitTfs.Core
 
         public bool Debug { get; set; } = true;
 
+        /// <summary>
+        /// HTTP(S) proxy URL. Null, empty, or "none" disables proxy use.
+        /// </summary>
+        public string Proxy { get; set; }
+
         public string SourcePath { get; private set; }
+
+        public void ApplyProxySettings()
+        {
+            if (string.IsNullOrWhiteSpace(Proxy) || string.Equals(Proxy.Trim(), "none", StringComparison.OrdinalIgnoreCase))
+            {
+                WebRequest.DefaultWebProxy = null;
+                Trace.WriteLine("HTTP(S) proxy disabled; using direct connections.");
+                return;
+            }
+
+            if (!Uri.TryCreate(Proxy.Trim(), UriKind.Absolute, out var proxyUri)
+                || (proxyUri.Scheme != Uri.UriSchemeHttp && proxyUri.Scheme != Uri.UriSchemeHttps))
+                throw new GitTfsException("The configured proxy must be an absolute HTTP(S) URI or 'none'.");
+
+            WebRequest.DefaultWebProxy = new WebProxy(proxyUri, false);
+            Trace.WriteLine("HTTP(S) proxy enabled from appsettings.");
+        }
 
         public static GitTfsSettings Load()
         {
