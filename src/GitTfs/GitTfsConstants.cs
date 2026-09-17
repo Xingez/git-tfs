@@ -52,11 +52,7 @@ namespace GitTfs
         public const string RemoteSubtreeFormat = "{0}_subtree/{1}";
 
         public static readonly string MessageForceVersion = Environment.NewLine
-                                                   + "Note: If you want to force git-tfs to use another version of the tfs client library,"
-                                                   + Environment.NewLine
-                                                   + "set the environment variable `GIT_TFS_CLIENT` with the desired version (ie: '2022' for Visual Studio 2022)"
-                                                   + Environment.NewLine
-                                                   + "Supported version: " + string.Join(", ", TfsPlugin.SupportedVersions);
+                                                   + "This build uses the TFVC REST API directly; no Visual Studio or TFVC workspace is required.";
         public const string LogFileName = "git-tfs_log.txt";
 
 

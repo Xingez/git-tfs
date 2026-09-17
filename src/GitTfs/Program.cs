@@ -115,14 +115,21 @@ namespace GitTfs
         private static Core.TfsInterop.TfsPlugin LoadTfsPlugin()
         {
             var requestedClient = Environment.GetEnvironmentVariable("GIT_TFS_CLIENT");
-            if (string.IsNullOrWhiteSpace(requestedClient)
-                || string.Equals(requestedClient, "2022", StringComparison.OrdinalIgnoreCase))
-                return new TfsPlugin();
+            if (string.Equals(requestedClient, "Fake", StringComparison.OrdinalIgnoreCase))
+                return Core.TfsInterop.TfsPlugin.Find();
 
-            // The Fake client is used by the integration test project. Keep its
-            // test-only dynamic loading path without making the production
-            // VS2022 client a runtime plugin.
-            return TfsPlugin.Find();
+            return new RestTfsPlugin();
+        }
+
+        private sealed class RestTfsPlugin : Core.TfsInterop.TfsPlugin
+        {
+            public override IEnumerable<Assembly> GetServiceAssemblies() => Enumerable.Empty<Assembly>();
+
+            public override void ConfigureServices(IServiceCollection services)
+            {
+            }
+
+            public override bool IsViable() => true;
         }
 
         private static void ConfigureLogger()

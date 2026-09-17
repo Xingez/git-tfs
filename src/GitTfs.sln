@@ -18,8 +18,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "doc", "doc", "{4A46FEEE-B8A
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CDE05FFA-9DDB-4694-8CA6-6DB7B235CD7F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GitTfs.Vs2022", "GitTfs.Vs2022\GitTfs.Vs2022.csproj", "{7853F7AB-87E8-4282-8FDE-6A138B73F9B5}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|AnyCPU = Debug|AnyCPU
@@ -38,10 +36,6 @@ Global
 		{20C411E8-49C7-11E1-A776-3FE84824019B}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{20C411E8-49C7-11E1-A776-3FE84824019B}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{20C411E8-49C7-11E1-A776-3FE84824019B}.Release|AnyCPU.Build.0 = Release|Any CPU
-		{7853F7AB-87E8-4282-8FDE-6A138B73F9B5}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{7853F7AB-87E8-4282-8FDE-6A138B73F9B5}.Debug|AnyCPU.Build.0 = Debug|Any CPU
-		{7853F7AB-87E8-4282-8FDE-6A138B73F9B5}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{7853F7AB-87E8-4282-8FDE-6A138B73F9B5}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

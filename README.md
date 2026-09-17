@@ -7,22 +7,21 @@ the current workflow for migrating a TFS project and its history to Git.
 ## Migration guide
 
 Follow [Migrate from TFS/TFVC to Git](doc/usecases/migrate_tfs_to_git.md) for
-the complete process, including authentication, branch handling, verification,
-and publishing the result to a Git server.
+the complete process, including authentication, verification, and publishing
+the result to a Git server.
 
-The guide follows the current implementation. The command flow is expected to
-change when the pending implementation work is complete, so keep the guide in
-sync with that work.
+The guide follows the current implementation: the supported executable flow is
+the REST-based full clone described below.
 
 ## Quick start
 
-1. Install Git, `git-tfs.exe`, the .NET Framework 4.8 runtime, and a supported
-   Visual Studio/TFS client installation.
+1. Install Git and the .NET 10 runtime.
 2. Edit `appsettings.json` next to `git-tfs.exe`:
 
    ```json
    {
      "TargetServer": "https://dev.azure.com/your-organization",
+     "api-version": "7.1",
      "resumable": true,
      "batch-size": 1,
      "no-parallel": true,
@@ -38,18 +37,17 @@ sync with that work.
    git config --global user.email "migration@example.com"
    ```
 
-4. Clone the TFS trunk. Add `--branches=all` when all recognized branches
-   should be migrated:
+4. Clone the TFS subfolder:
 
    ```powershell
-   git tfs clone $/Project/Trunk . --branches=all
+   git tfs clone $/Project/Trunk C:\migration\Project
    ```
 
 5. Enter the created directory, verify the content, and push it to the empty
    destination Git repository:
 
    ```powershell
-   cd .\Trunk
+   cd C:\migration\Project
    git status
    git remote add origin https://git.example.com/team/project.git
    git push --all origin
@@ -64,10 +62,9 @@ guide for the supported authentication options.
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for building
-- Visual Studio 2022 with the required TFS client tooling
 
-The executable targets .NET Framework 4.8 because the TFVC client object model
-used by Visual Studio 2022 is not compatible with the .NET runtime.
+The executable uses the TFVC REST API directly. Visual Studio, the TFVC client
+object model, and local TFVC workspaces are not required for a clone.
 
 ### Build and test
 

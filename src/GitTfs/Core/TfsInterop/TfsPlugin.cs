@@ -36,7 +36,6 @@ namespace GitTfs.Core.TfsInterop
 
             public static IReadOnlyList<string> SupportedVersions => new List<string>
             {
-                "2022",
                 "Fake"
             };
 

@@ -5,6 +5,7 @@ namespace GitTfs.Commands
     using global::System.Diagnostics;
     using global::GitTfs.Util;
     using global::GitTfs.Core;
+    using global::GitTfs.Core.RestTfs;
     using global::GitTfs.Core.TfsInterop;
     [Pluggable("clone")]
     [Description("clone [options] <tfs-subfolder> <output-path>\n  The target server and clone defaults are read from appsettings.json.\n  ex : git tfs clone $/ProjectName/ProjectBranch .\n")]
@@ -17,10 +18,11 @@ namespace GitTfs.Commands
         private readonly GitTfsSettings settingsField;
         private readonly ConfigProperties propertiesField;
         private readonly RemoteOptions remoteOptionsField;
+        private readonly RestTfsCloneService restCloneServiceField;
         private bool resumableField;
 
         public Clone(Globals globals, Fetch fetch, Init init, InitBranch initBranch, GitTfsSettings settings,
-            ConfigProperties properties, RemoteOptions remoteOptions)
+            ConfigProperties properties, RemoteOptions remoteOptions, RestTfsCloneService restCloneService)
         {
             fetchField = fetch;
             initField = init;
@@ -29,6 +31,7 @@ namespace GitTfs.Commands
             settingsField = settings;
             propertiesField = properties;
             remoteOptionsField = remoteOptions;
+            restCloneServiceField = restCloneService;
             resumableField = settings.Resumable;
             propertiesField.BatchSize = settings.BatchSize;
             remoteOptionsField.NoParallel = settings.NoParallel;
@@ -59,6 +62,13 @@ namespace GitTfs.Commands
 
         public int Run(string tfsUrl, string tfsRepositoryPath, string gitRepositoryPath)
         {
+            if (!UseLegacyTfsClient())
+            {
+                var result = restCloneServiceField.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath);
+                Environment.CurrentDirectory = Path.GetFullPath(gitRepositoryPath);
+                return result;
+            }
+
             var currentDir = Environment.CurrentDirectory;
             var repositoryDirCreated = InitGitDir(gitRepositoryPath);
 
@@ -164,6 +174,9 @@ namespace GitTfs.Commands
             }
             return retVal;
         }
+
+        private static bool UseLegacyTfsClient()
+            => string.Equals(Environment.GetEnvironmentVariable("GIT_TFS_CLIENT"), "Fake", StringComparison.OrdinalIgnoreCase);
 
         private void VerifyTfsPathToClone(string tfsRepositoryPath)
         {

@@ -8,6 +8,7 @@ The current short form of `git tfs clone` reads the TFS collection URL from
 ```json
 {
   "TargetServer": "https://dev.azure.com/your-organization",
+  "api-version": "7.1",
   "resumable": true,
   "batch-size": 1,
   "no-parallel": true,
@@ -35,6 +36,7 @@ $env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
 The remaining values are applied automatically by `git tfs clone`:
 
 - `resumable`: keep the output repository so an interrupted clone can resume.
+- `api-version`: TFVC REST API version; the default is `7.1`.
 - `batch-size`: number of changesets fetched in one batch.
 - `no-parallel`: serialize requests to TFS.
 - `debug`: enable detailed console logging.
@@ -55,8 +57,8 @@ git config --global user.email "migration@example.com"
 ## Authentication
 
 Use the normal Windows/Azure DevOps credential flow, or set `GIT_TFS_PAT` for
-non-interactive Azure DevOps authentication. Username and password can also be
-provided with the clone command, but should not be committed to scripts.
+non-interactive Azure DevOps authentication. Do not commit credentials to
+configuration files or scripts.
 
 See [Migrate from TFS/TFVC to Git](usecases/migrate_tfs_to_git.md) for the
 complete migration procedure.

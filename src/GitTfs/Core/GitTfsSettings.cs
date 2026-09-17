@@ -13,6 +13,15 @@ namespace GitTfs.Core
     {
         public string TargetServer { get; set; }
 
+        [JsonPropertyName("api-version")]
+        public string ApiVersion { get; set; } = "7.1";
+
+        public string Username { get; set; }
+
+        public string Password { get; set; }
+
+        public string Pat { get; set; }
+
         public bool Resumable { get; set; } = true;
 
         [JsonPropertyName("batch-size")]

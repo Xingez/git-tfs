@@ -3,9 +3,8 @@
 This guide covers the current git-tfs workflow for moving a TFS/TFVC project
 and its history into a Git repository.
 
-> The command flow in this guide follows the current implementation. The
-> migration workflow is expected to change when the pending implementation
-> work is complete, so update this guide together with that work.
+> The supported migration flow is a full REST-based clone of one TFVC
+> subfolder. It does not create or use a TFVC workspace.
 
 ## Prerequisites
 
@@ -14,11 +13,10 @@ migration:
 
 - Git
 - `git-tfs.exe`, available on `PATH`
-- .NET Framework 4.8
-- A supported Visual Studio/TFS client installation
+- .NET 10 runtime
 
-The executable targets .NET Framework 4.8 because the TFVC client object model
-used by Visual Studio 2022 is not compatible with the .NET runtime.
+The executable uses the TFVC REST API directly; Visual Studio and its TFVC
+client object model are not required.
 
 Configure the Git identity that will be written to imported commits:
 
@@ -41,6 +39,7 @@ that contains the project:
 ```json
 {
   "TargetServer": "https://dev.azure.com/your-organization",
+  "api-version": "7.1",
   "resumable": true,
   "batch-size": 1,
   "no-parallel": true,
@@ -82,12 +81,6 @@ For a non-interactive migration, set an Azure DevOps personal access token in
 $env:GIT_TFS_PAT = 'your-token'
 ```
 
-Alternatively, use the existing command-line options when required:
-
-```powershell
-git tfs clone $/Project/Trunk C:\migration\Trunk --username 'DOMAIN\user' --password 'password'
-```
-
 Avoid putting credentials in scripts or committing them to a repository.
 
 ## Clone the TFS history
@@ -97,27 +90,6 @@ not need to be repeated on the command line:
 
 ```powershell
 git tfs clone $/Project/Trunk C:\migration\Trunk
-```
-
-To migrate all branches, use the trunk path and `--branches=all`:
-
-```powershell
-git tfs clone $/Project/Trunk C:\migration\Trunk --branches=all
-```
-
-Use the following strategies depending on the source repository:
-
-- `--branches=all` imports all recognized TFS branches and merge changesets.
-- `--branches=auto` is the default; it imports the main branch and branches
-  discovered through merges.
-- `--branches=none` imports only the requested TFS path. Use it when branch
-  history is too complex for automatic branch handling.
-
-If the full history is too large or contains unsupported TFS history, try a
-bounded migration:
-
-```powershell
-git tfs clone $/Project/Trunk C:\migration\Trunk --changeset=3245
 ```
 
 Clones are resumable. If a full clone is interrupted, rerun the same command
@@ -135,25 +107,15 @@ DOMAIN\jane.doe = Jane Doe <jane.doe@example.com>
 Pass it to `clone`:
 
 ```powershell
-git tfs clone $/Project/Trunk C:\migration\Trunk --branches=all --authors 'C:\migration\authors.txt'
+git tfs clone $/Project/Trunk C:\migration\Trunk --authors 'C:\migration\authors.txt'
 ```
 
-### Optional clone settings
+### Clone settings
 
-For large or unusual repositories, these options may help:
-
-```powershell
-git tfs clone $/Project/Trunk C:\migration\Trunk `
-  --branches=all `
-  --batch-size=50 `
-  --workspace='C:\w' `
-  --gitignore='C:\migration\.gitignore'
-```
-
-Use a local drive for the clone. A short `--workspace` path can avoid Windows
-path-length problems. A supplied `.gitignore` excludes unwanted files from
-the imported tree; review it carefully because ignored content will not be
-available in Git.
+The clone reads `resumable`, `batch-size`, `no-parallel`, `debug`, `proxy`, and
+`api-version` from `appsettings.json`. The default proxy is disabled. Use a
+local drive for the output rather than a network share; no TFVC workspace path
+is needed.
 
 ## Verify the migration
 

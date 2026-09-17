@@ -1,7 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <TargetFramework>net10.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <SolutionDir Condition="'$(SolutionDir)' == '' Or '$(SolutionDir)' == '*Undefined*'">$(MSBuildThisFileDirectory)</SolutionDir>
@@ -23,7 +22,5 @@
   </PropertyGroup>
   <ItemGroup>
     <Using Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
-    <PackageReference Include="System.Text.Json" Version="10.0.10" />
   </ItemGroup>
 </Project>

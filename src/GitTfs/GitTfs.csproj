@@ -5,8 +5,6 @@
     <AssemblyName>git-tfs</AssemblyName>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <ResolveAssemblyReferencesFindRelatedSatellites>false</ResolveAssemblyReferencesFindRelatedSatellites>
-    <UseWindowsForms>true</UseWindowsForms>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\CommonAssemblyInfo.cs">
@@ -31,49 +29,10 @@
     <None Include="Core\TfsInterop\README.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\GitTfs.VsCommon\ParentForm.cs">
-      <Link>VsCommon\ParentForm.cs</Link>
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="..\GitTfs.VsCommon\Retry.cs">
-      <Link>VsCommon\Retry.cs</Link>
-    </Compile>
-    <Compile Include="..\GitTfs.VsCommon\TfsHelper.Common.cs">
-      <Link>VsCommon\TfsHelper.Common.cs</Link>
-    </Compile>
-    <Compile Include="..\GitTfs.VsCommon\TfsHelper.Vs2022Base.cs">
-      <Link>VsCommon\TfsHelper.Vs2022Base.cs</Link>
-    </Compile>
-    <Compile Include="..\GitTfs.VsCommon\TfsRequestLoggingChannel.cs">
-      <Link>VsCommon\TfsRequestLoggingChannel.cs</Link>
-    </Compile>
-    <Compile Include="..\GitTfs.VsCommon\TfsPlugin.cs">
-      <Link>VsCommon\TfsPlugin.cs</Link>
-    </Compile>
-    <Compile Include="..\GitTfs.VsCommon\Wrappers.cs">
-      <Link>VsCommon\Wrappers.cs</Link>
-    </Compile>
-    <Compile Include="..\GitTfs.Vs2022\TfsHelper.Vs2022.cs">
-      <Link>Vs2022\TfsHelper.Vs2022.cs</Link>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="LibGit2Sharp" Version="0.30.0" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="16.170.0" GeneratePathProperty="true" ExcludeAssets="compile" />
-    <PackageReference Include="Microsoft.TeamFoundationServer.ExtendedClient" Version="16.170.0" GeneratePathProperty="true" />
-    <PackageReference Include="Microsoft.VisualStudio.Services.Client" Version="16.170.0" GeneratePathProperty="true" ExcludeAssets="compile" />
-    <PackageReference Include="Microsoft.VisualStudio.Services.InteractiveClient" Version="16.170.0" GeneratePathProperty="true" ExcludeAssets="compile" />
-    <PackageReference Include="Microsoft.VisualStudio.Settings.15.0" Version="17.0.32112.339" />
-    <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.0.4496" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="$(PkgMicrosoft_TeamFoundationServer_Client)\lib\net462\*.dll" Private="true" />
-    <Reference Include="$(PkgMicrosoft_TeamFoundationServer_ExtendedClient)\lib\net462\*.dll" Private="true" />
-    <Reference Include="$(PkgMicrosoft_VisualStudio_Services_Client)\lib\net462\*.dll" Private="true" />
-    <Reference Include="$(PkgMicrosoft_VisualStudio_Services_InteractiveClient)\lib\net462\*.dll" Private="true" />
   </ItemGroup>
 </Project>
