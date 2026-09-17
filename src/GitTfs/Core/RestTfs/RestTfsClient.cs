@@ -101,7 +101,12 @@ namespace GitTfs.Core.RestTfs
                 else
                     pageQuery.Add(new KeyValuePair<string, string>("$skip", skip.ToString(CultureInfo.InvariantCulture)));
 
-                var page = GetJson<RestPage<RestChange>>(BuildUri("changesets/" + changesetId.ToString(CultureInfo.InvariantCulture) + "/changes", pageQuery));
+                // The changeset-changes route is collection-scoped; unlike the
+                // list, detail, and item routes it does not contain the project.
+                var page = GetJson<RestPage<RestChange>>(BuildUri(
+                    "changesets/" + changesetId.ToString(CultureInfo.InvariantCulture) + "/changes",
+                    pageQuery,
+                    includeProject: false));
                 var pageChanges = page.Value?.Value ?? new List<RestChange>();
                 changeset.Changes.AddRange(pageChanges);
                 skip += pageChanges.Count;
@@ -245,9 +250,11 @@ namespace GitTfs.Core.RestTfs
                 + " (requested " + FormatDuration(delay) + ").");
         }
 
-        private Uri BuildUri(string resource, IEnumerable<KeyValuePair<string, string>> query = null)
+        private Uri BuildUri(string resource, IEnumerable<KeyValuePair<string, string>> query = null,
+            bool includeProject = true)
         {
-            var path = Uri.EscapeDataString(projectField) + "/_apis/tfvc/" + resource;
+            var path = (includeProject ? Uri.EscapeDataString(projectField) + "/" : string.Empty)
+                + "_apis/tfvc/" + resource;
             var values = (query ?? Enumerable.Empty<KeyValuePair<string, string>>()).ToList();
             values.Add(new KeyValuePair<string, string>("api-version", apiVersionField));
             var queryString = string.Join("&", values.Select(pair => Uri.EscapeDataString(pair.Key) + "=" + Uri.EscapeDataString(pair.Value ?? string.Empty)));

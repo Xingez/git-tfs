@@ -56,6 +56,36 @@ namespace GitTfs.Test.Core
             }
         }
 
+        [TestMethod]
+        public void UsesCollectionRouteForChangesetChangesPagination()
+        {
+            var handler = new QueueHandler(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        "{\"changesetId\":7,\"hasMoreChanges\":true,\"changes\":[]}",
+                        Encoding.UTF8,
+                        "application/json"),
+                },
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"count\":0,\"value\":[]}", Encoding.UTF8, "application/json"),
+                });
+
+            using (var httpClient = new HttpClient(handler))
+            using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
+            {
+                var changeset = client.GetChangeset(7);
+
+                Assert.Empty(changeset.Changes);
+                Assert.Equal(2, handler.Requests.Count);
+                StringAssert.Contains(handler.Requests[0].RequestUri.AbsolutePath,
+                    "/Project/_apis/tfvc/changesets/7");
+                Assert.Equal("/tfs/DefaultCollection/_apis/tfvc/changesets/7/changes",
+                    handler.Requests[1].RequestUri.AbsolutePath);
+            }
+        }
+
         private sealed class QueueHandler : HttpMessageHandler
         {
             public QueueHandler(params HttpResponseMessage[] responses)
