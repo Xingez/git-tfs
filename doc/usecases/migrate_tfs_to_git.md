@@ -97,6 +97,10 @@ git tfs clone $/Project/Trunk C:\migration\Trunk
 Clones are resumable. If a full clone is interrupted, rerun the same command
 from the same location and allow it to continue.
 
+For file changes that include TFVC hash metadata, an existing local file is
+verified before download. Matching files are reused; missing or mismatched
+files are downloaded again.
+
 ### Map TFS users to Git identities
 
 To preserve useful author information, create an authors file with one mapping

@@ -5,6 +5,7 @@ namespace GitTfs.Core.RestTfs
     using global::LibGit2Sharp;
     using global::System.Diagnostics;
     using global::System.Globalization;
+    using global::System.Security.Cryptography;
     using global::System.Text;
 
     /// <summary>
@@ -207,9 +208,11 @@ namespace GitTfs.Core.RestTfs
                     || (change.MergeSources ?? new List<RestMergeSource>())
                         .Any(source => IsWithinRepository(source.ServerItem, repositoryPath)))
                 .ToArray();
-            var filesToDownload = changes.Count(change => !IsDelete(change) && !change.Item.IsFolder);
+            var filesToProcess = changes.Count(change => !IsDelete(change) && !change.Item.IsFolder);
             var downloaded = 0;
-            Trace.TraceInformation("C" + changeset.ChangesetId + ": downloading " + filesToDownload + " file(s) (0%).");
+            var reused = 0;
+            var processed = 0;
+            Trace.TraceInformation("C" + changeset.ChangesetId + ": processing " + filesToProcess + " file(s) (0%).");
 
             foreach (var change in changes)
             {
@@ -231,21 +234,54 @@ namespace GitTfs.Core.RestTfs
                 if (!string.Equals(existingPath, relativePath, StringComparison.Ordinal))
                     treeDefinition.Remove(existingPath);
 
-                var content = client.DownloadFile(change.Item.Path, changeset.ChangesetId);
+                var reusedLocalFile = TryReadMatchingLocalFile(outputPath, relativePath, change.Item.HashValue,
+                    out var content);
+                if (!reusedLocalFile)
+                    content = client.DownloadFile(change.Item.Path, changeset.ChangesetId);
                 var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
                 treeDefinition.Add(relativePath, blob, Mode.NonExecutableFile);
                 pathMap.Remove(relativePath);
                 pathMap[relativePath] = relativePath;
-                WriteWorkingFile(outputPath, relativePath, content);
+                if (!reusedLocalFile)
+                {
+                    WriteWorkingFile(outputPath, relativePath, content);
+                    downloaded++;
+                }
+                else
+                {
+                    reused++;
+                    Trace.TraceInformation("C" + changeset.ChangesetId + ": reusing local file " + relativePath
+                        + "; its TFVC hash matches.");
+                }
 
-                downloaded++;
-                var percent = filesToDownload == 0 ? 100 : downloaded * 100 / filesToDownload;
-                Trace.TraceInformation("C" + changeset.ChangesetId + ": downloaded " + downloaded + "/" + filesToDownload
-                    + " file(s) (" + percent + "%).");
+                processed++;
+                var percent = filesToProcess == 0 ? 100 : processed * 100 / filesToProcess;
+                Trace.TraceInformation("C" + changeset.ChangesetId + ": processed " + processed + "/" + filesToProcess
+                    + " file(s) (" + percent + "%; downloaded " + downloaded + ", reused " + reused + ").");
             }
 
-            if (filesToDownload == 0)
+            if (filesToProcess == 0)
                 Trace.TraceInformation("C" + changeset.ChangesetId + ": no file content to download.");
+        }
+
+        private static bool TryReadMatchingLocalFile(string outputPath, string relativePath, string hashValue,
+            out byte[] content)
+        {
+            content = null;
+            if (string.IsNullOrWhiteSpace(hashValue))
+                return false;
+
+            var filePath = GetWorkingFilePath(outputPath, relativePath);
+            if (!File.Exists(filePath))
+                return false;
+
+            content = File.ReadAllBytes(filePath);
+            var localHash = Convert.ToBase64String(MD5.HashData(content));
+            if (string.Equals(localHash, hashValue.Trim(), StringComparison.Ordinal))
+                return true;
+
+            content = null;
+            return false;
         }
 
         private static bool HasChangesWithinRepository(RestChangeset changeset, string repositoryPath)
@@ -424,17 +460,20 @@ namespace GitTfs.Core.RestTfs
 
         private static void WriteWorkingFile(string outputPath, string relativePath, byte[] content)
         {
-            var filePath = Path.Combine(outputPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var filePath = GetWorkingFilePath(outputPath, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
             File.WriteAllBytes(filePath, content);
         }
 
         private static void DeleteWorkingFile(string outputPath, string relativePath)
         {
-            var filePath = Path.Combine(outputPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var filePath = GetWorkingFilePath(outputPath, relativePath);
             if (File.Exists(filePath))
                 File.Delete(filePath);
         }
+
+        private static string GetWorkingFilePath(string outputPath, string relativePath)
+            => Path.Combine(outputPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
         private readonly struct AuthorIdentity
         {

@@ -51,6 +51,7 @@ namespace GitTfs.Core.RestTfs
     {
         public int Version { get; set; }
         public long Size { get; set; }
+        public string HashValue { get; set; }
         public string Path { get; set; }
         public bool IsFolder { get; set; }
         public int DeletionId { get; set; }

@@ -6,6 +6,7 @@ namespace GitTfs.Test.Core
     using global::LibGit2Sharp;
     using global::System.Net;
     using global::System.Net.Sockets;
+    using global::System.Security.Cryptography;
     using global::System.Text;
 
     [TestClass]
@@ -47,6 +48,54 @@ namespace GitTfs.Test.Core
             }
         }
 
+        [TestMethod]
+        public void ReusesMatchingTfvcHashAndRepairsMismatchedLocalFile()
+        {
+            using (var server = new FakeTfvcServer())
+            {
+                var outputPath = Path.Combine(Path.GetTempPath(), "git-tfs-rest-hash-test-" + Guid.NewGuid().ToString("N"));
+                try
+                {
+                    var settings = new GitTfsSettings
+                    {
+                        BatchSize = 1,
+                        NoParallel = true,
+                        Resumable = true,
+                        Proxy = "none",
+                    };
+                    var service = new RestTfsCloneService(settings, new AuthorsFile());
+
+                    service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
+                    Assert.Equal(2, server.FileDownloadCount);
+
+                    Commit firstCommit;
+                    using (var repository = new Repository(outputPath))
+                    {
+                        firstCommit = repository.Commits.Single(commit => commit.Message.Contains(";C1"));
+                        repository.Refs.UpdateTarget(repository.Head.CanonicalName, firstCommit.Sha);
+                    }
+
+                    service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
+
+                    Assert.Equal(2, server.FileDownloadCount);
+                    Assert.Equal("two", File.ReadAllText(Path.Combine(outputPath, "a.txt")));
+
+                    File.WriteAllText(Path.Combine(outputPath, "a.txt"), "tampered");
+                    using (var repository = new Repository(outputPath))
+                        repository.Refs.UpdateTarget(repository.Head.CanonicalName, firstCommit.Sha);
+
+                    service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
+
+                    Assert.Equal(3, server.FileDownloadCount);
+                    Assert.Equal("two", File.ReadAllText(Path.Combine(outputPath, "a.txt")));
+                }
+                finally
+                {
+                    DeleteDirectory(outputPath);
+                }
+            }
+        }
+
         private static void DeleteDirectory(string path)
         {
             if (!Directory.Exists(path))
@@ -67,6 +116,7 @@ namespace GitTfs.Test.Core
             private readonly TcpListener listenerField;
             private readonly CancellationTokenSource cancellationField = new CancellationTokenSource();
             private readonly Task serverTaskField;
+            private int fileDownloadCountField;
 
             public FakeTfvcServer()
             {
@@ -78,6 +128,7 @@ namespace GitTfs.Test.Core
             }
 
             public string ServerUrl { get; }
+            public int FileDownloadCount => Volatile.Read(ref fileDownloadCountField);
 
             public void Dispose()
             {
@@ -117,11 +168,11 @@ namespace GitTfs.Test.Core
                         return;
                     }
 
-                    _ = HandleAsync(client);
+                    _ = HandleAsync(client, this);
                 }
             }
 
-            private static async Task HandleAsync(TcpClient client)
+            private static async Task HandleAsync(TcpClient client, FakeTfvcServer server)
             {
                 using (client)
                 using (var stream = client.GetStream())
@@ -134,7 +185,7 @@ namespace GitTfs.Test.Core
 
                     var target = requestLine.Split(' ')[1];
                     var uri = new Uri("http://localhost" + target);
-                    var response = BuildResponse(uri);
+                    var response = BuildResponse(uri, server);
                     var header = "HTTP/1.1 200 OK\r\nContent-Type: " + response.ContentType
                         + "\r\nContent-Length: " + response.Content.Length
                         + "\r\nConnection: close\r\n\r\n";
@@ -144,7 +195,7 @@ namespace GitTfs.Test.Core
                 }
             }
 
-            private static FakeResponse BuildResponse(Uri uri)
+            private static FakeResponse BuildResponse(Uri uri, FakeTfvcServer server)
             {
                 var path = uri.AbsolutePath;
                 if (path.EndsWith("/Project/_apis/tfvc/changesets", StringComparison.OrdinalIgnoreCase))
@@ -175,6 +226,7 @@ namespace GitTfs.Test.Core
                 if (path.EndsWith("/Project/_apis/tfvc/items", StringComparison.OrdinalIgnoreCase))
                 {
                     var version = GetQueryValue(uri, "versionDescriptor.version");
+                    Interlocked.Increment(ref server.fileDownloadCountField);
                     return new FakeResponse(Encoding.UTF8.GetBytes(version == "1" ? "one" : "two"), "application/octet-stream");
                 }
 
@@ -182,10 +234,15 @@ namespace GitTfs.Test.Core
             }
 
             private static string ChangeSet(int id, string comment, string changeType)
-                => "{\"changesetId\":" + id + ",\"createdDate\":\"2020-01-0" + id
+            {
+                var content = id == 1 ? "one" : "two";
+                var hash = Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes(content)));
+                return "{\"changesetId\":" + id + ",\"createdDate\":\"2020-01-0" + id
                     + "T00:00:00Z\",\"comment\":\"" + comment
                     + "\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"},\"changes\":[{\"changeType\":\""
-                    + changeType + "\",\"item\":{\"path\":\"$/Project/Branch/a.txt\",\"isFolder\":false}}]}";
+                    + changeType + "\",\"item\":{\"path\":\"$/Project/Branch/a.txt\",\"isFolder\":false,\"hashValue\":\""
+                    + hash + "\"}}]}";
+            }
 
             private static string GetQueryValue(Uri uri, string key)
             {

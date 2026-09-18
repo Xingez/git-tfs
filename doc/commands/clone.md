@@ -35,6 +35,11 @@ subfolder and the Git output path.
 Clones are resumable. If a clone is interrupted, rerun the same command from
 the same location.
 
+When TFVC supplies a file hash, the clone compares it with an existing local
+file and reuses the file when it matches. A missing or mismatched file is
+downloaded again, so rerunning a clone can repair incomplete or modified
+output safely.
+
 Use a local drive for the clone rather than a network share. No TFVC workspace
 path is needed.
 
