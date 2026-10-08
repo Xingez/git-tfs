@@ -372,6 +372,8 @@ namespace GitTfs.Core.RestTfs
                 throw new ArgumentNullException(nameof(settings));
 
             client.Timeout = TimeSpan.FromMinutes(30);
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             var pat = settings.Pat;
             if (!string.IsNullOrWhiteSpace(pat))
             {

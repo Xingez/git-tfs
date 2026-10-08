@@ -3,6 +3,7 @@ namespace GitTfs.Test.Core
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using Assert = global::GitTfs.Test.TestAssert;
     using global::GitTfs.Core.RestTfs;
+    using global::GitTfs.Core;
     using global::System.Net;
     using global::System.Net.Http;
     using global::System.Text;
@@ -10,6 +11,17 @@ namespace GitTfs.Test.Core
     [TestClass]
     public class RestTfsClientTests
     {
+        [TestMethod]
+        public void ConfiguresJsonAsTheHttpClientDefaultAcceptedDataType()
+        {
+            using (var httpClient = new HttpClient())
+            {
+                RestTfsClient.ConfigureHttpClient(httpClient, new GitTfsSettings());
+
+                Assert.Equal("application/json", httpClient.DefaultRequestHeaders.Accept.Single().MediaType);
+            }
+        }
+
         [TestMethod]
         public void RetriesWithResponseHeadersAndBuildsTfvcUrl()
         {
@@ -46,15 +58,19 @@ namespace GitTfs.Test.Core
             });
 
             using (var httpClient = new HttpClient(handler))
-            using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
             {
-                var content = client.DownloadFile("$/Project/Branch/file.bin", 42);
+                RestTfsClient.ConfigureHttpClient(httpClient, new GitTfsSettings());
+                using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
+                {
+                    var content = client.DownloadFile("$/Project/Branch/file.bin", 42);
 
-                CollectionAssert.AreEqual(new byte[] { 0, 1, 2, 255 }, content);
-                StringAssert.Contains(handler.Requests[0].RequestUri.AbsoluteUri, "/Project/_apis/tfvc/items?");
-                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "download=true");
-                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.version=42");
-                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionType=Changeset");
+                    CollectionAssert.AreEqual(new byte[] { 0, 1, 2, 255 }, content);
+                    Assert.Equal("application/octet-stream", handler.Requests[0].Headers.Accept.Single().MediaType);
+                    StringAssert.Contains(handler.Requests[0].RequestUri.AbsoluteUri, "/Project/_apis/tfvc/items?");
+                    StringAssert.Contains(handler.Requests[0].RequestUri.Query, "download=true");
+                    StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.version=42");
+                    StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionType=Changeset");
+                }
             }
         }
 
