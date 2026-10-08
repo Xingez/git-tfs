@@ -27,7 +27,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="MSTest.TestFramework" Version="4.4.0" />
-    <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
   </ItemGroup>
   <ItemGroup>

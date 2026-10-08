@@ -10,14 +10,10 @@ namespace GitTfs
     using global::GitTfs.Util;
     using global::Microsoft.Extensions.DependencyInjection;
     using global::Microsoft.Extensions.Logging;
-    using global::Serilog;
-    using global::Serilog.Core;
-    using global::Serilog.Events;
-    using global::Serilog.Sinks.SystemConsole.Themes;
+    using global::Microsoft.Extensions.Logging.Console;
     public class Program
     {
-        private static string logFilePathField;
-        private static LoggingLevelSwitch consoleLevelSwitchField;
+        private static LogLevel consoleMinimumLevelField = LogLevel.Information;
 
         [STAThread]
         public static void Main(string[] args)
@@ -62,7 +58,7 @@ namespace GitTfs
                 ReportInternalException(e);
             }
 
-            Trace.TraceWarning("All the logs could be found in the log file: " + logFilePathField);
+            Trace.TraceWarning("The command failed; review the messages above for details.");
         }
 
         private static void ReportInternalException(Exception e)
@@ -82,14 +78,13 @@ namespace GitTfs
 
         private static ServiceProvider Initialize()
         {
-            ConfigureLogger();
             var settings = GitTfsSettings.Load();
             settings.ApplyProxySettings();
             var tfsPlugin = LoadTfsPlugin();
             var services = new ServiceCollection();
             var catalog = new ServiceCatalog(GetAvailableCommands());
 
-            services.AddLogging(logging => logging.AddSerilog(Log.Logger, dispose: false));
+            services.AddLogging(ConfigureLogging);
             services.AddSingleton(catalog);
             services.AddGitTfsServices(catalog,
                 new[] { typeof(Program).Assembly }
@@ -106,7 +101,11 @@ namespace GitTfs
             AddGitChangeTypes(catalog);
             tfsPlugin.ConfigureServices(services);
 
-            return services.BuildServiceProvider();
+            var serviceProvider = services.BuildServiceProvider();
+            Trace.Listeners.Clear();
+            Trace.Listeners.Add(new MicrosoftLoggingTraceListener(
+                serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("GitTfs.Trace")));
+            return serviceProvider;
         }
 
         private static IEnumerable<string> GetAvailableCommands()
@@ -140,39 +139,21 @@ namespace GitTfs
             public override bool IsViable() => true;
         }
 
-        private static void ConfigureLogger()
+        private static void ConfigureLogging(ILoggingBuilder logging)
         {
-            try
+            logging.ClearProviders();
+            logging.SetMinimumLevel(LogLevel.Debug);
+            logging.AddFilter((_, level) => level >= consoleMinimumLevelField);
+            logging.AddSimpleConsole(options =>
             {
-                var logDirectory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "git-tfs");
-                Directory.CreateDirectory(logDirectory);
-                logFilePathField = Path.Combine(logDirectory, GitTfsConstants.LogFileName);
-                consoleLevelSwitchField = new LoggingLevelSwitch(LogEventLevel.Information);
-
-                Log.Logger = new LoggerConfiguration()
-                    .MinimumLevel.Debug()
-                    .WriteTo.Console(
-                        levelSwitch: consoleLevelSwitchField,
-                        outputTemplate: "{Message:lj}{NewLine}",
-                        theme: SystemConsoleTheme.Literate)
-                    .WriteTo.File(
-                        logFilePathField,
-                        restrictedToMinimumLevel: LogEventLevel.Debug,
-                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}")
-                    .CreateLogger();
-
-                Trace.Listeners.Add(new SerilogTraceListener());
-            }
-            catch (Exception ex)
-            {
-                Trace.Listeners.Add(new ConsoleTraceListener());
-                Trace.TraceWarning("Fail to enable logging in file due to error:" + ex.Message);
-            }
+                options.SingleLine = true;
+                options.TimestampFormat = "HH:mm:ss ";
+                options.UseUtcTimestamp = false;
+                options.ColorBehavior = LoggerColorBehavior.Enabled;
+            });
         }
 
-        internal static void EnableDebugLogging() => consoleLevelSwitchField?.MinimumLevel = LogEventLevel.Debug;
+        internal static void EnableDebugLogging() => consoleMinimumLevelField = LogLevel.Debug;
 
         public static void AddGitChangeTypes(ServiceCatalog catalog)
         {

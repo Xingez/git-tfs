@@ -8,9 +8,7 @@ namespace GitTfs.Test.Commands
     using global::GitTfs.Test;
     using global::GitTfs.Util;
     using global::System.Diagnostics;
-    using global::Serilog;
-    using global::Serilog.Core;
-    using global::Serilog.Events;
+    using global::System.Globalization;
     [TestClass]
     public class HelpTest : BaseTest
     {
@@ -21,18 +19,13 @@ namespace GitTfs.Test.Commands
             mocks = new MoqAutoMocker<Help>();
         }
 
-        public MemorySink GetTestLogger()
+        public MemoryTraceListener GetTestLogger()
         {
-            var memorySink = new MemorySink();
-            Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Information()
-                .WriteTo.Sink(memorySink)
-                .CreateLogger();
-
+            var memoryListener = new MemoryTraceListener();
             Trace.Listeners.Clear();
-            Trace.Listeners.Add(new SerilogTraceListener());
+            Trace.Listeners.Add(memoryListener);
 
-            return memorySink;
+            return memoryListener;
         }
 
         [TestMethod]
@@ -70,11 +63,22 @@ namespace GitTfs.Test.Commands
             public int Run(IList<string> args) => throw new System.NotImplementedException();
         }
 
-        public sealed class MemorySink : ILogEventSink
+        public sealed class MemoryTraceListener : TraceListener
         {
             public List<string> Logs { get; } = new List<string>();
 
-            public void Emit(LogEvent logEvent) => Logs.Add(logEvent.RenderMessage());
+            public override void Write(string message) => Logs.Add(message);
+
+            public override void WriteLine(string message) => Logs.Add(message);
+
+            public override void TraceEvent(TraceEventCache eventCache, string source,
+                TraceEventType eventType, int id, string message) => Logs.Add(message);
+
+            public override void TraceEvent(TraceEventCache eventCache, string source,
+                TraceEventType eventType, int id, string format, params object[] args)
+                => Logs.Add(args == null || args.Length == 0
+                    ? format
+                    : string.Format(CultureInfo.CurrentCulture, format, args));
         }
     }
 }
