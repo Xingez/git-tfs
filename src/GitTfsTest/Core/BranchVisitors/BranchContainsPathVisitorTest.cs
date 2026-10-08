@@ -1,6 +1,8 @@
 
 namespace GitTfs.Test.Core.BranchVisitors
 {
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Assert = global::GitTfs.Test.TestAssert;
     using global::GitTfs.Core.BranchVisitors;
     using global::GitTfs.Core.TfsInterop;
     using global::GitTfs.VsFake;

@@ -5,6 +5,7 @@ namespace GitTfs
     using global::System.Reflection;
     using global::GitTfs.Core;
     using global::GitTfs.Core.Changes.Git;
+    using global::GitTfs.Core.RestTfs;
     using global::GitTfs.Core.TfsInterop;
     using global::GitTfs.Util;
     using global::Microsoft.Extensions.DependencyInjection;
@@ -97,6 +98,11 @@ namespace GitTfs
                     .ToArray());
             services.AddTransient<IGitHelpers, GitHelpers>();
             services.AddSingleton(settings);
+            services.AddHttpClient(RestTfsClient.HttpClientName,
+                    (provider, client) => RestTfsClient.ConfigureHttpClient(
+                        client, provider.GetRequiredService<GitTfsSettings>()))
+                .ConfigurePrimaryHttpMessageHandler(provider =>
+                    RestTfsClient.CreateHttpMessageHandler(provider.GetRequiredService<GitTfsSettings>()));
             AddGitChangeTypes(catalog);
             tfsPlugin.ConfigureServices(services);
 

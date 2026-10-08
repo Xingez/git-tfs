@@ -1,6 +1,8 @@
 
 namespace GitTfs.Test.Commands
 {
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Assert = global::GitTfs.Test.TestAssert;
     using global::GitTfs.Commands;
     using global::GitTfs.Test;
     using global::GitTfs.Util;

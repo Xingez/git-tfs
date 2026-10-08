@@ -1,6 +1,8 @@
 
 namespace GitTfs.Test.Util
 {
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Assert = global::GitTfs.Test.TestAssert;
     using global::GitTfs.Util;
     [TestClass]
     public class CamelCaseToDelimitedStringConverterTests

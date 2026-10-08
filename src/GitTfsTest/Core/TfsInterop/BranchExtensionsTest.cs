@@ -2,6 +2,8 @@
 
 namespace GitTfs.Test.Core.TfsInterop
 {
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Assert = global::GitTfs.Test.TestAssert;
     using global::GitTfs.Core.TfsInterop;
 
     using global::Moq;

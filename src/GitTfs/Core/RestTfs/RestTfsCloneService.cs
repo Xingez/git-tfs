@@ -7,6 +7,7 @@ namespace GitTfs.Core.RestTfs
     using global::System.Globalization;
     using global::System.Security.Cryptography;
     using global::System.Text;
+    using global::Microsoft.Extensions.Http;
     using global::Microsoft.Extensions.Logging;
 
     /// <summary>
@@ -19,17 +20,20 @@ namespace GitTfs.Core.RestTfs
         private readonly LegacyTfvcHistoryProvider legacyHistoryProviderField;
         private readonly ILogger<RestTfsCloneService> loggerField;
         private readonly ILoggerFactory loggerFactoryField;
+        private readonly IHttpClientFactory httpClientFactoryField;
 
         public RestTfsCloneService(GitTfsSettings settings, AuthorsFile authorsFile,
             LegacyTfvcHistoryProvider legacyHistoryProvider = null,
             ILogger<RestTfsCloneService> logger = null,
-            ILoggerFactory loggerFactory = null)
+            ILoggerFactory loggerFactory = null,
+            IHttpClientFactory httpClientFactory = null)
         {
             settingsField = settings;
             authorsFileField = authorsFile;
             legacyHistoryProviderField = legacyHistoryProvider;
             loggerField = logger;
             loggerFactoryField = loggerFactory;
+            httpClientFactoryField = httpClientFactory;
         }
 
         public int Run(string targetServer, string repositoryPath, string outputPath)
@@ -61,8 +65,7 @@ namespace GitTfs.Core.RestTfs
                 }
 
                 using (var repository = new Repository(absoluteOutputPath))
-                using (var client = new RestTfsClient(targetServer, repositoryPath, settingsField,
-                    loggerFactoryField?.CreateLogger<RestTfsClient>()))
+                using (var client = CreateRestClient(targetServer, repositoryPath))
                 {
                     ConfigureRepository(repository, targetServer, repositoryPath);
                     var parent = repository.Head?.Tip;
@@ -223,6 +226,16 @@ namespace GitTfs.Core.RestTfs
                 : fetchedChangesets.ToString(CultureInfo.InvariantCulture) + "/?";
             loggerField?.LogInformation("[{Progress}] C{ChangesetId} committed as {CommitSha}.",
                 progress, changeset.ChangesetId, commit.Sha);
+        }
+
+        private RestTfsClient CreateRestClient(string targetServer, string repositoryPath)
+        {
+            var logger = loggerFactoryField?.CreateLogger<RestTfsClient>();
+            if (httpClientFactoryField == null)
+                return new RestTfsClient(targetServer, repositoryPath, settingsField, logger);
+
+            var httpClient = httpClientFactoryField.CreateClient(RestTfsClient.HttpClientName);
+            return new RestTfsClient(httpClient, targetServer, repositoryPath, settingsField.ApiVersion, logger);
         }
 
         private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,

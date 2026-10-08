@@ -17,6 +17,8 @@ namespace GitTfs.Core.RestTfs
     /// </summary>
     public sealed class RestTfsClient : IDisposable
     {
+        public const string HttpClientName = "tfs-rest";
+
         private const int MaxRequestAttempts = 10;
         private static readonly TimeSpan DefaultRetryDelay = TimeSpan.FromSeconds(1);
 
@@ -47,7 +49,8 @@ namespace GitTfs.Core.RestTfs
             repositoryPathField = NormalizeServerPath(repositoryPath);
             apiVersionField = string.IsNullOrWhiteSpace(settings.ApiVersion) ? "7.1" : settings.ApiVersion.Trim();
             loggerField = logger;
-            httpClientField = CreateHttpClient(settings);
+            httpClientField = new HttpClient(CreateHttpMessageHandler(settings));
+            ConfigureHttpClient(httpClientField, settings);
             ownsHttpClientField = true;
         }
 
@@ -291,7 +294,7 @@ namespace GitTfs.Core.RestTfs
             return project;
         }
 
-        private static HttpClient CreateHttpClient(GitTfsSettings settings)
+        public static HttpMessageHandler CreateHttpMessageHandler(GitTfsSettings settings)
         {
             var handler = new HttpClientHandler();
             if (string.IsNullOrWhiteSpace(settings.Proxy) || string.Equals(settings.Proxy.Trim(), "none", StringComparison.OrdinalIgnoreCase))
@@ -314,10 +317,7 @@ namespace GitTfs.Core.RestTfs
             if (!string.IsNullOrWhiteSpace(pat))
             {
                 handler.UseDefaultCredentials = false;
-                var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(30) };
-                var token = Convert.ToBase64String(Encoding.UTF8.GetBytes(":" + pat));
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-                return client;
+                return handler;
             }
 
             if (!string.IsNullOrWhiteSpace(settings.Username))
@@ -330,7 +330,27 @@ namespace GitTfs.Core.RestTfs
                 handler.UseDefaultCredentials = true;
             }
 
-            return new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(30) };
+            return handler;
+        }
+
+        public static void ConfigureHttpClient(HttpClient client, GitTfsSettings settings)
+        {
+            if (client == null)
+                throw new ArgumentNullException(nameof(client));
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+
+            client.Timeout = TimeSpan.FromMinutes(30);
+            var pat = string.IsNullOrWhiteSpace(settings.Pat)
+                ? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Process)
+                    ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.User)
+                    ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Machine)
+                : settings.Pat;
+            if (!string.IsNullOrWhiteSpace(pat))
+            {
+                var token = Convert.ToBase64String(Encoding.UTF8.GetBytes(":" + pat));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
+            }
         }
 
         private static NetworkCredential BuildCredential(string username, string password)

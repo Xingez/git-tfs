@@ -1,5 +1,6 @@
 namespace GitTfs.Util
 {
+    using Microsoft.Extensions.DependencyInjection;
     [SingletonService]
     public class GitTfsCommandFactory
     {

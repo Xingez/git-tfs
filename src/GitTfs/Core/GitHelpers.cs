@@ -1,6 +1,7 @@
 
 namespace GitTfs.Core
 {
+    using Microsoft.Extensions.DependencyInjection;
     using global::System.Diagnostics;
     using global::System.Text.RegularExpressions;
     using global::System.Text;

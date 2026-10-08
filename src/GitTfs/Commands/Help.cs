@@ -1,6 +1,7 @@
 
 namespace GitTfs.Commands
 {
+    using Microsoft.Extensions.DependencyInjection;
     using global::System.ComponentModel;
     using global::GitTfs.Util;
     using global::GitTfs.Core;

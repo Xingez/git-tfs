@@ -1,6 +1,8 @@
 
 namespace GitTfs.Test.Integration
 {
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Assert = global::GitTfs.Test.TestAssert;
     using global::LibGit2Sharp;
     using global::GitTfs.Core.TfsInterop;
     using global::GitTfs.Test.Fixtures;
