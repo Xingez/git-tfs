@@ -36,7 +36,7 @@ namespace GitTfs.Core.RestTfs
             httpClientFactoryField = httpClientFactory;
         }
 
-        public int Run(string targetServer, string repositoryPath, string outputPath)
+        public int Run(string targetServer, string repositoryPath, string outputPath, bool noFallback = false)
         {
             repositoryPath = repositoryPath.TrimEnd('/');
             repositoryPath.AssertValidTfsPath();
@@ -84,7 +84,7 @@ namespace GitTfs.Core.RestTfs
 
                     loggerField?.LogInformation("Using REST TFVC clone for {RepositoryPath}.", repositoryPath);
                     loggerField?.LogDebug("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
-                    var legacyChangesetReferences = legacyHistoryProviderField?.IsAvailable == true
+                    var legacyChangesetReferences = !noFallback && legacyHistoryProviderField?.IsAvailable == true
                         ? legacyHistoryProviderField.GetChangesets(targetServer, repositoryPath, lastChangesetId)
                         : null;
                     if (legacyChangesetReferences != null)
@@ -99,12 +99,15 @@ namespace GitTfs.Core.RestTfs
 
                             ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
                                 absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets,
-                                legacyChangesetReferences.Count);
+                                legacyChangesetReferences.Count, noFallback);
                         }
                     }
                     else
                     {
-                        loggerField?.LogWarning("Legacy TFVC history helper is unavailable; scanning project changesets as a REST fallback.");
+                        if (noFallback)
+                            loggerField?.LogInformation("Legacy TFVC helper is disabled by --no-fallback; scanning project changesets with REST.");
+                        else
+                            loggerField?.LogWarning("Legacy TFVC history helper is unavailable; scanning project changesets as a REST fallback.");
                         loggerField?.LogInformation("Scanning project changesets and filtering changes under {RepositoryPath}.", repositoryPath);
 
                         while (true)
@@ -127,7 +130,7 @@ namespace GitTfs.Core.RestTfs
                                 lastScannedChangesetId = changesetReference.ChangesetId;
                                 ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
                                     absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets,
-                                    null);
+                                    null, noFallback);
                             }
 
                             var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
@@ -187,7 +190,8 @@ namespace GitTfs.Core.RestTfs
 
         private void ImportChangeset(RestTfsClient client, Repository repository, RestChangesetReference changesetReference,
             string targetServer, string repositoryPath, string outputPath, IDictionary<string, string> pathMap,
-            ref Commit newestCommit, ref int lastChangesetId, ref int fetchedChangesets, int? totalChangesets)
+            ref Commit newestCommit, ref int lastChangesetId, ref int fetchedChangesets, int? totalChangesets,
+            bool noFallback)
         {
             var changeset = client.GetChangeset(changesetReference.ChangesetId);
             changeset.Changes ??= new List<RestChange>();
@@ -206,7 +210,7 @@ namespace GitTfs.Core.RestTfs
             var treeDefinition = newestCommit == null
                 ? new TreeDefinition()
                 : TreeDefinition.From(newestCommit.Tree);
-            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, targetServer, repositoryPath, outputPath);
+            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, targetServer, repositoryPath, outputPath, noFallback);
 
             var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
             var message = BuildCommitMessage(changeset, changesetReference, targetServer, repositoryPath);
@@ -240,7 +244,7 @@ namespace GitTfs.Core.RestTfs
 
         private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,
             IDictionary<string, string> pathMap, RestChangeset changeset, string targetServer,
-            string repositoryPath, string outputPath)
+            string repositoryPath, string outputPath, bool noFallback)
         {
             var changes = changeset.Changes
                 .Where(change => change?.Item != null)
@@ -281,7 +285,7 @@ namespace GitTfs.Core.RestTfs
                     out var content);
                 if (!reusedLocalFile)
                     content = DownloadFileWithFallback(client, targetServer, change,
-                        changeset.ChangesetId, change.Item.DeletionId, relativePath);
+                        changeset.ChangesetId, change.Item.DeletionId, relativePath, noFallback);
                 var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
                 treeDefinition.Add(relativePath, blob, Mode.NonExecutableFile);
                 pathMap.Remove(relativePath);
@@ -309,7 +313,7 @@ namespace GitTfs.Core.RestTfs
         }
 
         private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, RestChange change,
-            int changesetId, int deletionId, string relativePath)
+            int changesetId, int deletionId, string relativePath, bool noFallback)
         {
             var itemPath = change.Item.Path;
             try
@@ -333,6 +337,12 @@ namespace GitTfs.Core.RestTfs
                         catch (RestTfsException renameException) when (renameException.StatusCode == 404)
                         {
                         }
+                    }
+
+                    if (noFallback)
+                    {
+                        throw new GitTfsException("The REST version, previous version, and rename version downloads failed for "
+                            + relativePath + " at C" + changesetId + "; legacy TFVC fallback is disabled.", previousException);
                     }
 
                     if (legacyHistoryProviderField?.IsAvailable == true)

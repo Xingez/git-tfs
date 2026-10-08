@@ -19,6 +19,7 @@ namespace GitTfs.Commands
         private readonly ConfigProperties propertiesField;
         private readonly RemoteOptions remoteOptionsField;
         private readonly RestTfsCloneService restCloneServiceField;
+        private bool noFallbackField;
         private bool resumableField;
 
         public Clone(Globals globals, Fetch fetch, Init init, InitBranch initBranch, GitTfsSettings settings,
@@ -43,7 +44,10 @@ namespace GitTfs.Commands
             get
             {
                 if (!UseLegacyTfsClient())
-                    return new OptionSet();
+                {
+                    return new OptionSet()
+                        .Add("no-fallback", "stop when REST cannot download a file; do not use the legacy TFVC helper", v => noFallbackField = v != null);
+                }
 
                 return initField.OptionSet.Merge(fetchField.OptionSet)
                     .Add("resumable", "if an error occurred, try to continue when you restart clone with same parameters", v => resumableField = v != null);
@@ -66,14 +70,17 @@ namespace GitTfs.Commands
                 throw new GitTfsException("TargetServer is not configured in " + source + ". Set it before using 'git tfs clone <tfs-subfolder> <output-path>'.");
             }
 
-            return Run(settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath);
+            return Run(settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath, noFallbackField);
         }
 
         public int Run(string tfsUrl, string tfsRepositoryPath, string gitRepositoryPath)
+            => Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath, noFallback: false);
+
+        public int Run(string tfsUrl, string tfsRepositoryPath, string gitRepositoryPath, bool noFallback)
         {
             if (!UseLegacyTfsClient())
             {
-                var result = restCloneServiceField.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath);
+                var result = restCloneServiceField.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath, noFallback);
                 Environment.CurrentDirectory = Path.GetFullPath(gitRepositoryPath);
                 return result;
             }
