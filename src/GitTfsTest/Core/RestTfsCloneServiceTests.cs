@@ -101,6 +101,44 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void RemovesStaleFilesAndDirectoriesNotPresentInTheLatestTree()
+        {
+            using (var server = new FakeTfvcServer())
+            {
+                var outputPath = Path.Combine(Path.GetTempPath(), "git-tfs-rest-cleanup-test-"
+                    + Guid.NewGuid().ToString("N"));
+                try
+                {
+                    var settings = new GitTfsSettings
+                    {
+                        BatchSize = 1,
+                        NoParallel = true,
+                        Resumable = true,
+                        Proxy = "none",
+                    };
+                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                        gitHelpers: new GitHelpers(null));
+
+                    service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
+                    File.WriteAllText(Path.Combine(outputPath, "stale.txt"), "stale");
+                    var staleDirectory = Path.Combine(outputPath, "stale-folder", "nested");
+                    Directory.CreateDirectory(staleDirectory);
+                    File.WriteAllText(Path.Combine(staleDirectory, "old.txt"), "old");
+
+                    service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
+
+                    Assert.False(File.Exists(Path.Combine(outputPath, "stale.txt")));
+                    Assert.False(Directory.Exists(Path.Combine(outputPath, "stale-folder")));
+                    Assert.True(File.Exists(Path.Combine(outputPath, "a.txt")));
+                }
+                finally
+                {
+                    DeleteDirectory(outputPath);
+                }
+            }
+        }
+
+        [TestMethod]
         public void StopsWhenLatestTfvcChecksumDoesNotMatchTheDownloadedFile()
         {
             using (var server = new FakeTfvcServer { ReturnMismatchedLatestHash = true })

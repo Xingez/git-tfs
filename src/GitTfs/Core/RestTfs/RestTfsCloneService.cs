@@ -740,6 +740,11 @@ namespace GitTfs.Core.RestTfs
 
         private static void MaterializeTree(Repository repository, Tree tree, string outputPath)
         {
+            var expectedFiles = new HashSet<string>(
+                EnumerateFiles(tree).Select(file => file.Path),
+                StringComparer.OrdinalIgnoreCase);
+            ReconcileWorkingTree(outputPath, expectedFiles);
+
             foreach (var entry in EnumerateFiles(tree))
             {
                 var filePath = Path.Combine(outputPath, entry.Path.Replace('/', Path.DirectorySeparatorChar));
@@ -749,6 +754,54 @@ namespace GitTfs.Core.RestTfs
                     input.CopyTo(output);
             }
         }
+
+        private static void ReconcileWorkingTree(string outputPath, ISet<string> expectedFiles)
+        {
+            if (!Directory.Exists(outputPath))
+                return;
+
+            foreach (var filePath in Directory.EnumerateFiles(outputPath, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = GetRelativeWorkingPath(outputPath, filePath);
+                if (IsGitPath(relativePath) || expectedFiles.Contains(relativePath))
+                    continue;
+
+                File.SetAttributes(filePath, FileAttributes.Normal);
+                File.Delete(filePath);
+            }
+
+            var expectedDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var expectedFile in expectedFiles)
+            {
+                var separator = expectedFile.LastIndexOf('/');
+                while (separator > 0)
+                {
+                    var directory = expectedFile.Substring(0, separator);
+                    expectedDirectories.Add(directory);
+                    separator = directory.LastIndexOf('/');
+                }
+            }
+
+            foreach (var directoryPath in Directory.EnumerateDirectories(outputPath, "*", SearchOption.AllDirectories)
+                .OrderByDescending(path => path.Length))
+            {
+                var relativePath = GetRelativeWorkingPath(outputPath, directoryPath);
+                if (IsGitPath(relativePath) || expectedDirectories.Contains(relativePath))
+                    continue;
+
+                File.SetAttributes(directoryPath, FileAttributes.Normal);
+                Directory.Delete(directoryPath, recursive: true);
+            }
+        }
+
+        private static string GetRelativeWorkingPath(string outputPath, string fullPath)
+            => Path.GetRelativePath(outputPath, fullPath)
+                .Replace(Path.DirectorySeparatorChar, '/')
+                .Replace(Path.AltDirectorySeparatorChar, '/');
+
+        private static bool IsGitPath(string relativePath)
+            => string.Equals(relativePath, ".git", StringComparison.OrdinalIgnoreCase)
+                || relativePath.StartsWith(".git/", StringComparison.OrdinalIgnoreCase);
 
         private static IEnumerable<TreeFile> EnumerateFiles(Tree tree, string prefix = "")
         {
