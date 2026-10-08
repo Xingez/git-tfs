@@ -52,9 +52,40 @@ the REST-based full clone described below.
    git push --all origin
    ```
 
-For a settings file stored elsewhere, set `GIT_TFS_APPSETTINGS` before running
-git-tfs. Credentials are not stored in `appsettings.json`; see the migration
-guide for the supported authentication options.
+The settings control the REST API version, whether a clone can resume, request
+parallelism, debug logging, and proxy use. A null `proxy` disables proxies; set
+it to an absolute HTTP(S) proxy URL when your network requires one. The
+`--no-fallback` option stops on a REST download error instead of trying the
+legacy TFVC helper.
+
+### TFS authentication
+
+Git-TFS uses the current Windows credentials by default. For Azure DevOps or
+another non-interactive run, provide a personal access token through the
+`GIT_TFS_PAT` environment variable. This PowerShell example prompts without
+displaying the token:
+
+```powershell
+$securePat = Read-Host 'Azure DevOps PAT' -AsSecureString
+$env:GIT_TFS_PAT = [System.Net.NetworkCredential]::new('', $securePat).Password
+Remove-Variable securePat
+try {
+    git tfs $/Project/Trunk C:\migration\Project
+}
+finally {
+    Remove-Item Env:GIT_TFS_PAT -ErrorAction SilentlyContinue
+}
+```
+
+For CI, configure `GIT_TFS_PAT` as a masked secret environment variable. Do
+not put the token in `appsettings.json` or commit it to a script.
+
+The settings file is read from the executable directory or current working
+directory. To select a file stored elsewhere, set `GIT_TFS_APPSETTINGS`:
+
+```powershell
+$env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
+```
 
 ## Building
 
@@ -73,7 +104,7 @@ the .NET Framework 4.8 runtime available for that helper.
 ```powershell
 git clone https://github.com/Xingez/git-tfs.git
 cd git-tfs\src
-dotnet build .\GitTfs.sln --configuration Release
+dotnet build .\GitTfs.slnx --configuration Release
 dotnet test .\GitTfsTest\GitTfsTest.csproj --configuration Release --no-build
 ```
 
