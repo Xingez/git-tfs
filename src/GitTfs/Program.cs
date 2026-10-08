@@ -111,13 +111,13 @@ namespace GitTfs
 
         private static IEnumerable<string> GetAvailableCommands()
         {
-            // The shipped executable exposes the clone workflow only. The
+            // The shipped executable exposes only the clone workflow. The
             // legacy command set is enabled solely by the integration-test
             // harness, which still exercises the old fake client implementation.
             if (string.Equals(Environment.GetEnvironmentVariable("GIT_TFS_ENABLE_LEGACY_TEST_COMMANDS"), "true", StringComparison.OrdinalIgnoreCase))
                 return null;
 
-            return new[] { "clone", "help", "version" };
+            return new[] { "clone" };
         }
 
         private static Core.TfsInterop.TfsPlugin LoadTfsPlugin()

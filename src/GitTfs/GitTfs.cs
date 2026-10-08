@@ -42,7 +42,7 @@ namespace GitTfs
             UpdateLoggerOnDebugging();
             Trace.WriteLine("Command run:" + globalsField.CommandLineRun);
             if (RequiresValidGitRepository(command)) AssertValidGitRepository();
-            bool willCreateRepository = command.GetType() == typeof(Clone) || command.GetType() == typeof(Init);
+            bool willCreateRepository = command is Clone;
             ParseAuthorsAndSave(!willCreateRepository);
             var exitCode = Main(command, unparsedArgs);
             if (willCreateRepository)
@@ -157,7 +157,7 @@ namespace GitTfs
                     return command;
                 }
             }
-            return servicesField.GetRequiredService<Commands.Help>();
+            return servicesField.GetRequiredService<Clone>();
         }
 
         public IList<string> ParseOptions(GitTfsCommand command, IList<string> args) => command.GetAllOptions(servicesField).Parse(args);
