@@ -166,7 +166,7 @@ namespace GitTfs.Core.RestTfs
                 {
                     request.Headers.Accept.Clear();
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(binary ? "application/octet-stream" : "application/json"));
-                    Trace.WriteLine("TFS request " + attempt + "/" + MaxRequestAttempts + ": GET " + uri);
+                    Trace.WriteLine("TFS request: GET " + uri);
 
                     HttpResponseMessage response;
                     try
@@ -199,8 +199,11 @@ namespace GitTfs.Core.RestTfs
                             }
 
                             var result = readResponse(response);
-                            Trace.WriteLine("TFS request " + attempt + "/" + MaxRequestAttempts
-                                + " completed in " + FormatDuration(requestTimer.Elapsed) + ".");
+                            var completionMessage = attempt == 1
+                                ? "TFS request completed in " + FormatDuration(requestTimer.Elapsed) + "."
+                                : "TFS retry request " + attempt + "/" + MaxRequestAttempts
+                                    + " completed in " + FormatDuration(requestTimer.Elapsed) + ".";
+                            Trace.WriteLine(completionMessage);
                             return new RestResponse<T>(result, headers, (int)response.StatusCode);
                         }
 
