@@ -87,7 +87,8 @@ namespace GitTfs.Core.RestTfs
                                 continue;
 
                             ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
-                                absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets);
+                                absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets,
+                                legacyChangesetReferences.Count);
                         }
                     }
                     else
@@ -114,7 +115,8 @@ namespace GitTfs.Core.RestTfs
 
                                 lastScannedChangesetId = changesetReference.ChangesetId;
                                 ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
-                                    absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets);
+                                    absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets,
+                                    null);
                             }
 
                             var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
@@ -173,7 +175,7 @@ namespace GitTfs.Core.RestTfs
 
         private void ImportChangeset(RestTfsClient client, Repository repository, RestChangesetReference changesetReference,
             string targetServer, string repositoryPath, string outputPath, IDictionary<string, string> pathMap,
-            ref Commit newestCommit, ref int lastChangesetId, ref int fetchedChangesets)
+            ref Commit newestCommit, ref int lastChangesetId, ref int fetchedChangesets, int? totalChangesets)
         {
             var changeset = client.GetChangeset(changesetReference.ChangesetId);
             changeset.Changes ??= new List<RestChange>();
@@ -205,7 +207,12 @@ namespace GitTfs.Core.RestTfs
             lastChangesetId = changeset.ChangesetId;
             fetchedChangesets++;
 
-            Trace.TraceInformation("C" + changeset.ChangesetId + " committed as " + commit.Sha + ".");
+            var progress = totalChangesets.HasValue
+                ? fetchedChangesets.ToString(CultureInfo.InvariantCulture) + "/"
+                    + totalChangesets.Value.ToString(CultureInfo.InvariantCulture)
+                : fetchedChangesets.ToString(CultureInfo.InvariantCulture) + "/?";
+            Trace.TraceInformation("[" + progress + "] C" + changeset.ChangesetId
+                + " committed as " + commit.Sha + ".");
         }
 
         private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,
