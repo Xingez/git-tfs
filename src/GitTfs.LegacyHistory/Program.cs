@@ -104,7 +104,7 @@ namespace GitTfs.LegacyHistory
             var item = versionControl.GetItem(
                 request.ItemPath,
                 new ChangesetVersionSpec(request.ChangesetId),
-                DeletedState.NonDeleted,
+                DeletedState.Any,
                 GetItemsOptions.Download);
             if (item == null || item.ItemType != ItemType.File)
                 throw new InvalidOperationException("The requested TFS item is not a file at changeset C"
