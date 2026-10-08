@@ -388,12 +388,48 @@ namespace GitTfs.Core.RestTfs
 
             foreach (var change in changes)
             {
+                if (change.Item.IsFolder)
+                {
+                    var targetWithinRepository = IsWithinRepository(change.Item.Path, repositoryPath);
+                    var targetPath = targetWithinRepository
+                        ? ToRelativeGitPath(change.Item.Path, repositoryPath)
+                        : null;
+
+                    if (IsDelete(change))
+                    {
+                        if (!string.IsNullOrEmpty(targetPath))
+                            summary.FilesDeleted += RemovePathAndChildren(repository, treeDefinition,
+                                pathMap, targetPath, outputPath);
+                        continue;
+                    }
+
+                    var renameSources = GetRenameSources(change);
+                    if (IsRename(change) && !string.IsNullOrEmpty(targetPath))
+                    {
+                        foreach (var source in renameSources.Where(source => IsWithinRepository(source, repositoryPath)))
+                        {
+                            var sourcePath = ToRelativeGitPath(source, repositoryPath);
+                            MovePathAndChildren(repository, treeDefinition, pathMap, sourcePath, targetPath, outputPath);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var source in renameSources.Where(source => IsWithinRepository(source, repositoryPath)))
+                        {
+                            var sourcePath = ToRelativeGitPath(source, repositoryPath);
+                            RemovePathAndChildren(repository, treeDefinition, pathMap, sourcePath, outputPath);
+                        }
+                    }
+
+                    continue;
+                }
+
                 RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
                 if (!IsWithinRepository(change.Item.Path, repositoryPath))
                     continue;
 
                 var relativePath = ToRelativeGitPath(change.Item.Path, repositoryPath);
-                if (string.IsNullOrEmpty(relativePath) || change.Item.IsFolder)
+                if (string.IsNullOrEmpty(relativePath))
                     continue;
 
                 if (IsDelete(change))
@@ -617,19 +653,92 @@ namespace GitTfs.Core.RestTfs
         private static void RemoveRenameSources(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
             RestChange change, string repositoryPath, string outputPath)
         {
+            foreach (var source in GetRenameSources(change))
+            {
+                if (IsWithinRepository(source, repositoryPath))
+                    RemovePath(treeDefinition, pathMap, ToRelativeGitPath(source, repositoryPath), outputPath);
+            }
+        }
+
+        private static List<string> GetRenameSources(RestChange change)
+        {
             var sources = new List<string>();
             if (!string.IsNullOrWhiteSpace(change.SourceServerItem))
                 sources.Add(change.SourceServerItem);
             sources.AddRange((change.MergeSources ?? new List<RestMergeSource>())
                 .Where(source => source.IsRename && !string.IsNullOrWhiteSpace(source.ServerItem))
                 .Select(source => source.ServerItem));
+            return sources.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
 
-            foreach (var source in sources.Distinct(StringComparer.OrdinalIgnoreCase))
+        private static int RemovePathAndChildren(Repository repository, TreeDefinition treeDefinition,
+            IDictionary<string, string> pathMap, string relativePath, string outputPath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath))
+                return 0;
+
+            var files = EnumerateFiles(repository.ObjectDatabase.CreateTree(treeDefinition))
+                .Where(file => IsSameOrChildPath(file.Path, relativePath))
+                .ToArray();
+            foreach (var file in files)
             {
-                if (IsWithinRepository(source, repositoryPath))
-                    RemovePath(treeDefinition, pathMap, ToRelativeGitPath(source, repositoryPath), outputPath);
+                treeDefinition.Remove(file.Path);
+                DeleteWorkingFile(outputPath, file.Path);
+            }
+
+            RemovePathMappings(pathMap, relativePath);
+            return files.Length;
+        }
+
+        private static void MovePathAndChildren(Repository repository, TreeDefinition treeDefinition,
+            IDictionary<string, string> pathMap, string sourcePath, string targetPath, string outputPath)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(targetPath)
+                || string.Equals(sourcePath, targetPath, StringComparison.Ordinal))
+                return;
+
+            var sourcePrefix = sourcePath.TrimEnd('/') + "/";
+            var files = EnumerateFiles(repository.ObjectDatabase.CreateTree(treeDefinition))
+                .Where(file => file.Path.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            foreach (var file in files)
+            {
+                treeDefinition.Remove(file.Path);
+                DeleteWorkingFile(outputPath, file.Path);
+            }
+            RemovePathMappings(pathMap, sourcePath);
+
+            foreach (var file in files)
+            {
+                var suffix = file.Path.Substring(sourcePrefix.Length);
+                var movedPath = targetPath.TrimEnd('/') + "/" + suffix;
+                treeDefinition.Remove(movedPath);
+                treeDefinition.Add(movedPath, (Blob)file.Entry.Target, file.Entry.Mode);
+                pathMap[movedPath] = movedPath;
+
+                using (var input = ((Blob)file.Entry.Target).GetContentStream())
+                using (var content = new MemoryStream())
+                {
+                    input.CopyTo(content);
+                    WriteWorkingFile(outputPath, movedPath, content.ToArray());
+                }
             }
         }
+
+        private static void RemovePathMappings(IDictionary<string, string> pathMap, string relativePath)
+        {
+            var keysToRemove = pathMap
+                .Where(pair => IsSameOrChildPath(pair.Key, relativePath)
+                    || IsSameOrChildPath(pair.Value, relativePath))
+                .Select(pair => pair.Key)
+                .ToArray();
+            foreach (var key in keysToRemove)
+                pathMap.Remove(key);
+        }
+
+        private static bool IsSameOrChildPath(string path, string parentPath)
+            => string.Equals(path, parentPath, StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith(parentPath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
 
         private static void RemovePath(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
             string relativePath, string outputPath)
@@ -832,6 +941,11 @@ namespace GitTfs.Core.RestTfs
             => (change.ChangeType ?? string.Empty).Split(',')
                 .Select(type => type.Trim())
                 .Any(type => string.Equals(type, "delete", StringComparison.OrdinalIgnoreCase));
+
+        private static bool IsRename(RestChange change)
+            => (change.ChangeType ?? string.Empty).Split(',')
+                .Select(type => type.Trim())
+                .Any(type => string.Equals(type, "rename", StringComparison.OrdinalIgnoreCase));
 
         private static void WriteWorkingFile(string outputPath, string relativePath, byte[] content)
         {
