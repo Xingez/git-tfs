@@ -52,7 +52,7 @@ namespace GitTfs
         public const string RemoteSubtreeFormat = "{0}_subtree/{1}";
 
         public static readonly string MessageForceVersion = Environment.NewLine
-                                                   + "This build uses TFVC REST for file transfer and a bundled legacy helper for recursive history; no Visual Studio IDE or TFVC workspace is required.";
+                                                   + "This build uses TFVC REST for changeset scanning and file transfer, with an on-demand legacy helper for download fallback; no Visual Studio IDE or TFVC workspace is required.";
 
 
         //Git-Tfs config keys

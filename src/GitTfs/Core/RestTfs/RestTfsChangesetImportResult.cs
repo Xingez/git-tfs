@@ -5,7 +5,8 @@ namespace GitTfs.Core.RestTfs
     public sealed class RestTfsChangesetImportResult
     {
         public RestTfsChangesetImportResult(bool skipped, int changesetId, Commit commit,
-            int filesProcessed, int filesDownloaded, int filesReused, int filesDeleted)
+            int filesProcessed, int filesDownloaded, int filesReused, int filesDeleted,
+            bool legacyFallbackUsed)
         {
             Skipped = skipped;
             ChangesetId = changesetId;
@@ -14,6 +15,7 @@ namespace GitTfs.Core.RestTfs
             FilesDownloaded = filesDownloaded;
             FilesReused = filesReused;
             FilesDeleted = filesDeleted;
+            LegacyFallbackUsed = legacyFallbackUsed;
         }
 
         public bool Skipped { get; }
@@ -23,5 +25,6 @@ namespace GitTfs.Core.RestTfs
         public int FilesDownloaded { get; }
         public int FilesReused { get; }
         public int FilesDeleted { get; }
+        public bool LegacyFallbackUsed { get; }
     }
 }

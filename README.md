@@ -73,6 +73,10 @@ it to an absolute HTTP(S) proxy URL when your network requires one. The
 `--no-fallback` option stops on a REST download error instead of trying the
 legacy TFVC helper.
 
+Changeset scanning and normal file downloads use REST. The legacy helper
+process starts only when REST cannot retrieve a file and fallback is enabled;
+the completion summary reports whether it was used.
+
 After verification, downloaded files receive the TFVC item's `changeDate` as
 their local last-write time. Git does not store filesystem timestamps, so this
 is preserved in the working tree, not in commits or future checkouts.
@@ -112,11 +116,12 @@ $env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for building
 
-The executable uses the TFVC REST API for file downloads and Git commits. A
-bundled .NET Framework helper uses the legacy TFVC client object model only to
-ask the server for recursive history of the selected subfolder; it does not
-create a workspace or require the Visual Studio IDE. The machine must have
-the .NET Framework 4.8 runtime available for that helper.
+The executable uses the TFVC REST API to scan changesets, download file
+contents, and create Git commits. The bundled .NET Framework helper is started
+only if REST cannot retrieve a file through its normal, previous-version, and
+rename-source requests. The .NET Framework 4.8 runtime is needed only when
+that fallback is used; the helper does not create a workspace or require the
+Visual Studio IDE.
 
 ### Build and test
 

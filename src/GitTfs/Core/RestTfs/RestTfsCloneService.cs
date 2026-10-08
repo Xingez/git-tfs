@@ -14,7 +14,6 @@ namespace GitTfs.Core.RestTfs
     public sealed class RestTfsCloneService : IRestTfsCloneService
     {
         private readonly GitTfsSettings settingsField;
-        private readonly LegacyTfvcHistoryProvider legacyHistoryProviderField;
         private readonly ILogger<RestTfsCloneService> loggerField;
         private readonly ILoggerFactory loggerFactoryField;
         private readonly IHttpClientFactory httpClientFactoryField;
@@ -30,7 +29,6 @@ namespace GitTfs.Core.RestTfs
             IRestTfsChangesetImporter changesetImporter = null)
         {
             settingsField = settings;
-            legacyHistoryProviderField = legacyHistoryProvider;
             loggerField = logger;
             loggerFactoryField = loggerFactory;
             httpClientFactoryField = httpClientFactory;
@@ -88,71 +86,50 @@ namespace GitTfs.Core.RestTfs
 
                     loggerField?.LogInformation("Using REST TFVC clone for {RepositoryPath}.", repositoryPath);
                     loggerField?.LogDebug("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
-                    var legacyChangesetReferences = !noFallback && legacyHistoryProviderField?.IsAvailable == true
-                        ? legacyHistoryProviderField.GetChangesets(targetServer, repositoryPath, lastChangesetId)
-                        : null;
-                    if (legacyChangesetReferences != null)
+                    if (noFallback)
                     {
-                        loggerField?.LogInformation("Using legacy TFVC recursive history for {RepositoryPath}.", repositoryPath);
-                        loggerField?.LogInformation("Legacy history returned {ChangesetCount} relevant changeset reference(s).",
-                            legacyChangesetReferences.Count);
-                        foreach (var changesetReference in legacyChangesetReferences)
+                        loggerField?.LogInformation("Legacy TFVC fallback helper is disabled by --no-fallback.");
+                    }
+                    loggerField?.LogInformation("Scanning project changesets and filtering changes under {RepositoryPath}.", repositoryPath);
+
+                    while (true)
+                    {
+                        var pageStartChangesetId = fromChangesetId;
+                        var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize,
+                            filterByItemPath: false);
+                        if (changesetReferences.Count == 0)
+                            break;
+
+                        loggerField?.LogInformation("Changeset scan after C{StartingChangesetId} returned {ChangesetCount} reference(s), through C{EndingChangesetId}.",
+                            pageStartChangesetId, changesetReferences.Count,
+                            changesetReferences.Max(reference => reference.ChangesetId));
+
+                        foreach (var changesetReference in changesetReferences.OrderBy(reference => reference.ChangesetId))
                         {
-                            if (changesetReference.ChangesetId <= lastChangesetId)
+                            if (changesetReference.ChangesetId <= lastScannedChangesetId)
                                 continue;
 
+                            lastScannedChangesetId = changesetReference.ChangesetId;
                             ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
                                 absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
-                                legacyChangesetReferences.Count, noFallback, summary);
+                                null, noFallback, summary);
                         }
-                    }
-                    else
-                    {
-                        if (noFallback)
-                            loggerField?.LogInformation("Legacy TFVC helper is disabled by --no-fallback; scanning project changesets with REST.");
-                        else
-                            loggerField?.LogWarning("Legacy TFVC history helper is unavailable; scanning project changesets as a REST fallback.");
-                        loggerField?.LogInformation("Scanning project changesets and filtering changes under {RepositoryPath}.", repositoryPath);
 
-                        while (true)
+                        var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
+                        if (lastReferenceId <= pageStartChangesetId)
                         {
-                            var pageStartChangesetId = fromChangesetId;
-                            var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize,
-                                filterByItemPath: false);
-                            if (changesetReferences.Count == 0)
+                            if (pageStartChangesetId == int.MaxValue)
                                 break;
 
-                            loggerField?.LogInformation("Changeset scan after C{StartingChangesetId} returned {ChangesetCount} reference(s), through C{EndingChangesetId}.",
-                                pageStartChangesetId, changesetReferences.Count,
-                                changesetReferences.Max(reference => reference.ChangesetId));
-
-                            foreach (var changesetReference in changesetReferences.OrderBy(reference => reference.ChangesetId))
-                            {
-                                if (changesetReference.ChangesetId <= lastScannedChangesetId)
-                                    continue;
-
-                                lastScannedChangesetId = changesetReference.ChangesetId;
-                                ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
-                                    absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
-                                    null, noFallback, summary);
-                            }
-
-                            var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
-                            if (lastReferenceId <= pageStartChangesetId)
-                            {
-                                if (pageStartChangesetId == int.MaxValue)
-                                    break;
-
-                                // Some TFVC-compatible servers treat fromId as inclusive even though
-                                // the Azure DevOps REST contract describes it as exclusive. Move past
-                                // the repeated result so a folder history cannot stop at its first page.
-                                fromChangesetId = pageStartChangesetId + 1;
-                                loggerField?.LogWarning("Changeset scan page did not advance; retrying after C{StartingChangesetId}.",
-                                    pageStartChangesetId);
-                                continue;
-                            }
-                            fromChangesetId = lastReferenceId;
+                            // Some TFVC-compatible servers treat fromId as inclusive even though
+                            // the Azure DevOps REST contract describes it as exclusive. Move past
+                            // the repeated result so a folder history cannot stop at its first page.
+                            fromChangesetId = pageStartChangesetId + 1;
+                            loggerField?.LogWarning("Changeset scan page did not advance; retrying after C{StartingChangesetId}.",
+                                pageStartChangesetId);
+                            continue;
                         }
+                        fromChangesetId = lastReferenceId;
                     }
 
                     if (newestCommit != null)
@@ -190,9 +167,10 @@ namespace GitTfs.Core.RestTfs
                     {
                         loggerField?.LogInformation("Clone complete for {RepositoryPath}: no changesets imported "
                             + "({ChangesetsConsidered} considered, {ChangesetsSkipped} skipped); "
-                            + "{TrackedFiles} tracked file(s); Git maintenance: {MaintenanceMode}.",
+                            + "{TrackedFiles} tracked file(s); legacy fallback helper used: {LegacyFallbackUsed}; "
+                            + "Git maintenance: {MaintenanceMode}.",
                             repositoryPath, summary.ChangesetsConsidered, summary.ChangesetsSkipped,
-                            summary.TrackedFiles, maintenanceMode);
+                            summary.TrackedFiles, summary.LegacyFallbackUsed, maintenanceMode);
                     }
                     else
                     {
@@ -202,13 +180,14 @@ namespace GitTfs.Core.RestTfs
                             + "({FilesDownloaded} downloaded, {FilesReused} reused, {FilesDeleted} deleted); "
                             + "{TrackedFiles} tracked file(s); latest C{ChangesetId} ({CommitSha}); "
                             + "verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
-                            + "({HashlessFiles} without hash); "
+                            + "({HashlessFiles} without hash); legacy fallback helper used: {LegacyFallbackUsed}; "
                             + "Git maintenance: {MaintenanceMode}.",
                             repositoryPath, summary.ChangesetsImported, summary.ChangesetsConsidered,
                             summary.ChangesetsSkipped, summary.FilesProcessed, summary.FilesDownloaded,
                             summary.FilesReused, summary.FilesDeleted, summary.TrackedFiles,
                             lastChangesetId, newestCommit.Sha, verification.MatchedFiles,
-                            verification.CheckedFiles, verification.HashlessFiles, maintenanceMode);
+                            verification.CheckedFiles, verification.HashlessFiles, summary.LegacyFallbackUsed,
+                            maintenanceMode);
                     }
                 }
 
@@ -276,8 +255,9 @@ namespace GitTfs.Core.RestTfs
                     repositoryPath, absoluteOutputPath, pathMap, parent, noFallback);
                 if (result.Skipped)
                 {
-                    loggerField?.LogInformation("C{ChangesetId} does not change {RepositoryPath}; no commit created.",
-                        changesetId, repositoryPath);
+                    loggerField?.LogInformation("C{ChangesetId} does not change {RepositoryPath}; no commit created; "
+                        + "legacy fallback helper used: {LegacyFallbackUsed}.",
+                        changesetId, repositoryPath, result.LegacyFallbackUsed);
                     return GitTfsExitCodes.OK;
                 }
 
@@ -289,10 +269,12 @@ namespace GitTfs.Core.RestTfs
                 loggerField?.LogInformation("Single changeset import complete: C{ChangesetId} committed as {CommitSha}; "
                     + "{FilesProcessed} file change(s) ({FilesDownloaded} downloaded, {FilesReused} reused, "
                     + "{FilesDeleted} deleted); verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
-                    + "({HashlessFiles} without hash); Git maintenance: {MaintenanceMode}.",
+                    + "({HashlessFiles} without hash); legacy fallback helper used: {LegacyFallbackUsed}; "
+                    + "Git maintenance: {MaintenanceMode}.",
                     result.ChangesetId, result.Commit.Sha, result.FilesProcessed, result.FilesDownloaded,
                     result.FilesReused, result.FilesDeleted, verification.MatchedFiles,
-                    verification.CheckedFiles, verification.HashlessFiles, maintenanceMode);
+                    verification.CheckedFiles, verification.HashlessFiles, result.LegacyFallbackUsed,
+                    maintenanceMode);
             }
 
             return GitTfsExitCodes.OK;
@@ -398,6 +380,7 @@ namespace GitTfs.Core.RestTfs
             summary.FilesDownloaded += result.FilesDownloaded;
             summary.FilesReused += result.FilesReused;
             summary.FilesDeleted += result.FilesDeleted;
+            summary.LegacyFallbackUsed |= result.LegacyFallbackUsed;
 
             var progress = totalChangesets.HasValue
                 ? summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/"
@@ -636,6 +619,7 @@ namespace GitTfs.Core.RestTfs
             public int FilesReused { get; set; }
             public int FilesDeleted { get; set; }
             public int TrackedFiles { get; set; }
+            public bool LegacyFallbackUsed { get; set; }
         }
 
         private sealed class FileVerificationSummary

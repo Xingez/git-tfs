@@ -1,10 +1,11 @@
 # `git tfs` (clone workflow)
 
 Creates a Git repository from a TFS/TFVC path and imports its changeset
-history. A bundled legacy TFVC helper asks the server for recursive history of
-the selected subfolder, while the main process uses the TFVC REST API to
-download each changeset's file content and create the corresponding Git commit
-without a TFVC workspace. For the complete migration process, see
+history. The main process uses the TFVC REST API to scan changesets and
+download file content, then creates the corresponding Git commits without a
+TFVC workspace. A bundled legacy TFVC helper is started only when the REST
+content, previous-version, and rename-source downloads all fail for a file.
+For the complete migration process, see
 [Migrate from TFS/TFVC to Git](../usecases/migrate_tfs_to_git.md).
 
 ## Syntax
@@ -46,8 +47,9 @@ file content, and are skipped.
 Use a local drive for the clone rather than a network share. No TFVC workspace
 path is needed.
 
-The recursive-history helper is bundled beside the executable and requires the
-.NET Framework 4.8 runtime, but not the Visual Studio IDE. If it is unavailable
-the clone uses a slower REST-only project history scan as a fallback. Set
-`GIT_TFS_LEGACY_HISTORY` to an alternate helper executable when troubleshooting
-or packaging the application.
+The file fallback helper is bundled beside the executable. The .NET Framework
+4.8 runtime is required only if that fallback is activated; Visual Studio is
+not required. If the helper is unavailable, normal REST cloning still works,
+but a file that REST cannot retrieve will fail. Set `GIT_TFS_LEGACY_HISTORY`
+to an alternate helper executable when troubleshooting or packaging the
+application. The completion summary reports whether the helper was used.

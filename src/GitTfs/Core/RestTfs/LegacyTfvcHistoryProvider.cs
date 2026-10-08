@@ -6,9 +6,9 @@ namespace GitTfs.Core.RestTfs
     using global::System.Text.Json;
 
     /// <summary>
-    /// Uses the legacy TFVC client object model for recursive folder history and
-    /// exact historical file downloads when the REST content endpoint cannot
-    /// resolve an item.
+    /// Uses the legacy TFVC client object model for exact historical file
+    /// downloads when REST content and rename-version endpoints cannot resolve
+    /// an item. The helper process starts on the first download request.
     /// </summary>
     [SingletonService]
     public sealed class LegacyTfvcHistoryProvider : IDisposable
@@ -31,40 +31,6 @@ namespace GitTfs.Core.RestTfs
         }
 
         public bool IsAvailable => File.Exists(GetHelperPath());
-
-        public IReadOnlyList<RestChangesetReference> GetChangesets(string targetServer, string repositoryPath,
-            int fromChangesetId)
-        {
-            if (!IsAvailable)
-                return null;
-
-            var messages = RunHelper(new LegacyHistoryRequest
-            {
-                Operation = "history",
-                ServerUrl = targetServer,
-                RepositoryPath = repositoryPath,
-                FromChangesetId = fromChangesetId,
-                BatchSize = 100,
-            });
-
-            return messages
-                .Where(message => string.Equals(message.Type, "changeset", StringComparison.OrdinalIgnoreCase))
-                .Select(message => new RestChangesetReference
-                {
-                    ChangesetId = message.ChangesetId,
-                    CreatedDate = message.CreatedDate,
-                    Comment = message.Comment,
-                    Author = message.Author == null
-                        ? null
-                        : new RestIdentity
-                        {
-                            DisplayName = message.Author.DisplayName,
-                            UniqueName = message.Author.UniqueName,
-                        },
-                })
-                .OrderBy(changeset => changeset.ChangesetId)
-                .ToArray();
-        }
 
         public byte[] DownloadFile(string targetServer, string itemPath, int changesetId, int deletionId = 0)
         {
@@ -146,12 +112,12 @@ namespace GitTfs.Core.RestTfs
                     if (!completed)
                     {
                         var processError = GetHelperError();
-                        throw new GitTfsException("The legacy TFVC history helper ended without completing its response."
+                        throw new GitTfsException("The legacy TFVC download helper ended without completing its response."
                             + (string.IsNullOrWhiteSpace(processError) ? string.Empty : " " + processError));
                     }
 
                     if (!string.IsNullOrWhiteSpace(error))
-                        throw new GitTfsException("The legacy TFVC history helper failed: " + error);
+                        throw new GitTfsException("The legacy TFVC download helper failed: " + error);
 
                     return messages;
                 }
@@ -184,7 +150,7 @@ namespace GitTfs.Core.RestTfs
             };
             var process = Process.Start(startInfo);
             if (process == null)
-                throw new GitTfsException("Unable to start the legacy TFVC history helper.");
+                throw new GitTfsException("Unable to start the legacy TFVC download helper.");
 
             helperProcessField = process;
             helperInputField = process.StandardInput;
@@ -274,9 +240,6 @@ namespace GitTfs.Core.RestTfs
         {
             public string Operation { get; set; }
             public string ServerUrl { get; set; }
-            public string RepositoryPath { get; set; }
-            public int FromChangesetId { get; set; }
-            public int BatchSize { get; set; }
             public string ItemPath { get; set; }
             public int ChangesetId { get; set; }
             public int DeletionId { get; set; }
@@ -288,18 +251,8 @@ namespace GitTfs.Core.RestTfs
         private sealed class LegacyHistoryMessage
         {
             public string Type { get; set; }
-            public int ChangesetId { get; set; }
-            public DateTimeOffset CreatedDate { get; set; }
-            public string Comment { get; set; }
-            public LegacyHistoryIdentity Author { get; set; }
             public string Content { get; set; }
             public string Message { get; set; }
-        }
-
-        private sealed class LegacyHistoryIdentity
-        {
-            public string DisplayName { get; set; }
-            public string UniqueName { get; set; }
         }
     }
 }

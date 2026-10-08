@@ -43,7 +43,8 @@ namespace GitTfs.Core.RestTfs
                         ? "source rename records contain no tracked old path"
                         : "no changes",
                     repositoryPath);
-                return new RestTfsChangesetImportResult(true, changeset.ChangesetId, null, 0, 0, 0, 0);
+                return new RestTfsChangesetImportResult(true, changeset.ChangesetId, null,
+                    0, 0, 0, 0, legacyFallbackUsed: false);
             }
 
             var treeDefinition = parent == null
@@ -62,7 +63,8 @@ namespace GitTfs.Core.RestTfs
             UpdateRefs(repository, commit, changeset.ChangesetId);
 
             return new RestTfsChangesetImportResult(false, changeset.ChangesetId, commit,
-                summary.FilesProcessed, summary.FilesDownloaded, summary.FilesReused, summary.FilesDeleted);
+                summary.FilesProcessed, summary.FilesDownloaded, summary.FilesReused, summary.FilesDeleted,
+                summary.LegacyFallbackUsed);
         }
 
         private void ApplyChanges(IRestTfsClient client, Repository repository, TreeDefinition treeDefinition,
@@ -163,7 +165,7 @@ namespace GitTfs.Core.RestTfs
                     out var content);
                 if (!reusedLocalFile)
                     content = DownloadFileWithFallback(client, change, changeset.ChangesetId,
-                        targetServer, change.Item.DeletionId, relativePath, noFallback);
+                        targetServer, change.Item.DeletionId, relativePath, noFallback, summary);
                 var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
                 treeDefinition.Add(relativePath, blob, LibGit2Sharp.Mode.NonExecutableFile);
                 pathMap.Remove(relativePath);
@@ -194,7 +196,8 @@ namespace GitTfs.Core.RestTfs
         }
 
         private byte[] DownloadFileWithFallback(IRestTfsClient client, RestChange change,
-            int changesetId, string targetServer, int deletionId, string relativePath, bool noFallback)
+            int changesetId, string targetServer, int deletionId, string relativePath, bool noFallback,
+            ChangesetFileSummary summary)
         {
             var itemPath = change.Item.Path;
             try
@@ -230,8 +233,10 @@ namespace GitTfs.Core.RestTfs
                     {
                         try
                         {
-                            return legacyHistoryProviderField.DownloadFile(
+                            var content = legacyHistoryProviderField.DownloadFile(
                                 targetServer, itemPath, changesetId, deletionId);
+                            summary.LegacyFallbackUsed = true;
+                            return content;
                         }
                         catch (Exception fallbackException)
                         {
@@ -536,6 +541,7 @@ namespace GitTfs.Core.RestTfs
             public int FilesDownloaded { get; set; }
             public int FilesReused { get; set; }
             public int FilesDeleted { get; set; }
+            public bool LegacyFallbackUsed { get; set; }
         }
 
         private readonly struct AuthorIdentity
