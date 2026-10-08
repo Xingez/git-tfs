@@ -18,7 +18,7 @@ Configure the server in `appsettings.json` first:
   "api-version": "7.1",
   "resumable": true,
   "no-parallel": true,
-  "debug": true,
+  "debug": false,
   "proxy": null
 }
 ```
@@ -32,6 +32,11 @@ git tfs $/Project/Trunk C:\migration\Project
 The server and the values in `appsettings.json` are applied automatically.
 The default workflow accepts the TFVC subfolder and Git output path, followed
 optionally by a target Git URL and target branch.
+
+During a normal run, each imported changeset appears as a progress row with a
+file percentage; completed rows turn green. Pass `--debug` to disable the
+progress display and show full diagnostic logging instead. Setting `debug` to
+`true` in `appsettings.json` has the same effect.
 
 Clones are resumable. If a clone is interrupted, rerun the same command from
 the same location.

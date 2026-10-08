@@ -11,7 +11,7 @@ The default `git tfs` workflow reads the TFS collection URL from
   "api-version": "7.1",
   "resumable": true,
   "no-parallel": true,
-  "debug": true,
+  "debug": false,
   "proxy": null
 }
 ```
@@ -37,7 +37,7 @@ The remaining values are applied automatically by `git tfs`:
 - `resumable`: keep the output repository so an interrupted clone can resume.
 - `api-version`: TFVC REST API version; the default is `7.1`.
 - `no-parallel`: serialize requests to TFS.
-- `debug`: enable detailed console logging.
+- `debug`: enable detailed console logging and disable the Spectre progress display.
 - `proxy`: proxy URI for all TFS HTTP(S) requests; null, empty, or `none`
   uses direct connections.
 

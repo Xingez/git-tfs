@@ -29,7 +29,8 @@ namespace GitTfs.Core.RestTfs
 
         public RestTfsChangesetImportResult Import(IRestTfsClient client, Repository repository,
             RestChangesetReference changesetReference, string targetServer, string repositoryPath,
-            string outputPath, IDictionary<string, string> pathMap, Commit parent, bool noFallback)
+            string outputPath, IDictionary<string, string> pathMap, Commit parent, bool noFallback,
+            IChangesetProgressReporter progressReporter = null)
         {
             var changeset = client.GetChangeset(changesetReference.ChangesetId);
             changeset.Changes ??= new List<RestChange>();
@@ -37,12 +38,15 @@ namespace GitTfs.Core.RestTfs
                 && !HasTrackedSourceRename(changeset, repositoryPath, parent?.Tree))
             {
                 var sourceRenameCount = changeset.Changes.Count(IsSourceRename);
-                loggerField?.LogInformation("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
-                    changeset.ChangesetId,
-                    sourceRenameCount > 0
-                        ? "source rename records contain no tracked old path"
-                        : "no changes",
-                    repositoryPath);
+                var skipReason = sourceRenameCount > 0
+                    ? "source rename records contain no tracked old path"
+                    : "no changes";
+                if (progressReporter == null)
+                    loggerField?.LogInformation("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
+                        changeset.ChangesetId, skipReason, repositoryPath);
+                else
+                    loggerField?.LogDebug("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
+                        changeset.ChangesetId, skipReason, repositoryPath);
                 return new RestTfsChangesetImportResult(true, changeset.ChangesetId, null,
                     0, 0, 0, 0, legacyFallbackUsed: false);
             }
@@ -52,7 +56,7 @@ namespace GitTfs.Core.RestTfs
                 : TreeDefinition.From(parent.Tree);
             var summary = new ChangesetFileSummary();
             ApplyChanges(client, repository, treeDefinition, pathMap, changeset, targetServer,
-                repositoryPath, outputPath, noFallback, summary);
+                repositoryPath, outputPath, noFallback, summary, progressReporter);
 
             var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
             var message = BuildCommitMessage(changeset, changesetReference, targetServer, repositoryPath);
@@ -61,6 +65,7 @@ namespace GitTfs.Core.RestTfs
             var parents = parent == null ? Enumerable.Empty<Commit>() : new[] { parent };
             var commit = repository.ObjectDatabase.CreateCommit(signature, signature, message, tree, parents, false);
             UpdateRefs(repository, commit, changeset.ChangesetId);
+            progressReporter?.CompleteChangeset(changeset.ChangesetId, commit.Sha);
 
             return new RestTfsChangesetImportResult(false, changeset.ChangesetId, commit,
                 summary.FilesProcessed, summary.FilesDownloaded, summary.FilesReused, summary.FilesDeleted,
@@ -69,7 +74,8 @@ namespace GitTfs.Core.RestTfs
 
         private void ApplyChanges(IRestTfsClient client, Repository repository, TreeDefinition treeDefinition,
             IDictionary<string, string> pathMap, RestChangeset changeset, string targetServer,
-            string repositoryPath, string outputPath, bool noFallback, ChangesetFileSummary summary)
+            string repositoryPath, string outputPath, bool noFallback, ChangesetFileSummary summary,
+            IChangesetProgressReporter progressReporter)
         {
             var changes = changeset.Changes
                 .Where(change => change?.Item != null)
@@ -83,8 +89,15 @@ namespace GitTfs.Core.RestTfs
             var downloaded = 0;
             var reused = 0;
             var processed = 0;
-            loggerField?.LogInformation("C{ChangesetId}: processing {FileCount} file(s) (0%).",
-                changeset.ChangesetId, filesToProcess);
+            if (progressReporter == null)
+            {
+                loggerField?.LogInformation("C{ChangesetId}: processing {FileCount} file(s) (0%).",
+                    changeset.ChangesetId, filesToProcess);
+            }
+            else
+            {
+                progressReporter.StartChangeset(changeset.ChangesetId, filesToProcess);
+            }
 
             foreach (var change in changes.OrderBy(change => IsSourceRename(change) ? 1 : 0))
             {
@@ -186,12 +199,16 @@ namespace GitTfs.Core.RestTfs
 
                 processed++;
                 summary.FilesProcessed++;
+                progressReporter?.ReportFiles(changeset.ChangesetId, processed, filesToProcess);
                 var percent = filesToProcess == 0 ? 100 : processed * 100 / filesToProcess;
-                loggerField?.LogInformation("C{ChangesetId}: processed {ProcessedFiles}/{TotalFiles} file(s) ({Percent}%; downloaded {Downloaded}, reused {Reused}).",
-                    changeset.ChangesetId, processed, filesToProcess, percent, downloaded, reused);
+                if (progressReporter == null)
+                {
+                    loggerField?.LogInformation("C{ChangesetId}: processed {ProcessedFiles}/{TotalFiles} file(s) ({Percent}%; downloaded {Downloaded}, reused {Reused}).",
+                        changeset.ChangesetId, processed, filesToProcess, percent, downloaded, reused);
+                }
             }
 
-            if (filesToProcess == 0)
+            if (filesToProcess == 0 && progressReporter == null)
                 loggerField?.LogInformation("C{ChangesetId}: no file content to download.", changeset.ChangesetId);
         }
 

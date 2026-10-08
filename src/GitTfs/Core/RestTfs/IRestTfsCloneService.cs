@@ -3,9 +3,11 @@ namespace GitTfs.Core.RestTfs
     public interface IRestTfsCloneService
     {
         int Run(string targetServer, string repositoryPath, string outputPath, bool noFallback = false,
-            string targetCloneUrl = null, string targetBranch = "main");
+            string targetCloneUrl = null, string targetBranch = "main",
+            IChangesetProgressReporter progressReporter = null);
 
         int RunChangeset(string targetServer, string repositoryPath, string outputPath,
-            int changesetId, bool noFallback = false);
+            int changesetId, bool noFallback = false,
+            IChangesetProgressReporter progressReporter = null);
     }
 }

@@ -1,6 +1,7 @@
 namespace GitTfs.Commands
 {
     using global::System.ComponentModel;
+    using global::GitTfs;
     using global::GitTfs.Core;
     using global::GitTfs.Core.RestTfs;
     using global::GitTfs.Util;
@@ -10,12 +11,14 @@ namespace GitTfs.Commands
     {
         private const string DefaultTargetBranch = "main";
         private readonly GitTfsSettings settingsField;
+        private readonly Globals globalsField;
         private readonly IRestTfsCloneService restCloneServiceField;
         private bool noFallbackField;
 
-        public Clone(GitTfsSettings settings, IRestTfsCloneService restCloneService)
+        public Clone(GitTfsSettings settings, Globals globals, IRestTfsCloneService restCloneService)
         {
             settingsField = settings;
+            globalsField = globals;
             restCloneServiceField = restCloneService;
         }
 
@@ -53,8 +56,12 @@ namespace GitTfs.Commands
                     + ". Set it before using 'git tfs <tfs-subfolder> <output-path>'.");
             }
 
-            var result = restCloneServiceField.Run(settingsField.TargetServer, tfsRepositoryPath,
-                gitRepositoryPath, noFallbackField, targetCloneUrl, targetBranch);
+            var result = globalsField.DebugOutput
+                ? restCloneServiceField.Run(settingsField.TargetServer, tfsRepositoryPath,
+                    gitRepositoryPath, noFallbackField, targetCloneUrl, targetBranch)
+                : SpectreCloneProgress.Run(progressReporter => restCloneServiceField.Run(
+                    settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath, noFallbackField,
+                    targetCloneUrl, targetBranch, progressReporter));
             Environment.CurrentDirectory = Path.GetFullPath(gitRepositoryPath);
             return result;
         }

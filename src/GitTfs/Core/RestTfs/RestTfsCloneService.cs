@@ -38,7 +38,8 @@ namespace GitTfs.Core.RestTfs
         }
 
         public int Run(string targetServer, string repositoryPath, string outputPath, bool noFallback = false,
-            string targetCloneUrl = null, string targetBranch = "main")
+            string targetCloneUrl = null, string targetBranch = "main",
+            IChangesetProgressReporter progressReporter = null)
         {
             repositoryPath = repositoryPath.TrimEnd('/');
             repositoryPath.AssertValidTfsPath();
@@ -84,13 +85,13 @@ namespace GitTfs.Core.RestTfs
                     var fromChangesetId = lastChangesetId;
                     var lastScannedChangesetId = lastChangesetId;
 
-                    loggerField?.LogInformation("Using REST TFVC clone for {RepositoryPath}.", repositoryPath);
+                    loggerField?.LogDebug("Using REST TFVC clone for {RepositoryPath}.", repositoryPath);
                     loggerField?.LogDebug("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
                     if (noFallback)
                     {
-                        loggerField?.LogInformation("Legacy TFVC fallback helper is disabled by --no-fallback.");
+                        loggerField?.LogDebug("Legacy TFVC fallback helper is disabled by --no-fallback.");
                     }
-                    loggerField?.LogInformation("Scanning project changesets and filtering changes under {RepositoryPath}.", repositoryPath);
+                    loggerField?.LogDebug("Scanning project changesets and filtering changes under {RepositoryPath}.", repositoryPath);
 
                     while (true)
                     {
@@ -100,7 +101,7 @@ namespace GitTfs.Core.RestTfs
                         if (changesetReferences.Count == 0)
                             break;
 
-                        loggerField?.LogInformation("Changeset scan after C{StartingChangesetId} returned {ChangesetCount} reference(s), through C{EndingChangesetId}.",
+                        loggerField?.LogDebug("Changeset scan after C{StartingChangesetId} returned {ChangesetCount} reference(s), through C{EndingChangesetId}.",
                             pageStartChangesetId, changesetReferences.Count,
                             changesetReferences.Max(reference => reference.ChangesetId));
 
@@ -112,7 +113,7 @@ namespace GitTfs.Core.RestTfs
                             lastScannedChangesetId = changesetReference.ChangesetId;
                             ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
                                 absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
-                                null, noFallback, summary);
+                                noFallback, summary, progressReporter);
                         }
 
                         var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
@@ -211,7 +212,8 @@ namespace GitTfs.Core.RestTfs
         }
 
         public int RunChangeset(string targetServer, string repositoryPath, string outputPath,
-            int changesetId, bool noFallback = false)
+            int changesetId, bool noFallback = false,
+            IChangesetProgressReporter progressReporter = null)
         {
             repositoryPath = repositoryPath?.TrimEnd('/');
             repositoryPath.AssertValidTfsPath();
@@ -252,7 +254,7 @@ namespace GitTfs.Core.RestTfs
                 var pathMap = GetTreePathMap(parent.Tree);
                 var reference = new RestChangesetReference { ChangesetId = changesetId };
                 var result = changesetImporterField.Import(client, repository, reference, targetServer,
-                    repositoryPath, absoluteOutputPath, pathMap, parent, noFallback);
+                    repositoryPath, absoluteOutputPath, pathMap, parent, noFallback, progressReporter);
                 if (result.Skipped)
                 {
                     loggerField?.LogInformation("C{ChangesetId} does not change {RepositoryPath}; no commit created; "
@@ -361,12 +363,12 @@ namespace GitTfs.Core.RestTfs
 
         private void ImportChangeset(IRestTfsClient client, Repository repository, RestChangesetReference changesetReference,
             string targetServer, string repositoryPath, string outputPath, IDictionary<string, string> pathMap,
-            ref Commit newestCommit, ref int lastChangesetId, int? totalChangesets, bool noFallback,
-            CloneSummary summary)
+            ref Commit newestCommit, ref int lastChangesetId, bool noFallback, CloneSummary summary,
+            IChangesetProgressReporter progressReporter)
         {
             summary.ChangesetsConsidered++;
             var result = changesetImporterField.Import(client, repository, changesetReference,
-                targetServer, repositoryPath, outputPath, pathMap, newestCommit, noFallback);
+                targetServer, repositoryPath, outputPath, pathMap, newestCommit, noFallback, progressReporter);
             if (result.Skipped)
             {
                 summary.ChangesetsSkipped++;
@@ -382,12 +384,12 @@ namespace GitTfs.Core.RestTfs
             summary.FilesDeleted += result.FilesDeleted;
             summary.LegacyFallbackUsed |= result.LegacyFallbackUsed;
 
-            var progress = totalChangesets.HasValue
-                ? summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/"
-                    + totalChangesets.Value.ToString(CultureInfo.InvariantCulture)
-                : summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/?";
-            loggerField?.LogInformation("[{Progress}] C{ChangesetId} committed as {CommitSha}.",
-                progress, result.ChangesetId, result.Commit.Sha);
+            if (progressReporter == null)
+            {
+                var progress = summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/?";
+                loggerField?.LogInformation("[{Progress}] C{ChangesetId} committed as {CommitSha}.",
+                    progress, result.ChangesetId, result.Commit.Sha);
+            }
         }
 
         private IRestTfsClient CreateRestClient(string targetServer, string repositoryPath)

@@ -243,7 +243,7 @@ namespace GitTfs.Core.RestTfs
                             if (rateLimit.IsThrottled && serverDelay.HasValue)
                             {
                                 pendingServerDelayField = Max(pendingServerDelayField, serverDelay.Value);
-                                loggerField?.LogInformation("TFS server requested {Delay} before the next request (source: {DelaySource}).",
+                                loggerField?.LogDebug("TFS server requested {Delay} before the next request (source: {DelaySource}).",
                                     FormatDuration(serverDelay.Value), delaySource);
                             }
 
@@ -283,11 +283,11 @@ namespace GitTfs.Core.RestTfs
 
             var delay = pendingServerDelayField;
             pendingServerDelayField = TimeSpan.Zero;
-            loggerField?.LogInformation("Waiting {Delay} before TFS request: {RequestTarget}.",
+            loggerField?.LogDebug("Waiting {Delay} before TFS request: {RequestTarget}.",
                 FormatDuration(delay), logTarget);
             var waitTimer = Stopwatch.StartNew();
             Thread.Sleep(delay);
-            loggerField?.LogInformation("TFS request wait completed in {Elapsed} (requested {Delay}).",
+            loggerField?.LogDebug("TFS request wait completed in {Elapsed} (requested {Delay}).",
                 FormatDuration(waitTimer.Elapsed), FormatDuration(delay));
         }
 
@@ -301,7 +301,7 @@ namespace GitTfs.Core.RestTfs
                 FormatDuration(delay), attempt + 1, MaxRequestAttempts, source, uri, reason);
             var waitTimer = Stopwatch.StartNew();
             Thread.Sleep(delay);
-            loggerField?.LogInformation("TFS retry wait completed in {Elapsed} (requested {Delay}).",
+            loggerField?.LogDebug("TFS retry wait completed in {Elapsed} (requested {Delay}).",
                 FormatDuration(waitTimer.Elapsed), FormatDuration(delay));
         }
 

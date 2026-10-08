@@ -45,7 +45,7 @@ that contains the project:
   "api-version": "7.1",
   "resumable": true,
   "no-parallel": true,
-  "debug": true,
+  "debug": false,
   "proxy": null
 }
 ```

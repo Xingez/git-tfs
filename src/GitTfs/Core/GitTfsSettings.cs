@@ -30,7 +30,7 @@ namespace GitTfs.Core
         [JsonPropertyName("no-parallel")]
         public bool NoParallel { get; set; } = true;
 
-        public bool Debug { get; set; } = true;
+        public bool Debug { get; set; }
 
         /// <summary>
         /// HTTP(S) proxy URL. Null, empty, or "none" disables proxy use.

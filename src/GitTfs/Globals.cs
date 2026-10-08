@@ -13,7 +13,7 @@ namespace GitTfs
                         v => ShowHelp = v != null },
                     { "V|version",
                         v => ShowVersion = v != null },
-                    { "d|debug", "Show debug output about everything git-tfs does",
+                    { "d|debug", "Show full debug output and disable the Spectre progress display",
                         v => DebugOutput = v != null },
                     { "i|tfs-remote|remote|id=", "The remote ID of the TFS to interact with\ndefault: default",
                         v => UserSpecifiedRemoteId = v },
@@ -25,9 +25,7 @@ namespace GitTfs
         public bool ShowHelp { get; set; }
         public bool ShowVersion { get; set; }
 
-        // This build intentionally keeps the verbose request trace enabled so a
-        // long-running/resumed import can always be diagnosed after the fact.
-        public bool DebugOutput { get; set; } = true;
+        public bool DebugOutput { get; set; }
 
         public string UserSpecifiedRemoteId { get; set; }
 

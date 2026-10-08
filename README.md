@@ -25,7 +25,7 @@ clone for focused troubleshooting.
      "api-version": "7.1",
      "resumable": true,
      "no-parallel": true,
-     "debug": true,
+     "debug": false,
      "proxy": null
    }
    ```
@@ -52,6 +52,10 @@ clone for focused troubleshooting.
    git remote add origin https://git.example.com/team/project.git
    git push --all origin
    ```
+
+Normal runs show a colored Spectre progress row for each imported changeset.
+Use `--debug` to disable the progress display and print full diagnostic logs;
+the same behavior can be enabled with `"debug": true` in `appsettings.json`.
 
 ### Import one changeset
 

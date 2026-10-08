@@ -2,6 +2,7 @@ namespace GitTfs.Commands
 {
     using global::System.ComponentModel;
     using global::System.Globalization;
+    using global::GitTfs;
     using global::GitTfs.Core;
     using global::GitTfs.Core.RestTfs;
     using global::GitTfs.Util;
@@ -11,12 +12,14 @@ namespace GitTfs.Commands
     public sealed class Changeset : GitTfsCommand
     {
         private readonly GitTfsSettings settingsField;
+        private readonly Globals globalsField;
         private readonly IRestTfsCloneService cloneServiceField;
         private bool noFallbackField;
 
-        public Changeset(GitTfsSettings settings, IRestTfsCloneService cloneService)
+        public Changeset(GitTfsSettings settings, Globals globals, IRestTfsCloneService cloneService)
         {
             settingsField = settings;
+            globalsField = globals;
             cloneServiceField = cloneService;
         }
 
@@ -29,12 +32,12 @@ namespace GitTfs.Commands
             if (!int.TryParse(changesetId, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedChangesetId))
                 throw new GitTfsException("The changeset ID must be a positive integer.");
 
-            return cloneServiceField.RunChangeset(
-                settingsField.TargetServer,
-                tfsRepositoryPath,
-                gitRepositoryPath,
-                parsedChangesetId,
-                noFallbackField);
+            return globalsField.DebugOutput
+                ? cloneServiceField.RunChangeset(settingsField.TargetServer, tfsRepositoryPath,
+                    gitRepositoryPath, parsedChangesetId, noFallbackField)
+                : SpectreCloneProgress.Run(progressReporter => cloneServiceField.RunChangeset(
+                    settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath, parsedChangesetId,
+                    noFallbackField, progressReporter));
         }
     }
 }
