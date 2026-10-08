@@ -1,14 +1,16 @@
 namespace GitTfs.Core.RestTfs
 {
     using global::GitTfs.Core;
+    using global::GitTfs.Util;
     using global::System.Diagnostics;
     using global::System.Text.Json;
 
     /// <summary>
-    /// Uses the legacy TFVC client object model for its one operation that REST
-    /// does not expose: recursive folder history. The helper only discovers
-    /// changeset references; file content is still downloaded by RestTfsClient.
+    /// Uses the legacy TFVC client object model for recursive folder history and
+    /// exact historical file downloads when the REST content endpoint cannot
+    /// resolve an item.
     /// </summary>
+    [SingletonService]
     public sealed class LegacyTfvcHistoryProvider
     {
         private readonly GitTfsSettings settingsField;
@@ -27,9 +29,69 @@ namespace GitTfs.Core.RestTfs
         public IReadOnlyList<RestChangesetReference> GetChangesets(string targetServer, string repositoryPath,
             int fromChangesetId)
         {
+            if (!IsAvailable)
+                return null;
+
+            var messages = RunHelper(new LegacyHistoryRequest
+            {
+                Operation = "history",
+                ServerUrl = targetServer,
+                RepositoryPath = repositoryPath,
+                FromChangesetId = fromChangesetId,
+                BatchSize = 100,
+            });
+
+            return messages
+                .Where(message => string.Equals(message.Type, "changeset", StringComparison.OrdinalIgnoreCase))
+                .Select(message => new RestChangesetReference
+                {
+                    ChangesetId = message.ChangesetId,
+                    CreatedDate = message.CreatedDate,
+                    Comment = message.Comment,
+                    Author = message.Author == null
+                        ? null
+                        : new RestIdentity
+                        {
+                            DisplayName = message.Author.DisplayName,
+                            UniqueName = message.Author.UniqueName,
+                        },
+                })
+                .OrderBy(changeset => changeset.ChangesetId)
+                .ToArray();
+        }
+
+        public byte[] DownloadFile(string targetServer, string itemPath, int changesetId)
+        {
+            if (!IsAvailable)
+                throw new GitTfsException("The legacy TFVC helper is not available.");
+
+            var messages = RunHelper(new LegacyHistoryRequest
+            {
+                Operation = "download",
+                ServerUrl = targetServer,
+                ItemPath = itemPath,
+                ChangesetId = changesetId,
+            });
+            var file = messages.FirstOrDefault(message =>
+                string.Equals(message.Type, "file", StringComparison.OrdinalIgnoreCase));
+            if (file == null || file.Content == null)
+                throw new GitTfsException("The legacy TFVC helper did not return file content for " + itemPath + ".");
+
+            try
+            {
+                return Convert.FromBase64String(file.Content);
+            }
+            catch (FormatException exception)
+            {
+                throw new GitTfsException("The legacy TFVC helper returned invalid file content for " + itemPath + ".", exception);
+            }
+        }
+
+        private IReadOnlyList<LegacyHistoryMessage> RunHelper(LegacyHistoryRequest request)
+        {
             var helperPath = GetHelperPath();
             if (!File.Exists(helperPath))
-                return null;
+                throw new GitTfsException("The legacy TFVC helper is not available.");
 
             var startInfo = new ProcessStartInfo
             {
@@ -42,21 +104,15 @@ namespace GitTfs.Core.RestTfs
                 RedirectStandardError = true,
             };
 
+            request.Username = settingsField.Username;
+            request.Password = settingsField.Password;
+            request.Pat = GetPat();
+
             using (var process = Process.Start(startInfo))
             {
                 if (process == null)
                     throw new GitTfsException("Unable to start the legacy TFVC history helper.");
 
-                var request = new LegacyHistoryRequest
-                {
-                    ServerUrl = targetServer,
-                    RepositoryPath = repositoryPath,
-                    FromChangesetId = fromChangesetId,
-                    BatchSize = 100,
-                    Username = settingsField.Username,
-                    Password = settingsField.Password,
-                    Pat = GetPat(),
-                };
                 process.StandardInput.Write(JsonSerializer.Serialize(request, jsonOptionsField));
                 process.StandardInput.Close();
 
@@ -72,42 +128,15 @@ namespace GitTfs.Core.RestTfs
                         + process.ExitCode + ". " + (string.IsNullOrWhiteSpace(error) ? "No error details were returned." : error));
                 }
 
-                var changesets = new List<RestChangesetReference>();
-                var completed = false;
-                foreach (var line in standardOutputTask.Result.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var message = JsonSerializer.Deserialize<LegacyHistoryMessage>(line, jsonOptionsField);
-                    if (message == null)
-                        continue;
-
-                    if (string.Equals(message.Type, "complete", StringComparison.OrdinalIgnoreCase))
-                    {
-                        completed = true;
-                        continue;
-                    }
-
-                    if (!string.Equals(message.Type, "changeset", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    changesets.Add(new RestChangesetReference
-                    {
-                        ChangesetId = message.ChangesetId,
-                        CreatedDate = message.CreatedDate,
-                        Comment = message.Comment,
-                        Author = message.Author == null
-                            ? null
-                            : new RestIdentity
-                            {
-                                DisplayName = message.Author.DisplayName,
-                                UniqueName = message.Author.UniqueName,
-                            },
-                    });
-                }
-
-                if (!completed)
+                var messages = standardOutputTask.Result
+                    .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(line => JsonSerializer.Deserialize<LegacyHistoryMessage>(line, jsonOptionsField))
+                    .Where(message => message != null)
+                    .ToArray();
+                if (!messages.Any(message => string.Equals(message.Type, "complete", StringComparison.OrdinalIgnoreCase)))
                     throw new GitTfsException("The legacy TFVC history helper ended without completing its response.");
 
-                return changesets.OrderBy(changeset => changeset.ChangesetId).ToArray();
+                return messages;
             }
         }
 
@@ -137,10 +166,13 @@ namespace GitTfs.Core.RestTfs
 
         private sealed class LegacyHistoryRequest
         {
+            public string Operation { get; set; }
             public string ServerUrl { get; set; }
             public string RepositoryPath { get; set; }
             public int FromChangesetId { get; set; }
             public int BatchSize { get; set; }
+            public string ItemPath { get; set; }
+            public int ChangesetId { get; set; }
             public string Username { get; set; }
             public string Password { get; set; }
             public string Pat { get; set; }
@@ -153,6 +185,7 @@ namespace GitTfs.Core.RestTfs
             public DateTimeOffset CreatedDate { get; set; }
             public string Comment { get; set; }
             public LegacyHistoryIdentity Author { get; set; }
+            public string Content { get; set; }
         }
 
         private sealed class LegacyHistoryIdentity

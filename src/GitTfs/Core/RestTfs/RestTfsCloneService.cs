@@ -193,7 +193,7 @@ namespace GitTfs.Core.RestTfs
             var treeDefinition = newestCommit == null
                 ? new TreeDefinition()
                 : TreeDefinition.From(newestCommit.Tree);
-            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, repositoryPath, outputPath);
+            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, targetServer, repositoryPath, outputPath);
 
             var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
             var message = BuildCommitMessage(changeset, changesetReference, targetServer, repositoryPath);
@@ -216,7 +216,8 @@ namespace GitTfs.Core.RestTfs
         }
 
         private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,
-            IDictionary<string, string> pathMap, RestChangeset changeset, string repositoryPath, string outputPath)
+            IDictionary<string, string> pathMap, RestChangeset changeset, string targetServer,
+            string repositoryPath, string outputPath)
         {
             var changes = changeset.Changes
                 .Where(change => change?.Item != null)
@@ -255,7 +256,8 @@ namespace GitTfs.Core.RestTfs
                 var reusedLocalFile = TryReadMatchingLocalFile(outputPath, relativePath, change.Item.HashValue,
                     out var content);
                 if (!reusedLocalFile)
-                    content = client.DownloadFile(change.Item.Path, changeset.ChangesetId);
+                    content = DownloadFileWithFallback(client, targetServer, change.Item.Path,
+                        changeset.ChangesetId, relativePath);
                 var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
                 treeDefinition.Add(relativePath, blob, Mode.NonExecutableFile);
                 pathMap.Remove(relativePath);
@@ -280,6 +282,31 @@ namespace GitTfs.Core.RestTfs
 
             if (filesToProcess == 0)
                 Trace.TraceInformation("C" + changeset.ChangesetId + ": no file content to download.");
+        }
+
+        private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, string itemPath,
+            int changesetId, string relativePath)
+        {
+            try
+            {
+                return client.DownloadFile(itemPath, changesetId);
+            }
+            catch (RestTfsException exception) when (exception.StatusCode == 404
+                && legacyHistoryProviderField?.IsAvailable == true)
+            {
+                Trace.TraceWarning("REST returned 404 for " + relativePath + " at C" + changesetId
+                    + "; trying the legacy TFVC content fallback.");
+                try
+                {
+                    return legacyHistoryProviderField.DownloadFile(
+                        targetServer, itemPath, changesetId);
+                }
+                catch (Exception fallbackException)
+                {
+                    throw new GitTfsException("The REST and legacy TFVC downloads failed for "
+                        + relativePath + " at C" + changesetId + ".", fallbackException);
+                }
+            }
         }
 
         private static bool TryReadMatchingLocalFile(string outputPath, string relativePath, string hashValue,

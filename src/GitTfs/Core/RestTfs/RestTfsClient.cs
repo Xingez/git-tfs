@@ -216,9 +216,9 @@ namespace GitTfs.Core.RestTfs
                         var serverDelayForRetry = rateLimit.GetServerDelay(DateTimeOffset.UtcNow, out var delaySourceForRetry);
                         if (!retryable || attempt >= MaxRequestAttempts)
                         {
-                            throw new GitTfsException("TFS REST request failed with HTTP "
+                            throw new RestTfsException("TFS REST request failed with HTTP "
                                 + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) + " for " + uri
-                                + ". " + TrimBody(body));
+                                + ". " + TrimBody(body), (int)response.StatusCode, uri);
                         }
 
                         WaitBeforeRetry(uri, attempt, serverDelayForRetry, DefaultRetryDelay,

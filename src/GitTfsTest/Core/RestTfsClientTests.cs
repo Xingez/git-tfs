@@ -57,6 +57,24 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void ExposesNotFoundStatusForHistoricalFileFallbacks()
+        {
+            var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("missing", Encoding.UTF8, "text/plain"),
+            });
+
+            using (var httpClient = new HttpClient(handler))
+            using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
+            {
+                var exception = Assert.Throws<RestTfsException>(() => client.DownloadFile("$/Project/Branch/file.bin", 42));
+
+                Assert.Equal(404, exception.StatusCode);
+                Assert.Contains("file.bin", exception.Message);
+            }
+        }
+
+        [TestMethod]
         public void CanListProjectChangesetsWithoutAnItemPathFilter()
         {
             var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)

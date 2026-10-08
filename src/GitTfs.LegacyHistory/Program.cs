@@ -39,8 +39,6 @@ namespace GitTfs.LegacyHistory
         {
             if (string.IsNullOrWhiteSpace(request.ServerUrl))
                 throw new ArgumentException("The TFS server URL is required.");
-            if (string.IsNullOrWhiteSpace(request.RepositoryPath))
-                throw new ArgumentException("The TFS repository path is required.");
 
             var serverUri = new Uri(request.ServerUrl, UriKind.Absolute);
             var credentials = CreateCredentials(request);
@@ -48,6 +46,16 @@ namespace GitTfs.LegacyHistory
             {
                 collection.EnsureAuthenticated();
                 var versionControl = collection.GetService<VersionControlServer>();
+
+                if (string.Equals(request.Operation, "download", StringComparison.OrdinalIgnoreCase))
+                {
+                    DownloadFile(versionControl, request);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(request.RepositoryPath))
+                    throw new ArgumentException("The TFS repository path is required.");
+
                 var nextChangesetId = request.FromChangesetId >= int.MaxValue
                     ? int.MaxValue
                     : request.FromChangesetId + 1;
@@ -84,6 +92,35 @@ namespace GitTfs.LegacyHistory
 
                 Console.WriteLine(JsonConvert.SerializeObject(new HistoryComplete()));
             }
+        }
+
+        private static void DownloadFile(VersionControlServer versionControl, HistoryRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.ItemPath))
+                throw new ArgumentException("The TFS item path is required for a file download.");
+            if (request.ChangesetId <= 0)
+                throw new ArgumentException("A positive changeset ID is required for a file download.");
+
+            var item = versionControl.GetItem(
+                request.ItemPath,
+                new ChangesetVersionSpec(request.ChangesetId),
+                DeletedState.NonDeleted,
+                GetItemsOptions.Download);
+            if (item == null || item.ItemType != ItemType.File)
+                throw new InvalidOperationException("The requested TFS item is not a file at changeset C"
+                    + request.ChangesetId + ".");
+
+            using (var input = item.DownloadFile())
+            using (var output = new System.IO.MemoryStream())
+            {
+                input.CopyTo(output);
+                Console.WriteLine(JsonConvert.SerializeObject(new FileContent
+                {
+                    Content = Convert.ToBase64String(output.ToArray()),
+                }));
+            }
+
+            Console.WriteLine(JsonConvert.SerializeObject(new HistoryComplete()));
         }
 
         private static List<Changeset> QueryHistory(VersionControlServer versionControl, string repositoryPath,
@@ -129,13 +166,22 @@ namespace GitTfs.LegacyHistory
 
         private sealed class HistoryRequest
         {
+            public string Operation { get; set; }
             public string ServerUrl { get; set; }
             public string RepositoryPath { get; set; }
             public int FromChangesetId { get; set; }
             public int BatchSize { get; set; }
+            public string ItemPath { get; set; }
+            public int ChangesetId { get; set; }
             public string Username { get; set; }
             public string Password { get; set; }
             public string Pat { get; set; }
+        }
+
+        private sealed class FileContent
+        {
+            public string Type { get; } = "file";
+            public string Content { get; set; }
         }
 
         private sealed class HistoryChangeset
