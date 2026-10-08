@@ -40,6 +40,9 @@ file and reuses the file when it matches. A missing or mismatched file is
 downloaded again, so rerunning a clone can repair incomplete or modified
 output safely.
 
+Source-side rename records are metadata for the old path, not downloadable
+file content, and are skipped.
+
 Use a local drive for the clone rather than a network share. No TFVC workspace
 path is needed.
 

@@ -173,8 +173,12 @@ namespace GitTfs.Core.RestTfs
             changeset.Changes ??= new List<RestChange>();
             if (!HasChangesWithinRepository(changeset, repositoryPath))
             {
-                Trace.TraceInformation("C" + changeset.ChangesetId + ": skipped; no changes under "
-                    + repositoryPath + ".");
+                var sourceRenameCount = changeset.Changes.Count(IsSourceRename);
+                Trace.TraceInformation("C" + changeset.ChangesetId + ": skipped; "
+                    + (sourceRenameCount > 0
+                        ? "source rename records contain no downloadable content"
+                        : "no changes")
+                    + " under " + repositoryPath + ".");
                 return;
             }
 
@@ -203,6 +207,7 @@ namespace GitTfs.Core.RestTfs
         {
             var changes = changeset.Changes
                 .Where(change => change?.Item != null)
+                .Where(change => !IsSourceRename(change))
                 .Where(change => IsWithinRepository(change.Item.Path, repositoryPath)
                     || IsWithinRepository(change.SourceServerItem, repositoryPath)
                     || (change.MergeSources ?? new List<RestMergeSource>())
@@ -287,10 +292,20 @@ namespace GitTfs.Core.RestTfs
         private static bool HasChangesWithinRepository(RestChangeset changeset, string repositoryPath)
             => (changeset.Changes ?? new List<RestChange>())
                 .Any(change => change?.Item != null
+                    && !IsSourceRename(change)
                     && (IsWithinRepository(change.Item.Path, repositoryPath)
                         || IsWithinRepository(change.SourceServerItem, repositoryPath)
                         || (change.MergeSources ?? new List<RestMergeSource>())
                             .Any(source => IsWithinRepository(source.ServerItem, repositoryPath))));
+
+        // A sourceRename describes the old side of a rename. Its item URL can
+        // legitimately be gone at the changeset version; the target record is
+        // the one that carries the content to import.
+        private static bool IsSourceRename(RestChange change)
+            => (change?.ChangeType ?? string.Empty)
+                .Split(',')
+                .Select(type => type.Trim())
+                .Any(type => string.Equals(type, "sourceRename", StringComparison.OrdinalIgnoreCase));
 
         private static void RemoveRenameSources(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
             RestChange change, string repositoryPath, string outputPath)
