@@ -1,7 +1,6 @@
 
-namespace GitTfs.Commands
+namespace GitTfs.Util
 {
-    using global::GitTfs.Util;
     public static class Helpers
     {
         public static OptionSet Merge(this OptionSet options, params OptionSet[] others)

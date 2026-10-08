@@ -349,7 +349,6 @@ namespace GitTfs.VsFake
 
         public ITfsChangeset GetShelvesetData(IGitTfsRemote remote, string shelvesetOwner, string shelvesetName) => throw new NotImplementedException();
 
-        public int ListShelvesets(ShelveList shelveList, IGitTfsRemote remote) => throw new NotImplementedException();
 
         public IEnumerable<string> GetAllTfsRootBranchesOrderedByCreation() => new List<string>();
 
