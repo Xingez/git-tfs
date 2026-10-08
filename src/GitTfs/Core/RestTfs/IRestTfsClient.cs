@@ -6,7 +6,7 @@ namespace GitTfs.Core.RestTfs
     public interface IRestTfsClient : IDisposable
     {
         IReadOnlyList<RestChangesetReference> GetChangesets(string repositoryPath, int fromChangesetId,
-            int batchSize, bool filterByItemPath = true);
+            int batchSize);
 
         RestChangeset GetChangeset(int changesetId);
 

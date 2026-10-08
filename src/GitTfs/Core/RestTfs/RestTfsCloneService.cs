@@ -89,13 +89,12 @@ namespace GitTfs.Core.RestTfs
                     {
                         loggerField?.LogDebug("Legacy TFVC fallback helper is disabled by --no-fallback.");
                     }
-                    loggerField?.LogDebug("Scanning project changesets and filtering changes under {RepositoryPath}.", repositoryPath);
+                    loggerField?.LogDebug("Scanning changesets for {RepositoryPath}.", repositoryPath);
 
                     while (true)
                     {
                         var pageStartChangesetId = fromChangesetId;
-                        var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize,
-                            filterByItemPath: false);
+                        var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize);
                         if (changesetReferences.Count == 0)
                             break;
 

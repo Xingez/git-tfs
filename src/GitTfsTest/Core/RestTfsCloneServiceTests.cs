@@ -43,6 +43,10 @@ namespace GitTfs.Test.Core
                         Assert.Empty(repository.RetrieveStatus());
                         Assert.Equal(outputPath, repository.Info.WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar));
                     }
+
+                    Assert.True(server.ChangesetItemPaths.Count > 0);
+                    Assert.True(server.ChangesetItemPaths.All(path => path == "$/Project/Branch"),
+                        "Every changeset query must be scoped to the requested TFVC path.");
                 }
                 finally
                 {
@@ -301,6 +305,7 @@ namespace GitTfs.Test.Core
             public bool ReturnMismatchedLatestHash { get; set; }
             public bool ReturnMissingMergeTargetAndDeleteAFile { get; set; }
             public ConcurrentQueue<string> FileDownloadQueries { get; } = new ConcurrentQueue<string>();
+            public ConcurrentQueue<string> ChangesetItemPaths { get; } = new ConcurrentQueue<string>();
 
             public void Dispose()
             {
@@ -375,8 +380,19 @@ namespace GitTfs.Test.Core
                     var fromId = GetQueryValue(uri, "searchCriteria.fromId");
                     var itemPath = GetQueryValue(uri, "searchCriteria.itemPath");
                     if (!string.IsNullOrWhiteSpace(itemPath))
+                    {
+                        server.ChangesetItemPaths.Enqueue(itemPath);
+                        if (fromId == "2")
+                            return Json("{\"count\":1,\"value\":["
+                                + "{\"changesetId\":3,\"createdDate\":\"2020-01-03T00:00:00Z\",\"comment\":\"source rename\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
+                        if (fromId == "1")
+                            return Json("{\"count\":1,\"value\":["
+                                + "{\"changesetId\":2,\"createdDate\":\"2020-01-02T00:00:00Z\",\"comment\":\"second\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
+                        if (fromId == "3")
+                            return Json("{\"count\":0,\"value\":[]}");
                         return Json("{\"count\":1,\"value\":["
                             + "{\"changesetId\":1,\"createdDate\":\"2020-01-01T00:00:00Z\",\"comment\":\"first\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
+                    }
                     if (fromId == "2")
                         return Json("{\"count\":1,\"value\":["
                             + "{\"changesetId\":3,\"createdDate\":\"2020-01-03T00:00:00Z\",\"comment\":\"source rename\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");

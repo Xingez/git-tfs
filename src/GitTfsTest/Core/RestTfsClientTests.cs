@@ -160,7 +160,7 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
-        public void CanListProjectChangesetsWithoutAnItemPathFilter()
+        public void ScopesChangesetQueriesToTheRequestedPath()
         {
             var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -170,12 +170,28 @@ namespace GitTfs.Test.Core
             using (var httpClient = new HttpClient(handler))
             using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
             {
-                client.GetChangesets("$/Project/Branch", 0, 100, filterByItemPath: false);
+                client.GetChangesets("$/Project/Branch", 0, 100);
 
-                Assert.False(handler.Requests[0].RequestUri.Query.IndexOf("searchCriteria.itemPath", StringComparison.Ordinal) >= 0,
-                    "The project-wide changeset query must not include an item path filter.");
+                Assert.Equal("$/Project/Branch", GetQueryValue(handler.Requests[0].RequestUri,
+                    "searchCriteria.itemPath"));
                 StringAssert.Contains(handler.Requests[0].RequestUri.Query, "%24top=100");
             }
+        }
+
+        private static string GetQueryValue(Uri uri, string key)
+        {
+            foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var separator = pair.IndexOf('=');
+                if (separator < 0)
+                    continue;
+
+                var name = Uri.UnescapeDataString(pair.Substring(0, separator));
+                if (string.Equals(name, key, StringComparison.OrdinalIgnoreCase))
+                    return Uri.UnescapeDataString(pair.Substring(separator + 1));
+            }
+
+            return null;
         }
 
         [TestMethod]
