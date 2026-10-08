@@ -109,7 +109,7 @@ namespace GitTfs
         }
 
         private static IEnumerable<string> GetAvailableCommands()
-            => Array.Empty<string>();
+            => new[] { "changeset", "help" };
 
         private static Core.TfsInterop.TfsPlugin LoadTfsPlugin()
         {

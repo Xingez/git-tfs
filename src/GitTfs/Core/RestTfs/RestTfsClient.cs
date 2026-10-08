@@ -15,7 +15,7 @@ namespace GitTfs.Core.RestTfs
     /// It deliberately returns the response boundary instead of hiding headers
     /// behind the legacy TFS object model.
     /// </summary>
-    public sealed class RestTfsClient : IDisposable
+    public sealed class RestTfsClient : IRestTfsClient
     {
         public const string HttpClientName = "tfs-rest";
 

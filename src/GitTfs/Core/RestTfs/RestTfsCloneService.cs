@@ -3,40 +3,40 @@ namespace GitTfs.Core.RestTfs
     using global::GitTfs.Util;
     using global::GitTfs.Commands;
     using global::LibGit2Sharp;
-    using global::System.Diagnostics;
     using global::System.Globalization;
     using global::System.Security.Cryptography;
-    using global::System.Text;
     using global::Microsoft.Extensions.Http;
     using global::Microsoft.Extensions.Logging;
 
     /// <summary>
     /// Imports one TFVC folder into Git without creating or using a TFVC workspace.
     /// </summary>
-    public sealed class RestTfsCloneService
+    public sealed class RestTfsCloneService : IRestTfsCloneService
     {
         private readonly GitTfsSettings settingsField;
-        private readonly AuthorsFile authorsFileField;
         private readonly LegacyTfvcHistoryProvider legacyHistoryProviderField;
         private readonly ILogger<RestTfsCloneService> loggerField;
         private readonly ILoggerFactory loggerFactoryField;
         private readonly IHttpClientFactory httpClientFactoryField;
         private readonly IGitHelpers gitHelpersField;
+        private readonly IRestTfsChangesetImporter changesetImporterField;
 
         public RestTfsCloneService(GitTfsSettings settings, AuthorsFile authorsFile,
             LegacyTfvcHistoryProvider legacyHistoryProvider = null,
             ILogger<RestTfsCloneService> logger = null,
             ILoggerFactory loggerFactory = null,
             IHttpClientFactory httpClientFactory = null,
-            IGitHelpers gitHelpers = null)
+            IGitHelpers gitHelpers = null,
+            IRestTfsChangesetImporter changesetImporter = null)
         {
             settingsField = settings;
-            authorsFileField = authorsFile;
             legacyHistoryProviderField = legacyHistoryProvider;
             loggerField = logger;
             loggerFactoryField = loggerFactory;
             httpClientFactoryField = httpClientFactory;
             gitHelpersField = gitHelpers;
+            changesetImporterField = changesetImporter
+                ?? new RestTfsChangesetImporter(authorsFile, legacyHistoryProvider);
         }
 
         public int Run(string targetServer, string repositoryPath, string outputPath, bool noFallback = false,
@@ -231,6 +231,73 @@ namespace GitTfs.Core.RestTfs
             }
         }
 
+        public int RunChangeset(string targetServer, string repositoryPath, string outputPath,
+            int changesetId, bool noFallback = false)
+        {
+            repositoryPath = repositoryPath?.TrimEnd('/');
+            repositoryPath.AssertValidTfsPath();
+            targetServer = targetServer?.Trim().TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(targetServer))
+                throw new GitTfsException("TargetServer is not configured in appsettings.json.");
+            if (changesetId <= 0)
+                throw new GitTfsException("A positive TFVC changeset ID is required.");
+
+            var absoluteOutputPath = Path.GetFullPath(outputPath);
+            if (!Directory.Exists(Path.Combine(absoluteOutputPath, ".git")))
+                throw new GitTfsException("The changeset command requires an existing git-tfs clone at "
+                    + absoluteOutputPath + ".");
+
+            using (var repository = new Repository(absoluteOutputPath))
+            using (var client = CreateRestClient(targetServer, repositoryPath))
+            {
+                var configuredServer = repository.Config.Get<string>("tfs-remote.default.url")?.Value;
+                var configuredPath = repository.Config.Get<string>("tfs-remote.default.repository")?.Value;
+                if (!string.Equals(configuredServer?.TrimEnd('/'), targetServer, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(configuredPath, repositoryPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new GitTfsException("The output repository is not configured for the requested TFS server "
+                        + "and subfolder.");
+                }
+
+                ConfigureRepository(repository, targetServer, repositoryPath);
+                var parent = repository.Head?.Tip;
+                var lastChangesetId = FindLastChangesetId(parent);
+                if (parent == null || lastChangesetId <= 0)
+                    throw new GitTfsException("The repository must contain a git-tfs changeset commit before "
+                        + "a single changeset can be imported.");
+                if (changesetId <= lastChangesetId)
+                    throw new GitTfsException("C" + changesetId.ToString(CultureInfo.InvariantCulture)
+                        + " is not newer than the current HEAD changeset C"
+                        + lastChangesetId.ToString(CultureInfo.InvariantCulture) + ".");
+
+                var pathMap = GetTreePathMap(parent.Tree);
+                var reference = new RestChangesetReference { ChangesetId = changesetId };
+                var result = changesetImporterField.Import(client, repository, reference, targetServer,
+                    repositoryPath, absoluteOutputPath, pathMap, parent, noFallback);
+                if (result.Skipped)
+                {
+                    loggerField?.LogInformation("C{ChangesetId} does not change {RepositoryPath}; no commit created.",
+                        changesetId, repositoryPath);
+                    return GitTfsExitCodes.OK;
+                }
+
+                MaterializeTree(repository, result.Commit.Tree, absoluteOutputPath);
+                repository.Reset(ResetMode.Mixed, result.Commit);
+                var verification = VerifyLatestFiles(client, repositoryPath, absoluteOutputPath,
+                    result.Commit.Tree, changesetId);
+                var maintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
+                loggerField?.LogInformation("Single changeset import complete: C{ChangesetId} committed as {CommitSha}; "
+                    + "{FilesProcessed} file change(s) ({FilesDownloaded} downloaded, {FilesReused} reused, "
+                    + "{FilesDeleted} deleted); verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
+                    + "({HashlessFiles} without hash); Git maintenance: {MaintenanceMode}.",
+                    result.ChangesetId, result.Commit.Sha, result.FilesProcessed, result.FilesDownloaded,
+                    result.FilesReused, result.FilesDeleted, verification.MatchedFiles,
+                    verification.CheckedFiles, verification.HashlessFiles, maintenanceMode);
+            }
+
+            return GitTfsExitCodes.OK;
+        }
+
         private void MergeIntoTargetRepository(string outputPath, string targetCloneUrl, string targetBranch,
             string sourceBranch, string sourceCommitSha)
         {
@@ -310,55 +377,37 @@ namespace GitTfs.Core.RestTfs
             }
         }
 
-        private void ImportChangeset(RestTfsClient client, Repository repository, RestChangesetReference changesetReference,
+        private void ImportChangeset(IRestTfsClient client, Repository repository, RestChangesetReference changesetReference,
             string targetServer, string repositoryPath, string outputPath, IDictionary<string, string> pathMap,
             ref Commit newestCommit, ref int lastChangesetId, int? totalChangesets, bool noFallback,
             CloneSummary summary)
         {
             summary.ChangesetsConsidered++;
-            var changeset = client.GetChangeset(changesetReference.ChangesetId);
-            changeset.Changes ??= new List<RestChange>();
-            if (!HasChangesWithinRepository(changeset, repositoryPath)
-                && !HasTrackedSourceRename(changeset, repositoryPath, newestCommit?.Tree))
+            var result = changesetImporterField.Import(client, repository, changesetReference,
+                targetServer, repositoryPath, outputPath, pathMap, newestCommit, noFallback);
+            if (result.Skipped)
             {
-                var sourceRenameCount = changeset.Changes.Count(IsSourceRename);
-                loggerField?.LogInformation("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
-                    changeset.ChangesetId,
-                    sourceRenameCount > 0
-                        ? "source rename records contain no downloadable content"
-                        : "no changes",
-                    repositoryPath);
                 summary.ChangesetsSkipped++;
                 return;
             }
 
-            var treeDefinition = newestCommit == null
-                ? new TreeDefinition()
-                : TreeDefinition.From(newestCommit.Tree);
-            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, targetServer, repositoryPath,
-                outputPath, noFallback, summary);
-
-            var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
-            var message = BuildCommitMessage(changeset, changesetReference, targetServer, repositoryPath);
-            var identity = ResolveIdentity(changeset.Author ?? changeset.CheckedInBy ?? changesetReference.Author);
-            var signature = new Signature(identity.Name, identity.Email, GetCommitDate(changeset, changesetReference));
-            var parents = newestCommit == null ? Enumerable.Empty<Commit>() : new[] { newestCommit };
-            var commit = repository.ObjectDatabase.CreateCommit(signature, signature, message, tree, parents, false);
-
-            UpdateRefs(repository, commit, changeset.ChangesetId);
-            newestCommit = commit;
-            lastChangesetId = changeset.ChangesetId;
+            newestCommit = result.Commit;
+            lastChangesetId = result.ChangesetId;
             summary.ChangesetsImported++;
+            summary.FilesProcessed += result.FilesProcessed;
+            summary.FilesDownloaded += result.FilesDownloaded;
+            summary.FilesReused += result.FilesReused;
+            summary.FilesDeleted += result.FilesDeleted;
 
             var progress = totalChangesets.HasValue
                 ? summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/"
                     + totalChangesets.Value.ToString(CultureInfo.InvariantCulture)
                 : summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/?";
             loggerField?.LogInformation("[{Progress}] C{ChangesetId} committed as {CommitSha}.",
-                progress, changeset.ChangesetId, commit.Sha);
+                progress, result.ChangesetId, result.Commit.Sha);
         }
 
-        private RestTfsClient CreateRestClient(string targetServer, string repositoryPath)
+        private IRestTfsClient CreateRestClient(string targetServer, string repositoryPath)
         {
             var logger = loggerFactoryField?.CreateLogger<RestTfsClient>();
             if (httpClientFactoryField == null)
@@ -368,135 +417,7 @@ namespace GitTfs.Core.RestTfs
             return new RestTfsClient(httpClient, targetServer, repositoryPath, settingsField.ApiVersion, logger);
         }
 
-        private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,
-            IDictionary<string, string> pathMap, RestChangeset changeset, string targetServer,
-            string repositoryPath, string outputPath, bool noFallback, CloneSummary summary)
-        {
-            var changes = changeset.Changes
-                .Where(change => change?.Item != null)
-                .Where(change => IsWithinRepository(change.Item.Path, repositoryPath)
-                    || IsWithinRepository(change.SourceServerItem, repositoryPath)
-                    || (change.MergeSources ?? new List<RestMergeSource>())
-                        .Any(source => IsWithinRepository(source.ServerItem, repositoryPath)))
-                .ToArray();
-            var filesToProcess = changes.Count(change => !IsDelete(change) && !change.Item.IsFolder
-                && !IsSourceRename(change));
-            var downloaded = 0;
-            var reused = 0;
-            var processed = 0;
-            loggerField?.LogInformation("C{ChangesetId}: processing {FileCount} file(s) (0%).",
-                changeset.ChangesetId, filesToProcess);
-
-            foreach (var change in changes.OrderBy(change => IsSourceRename(change) ? 1 : 0))
-            {
-                if (IsSourceRename(change))
-                {
-                    if (!IsWithinRepository(change.Item.Path, repositoryPath))
-                        continue;
-
-                    var sourcePath = ToRelativeGitPath(change.Item.Path, repositoryPath);
-                    if (change.Item.IsFolder)
-                        summary.FilesDeleted += RemovePathAndChildren(repository, treeDefinition,
-                            pathMap, sourcePath, outputPath);
-                    else
-                    {
-                        RemovePath(treeDefinition, pathMap, sourcePath, outputPath);
-                        summary.FilesDeleted++;
-                    }
-
-                    continue;
-                }
-
-                if (change.Item.IsFolder)
-                {
-                    var targetWithinRepository = IsWithinRepository(change.Item.Path, repositoryPath);
-                    var targetPath = targetWithinRepository
-                        ? ToRelativeGitPath(change.Item.Path, repositoryPath)
-                        : null;
-
-                    if (IsDelete(change))
-                    {
-                        if (targetWithinRepository)
-                            summary.FilesDeleted += RemovePathAndChildren(repository, treeDefinition,
-                                pathMap, targetPath, outputPath);
-                        continue;
-                    }
-
-                    var renameSources = GetRenameSources(change);
-                    if (IsRename(change) && targetWithinRepository)
-                    {
-                        foreach (var source in renameSources.Where(source => IsWithinRepository(source, repositoryPath)))
-                        {
-                            var sourcePath = ToRelativeGitPath(source, repositoryPath);
-                            MovePathAndChildren(repository, treeDefinition, pathMap, sourcePath, targetPath, outputPath);
-                        }
-                    }
-                    else
-                    {
-                        foreach (var source in renameSources.Where(source => IsWithinRepository(source, repositoryPath)))
-                        {
-                            var sourcePath = ToRelativeGitPath(source, repositoryPath);
-                            RemovePathAndChildren(repository, treeDefinition, pathMap, sourcePath, outputPath);
-                        }
-                    }
-
-                    continue;
-                }
-
-                RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
-                if (!IsWithinRepository(change.Item.Path, repositoryPath))
-                    continue;
-
-                var relativePath = ToRelativeGitPath(change.Item.Path, repositoryPath);
-                if (string.IsNullOrEmpty(relativePath))
-                    continue;
-
-                if (IsDelete(change))
-                {
-                    RemovePath(treeDefinition, pathMap, relativePath, outputPath);
-                    summary.FilesDeleted++;
-                    continue;
-                }
-
-                var existingPath = pathMap.TryGetValue(relativePath, out var currentPath) ? currentPath : relativePath;
-                if (!string.Equals(existingPath, relativePath, StringComparison.Ordinal))
-                    treeDefinition.Remove(existingPath);
-
-                var reusedLocalFile = TryReadMatchingLocalFile(outputPath, relativePath, change.Item.HashValue,
-                    out var content);
-                if (!reusedLocalFile)
-                    content = DownloadFileWithFallback(client, targetServer, change,
-                        changeset.ChangesetId, change.Item.DeletionId, relativePath, noFallback);
-                var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
-                treeDefinition.Add(relativePath, blob, Mode.NonExecutableFile);
-                pathMap.Remove(relativePath);
-                pathMap[relativePath] = relativePath;
-                if (!reusedLocalFile)
-                {
-                    WriteWorkingFile(outputPath, relativePath, content);
-                    downloaded++;
-                    summary.FilesDownloaded++;
-                }
-                else
-                {
-                    reused++;
-                    summary.FilesReused++;
-                    loggerField?.LogDebug("C{ChangesetId}: reusing local file {RelativePath}; its TFVC hash matches.",
-                        changeset.ChangesetId, relativePath);
-                }
-
-                processed++;
-                summary.FilesProcessed++;
-                var percent = filesToProcess == 0 ? 100 : processed * 100 / filesToProcess;
-                loggerField?.LogInformation("C{ChangesetId}: processed {ProcessedFiles}/{TotalFiles} file(s) ({Percent}%; downloaded {Downloaded}, reused {Reused}).",
-                    changeset.ChangesetId, processed, filesToProcess, percent, downloaded, reused);
-            }
-
-            if (filesToProcess == 0)
-                loggerField?.LogInformation("C{ChangesetId}: no file content to download.", changeset.ChangesetId);
-        }
-
-        private FileVerificationSummary VerifyLatestFiles(RestTfsClient client, string repositoryPath,
+        private FileVerificationSummary VerifyLatestFiles(IRestTfsClient client, string repositoryPath,
             string outputPath, Tree tree, int changesetId)
         {
             var summary = new FileVerificationSummary();
@@ -570,299 +491,12 @@ namespace GitTfs.Core.RestTfs
             return summary;
         }
 
-        private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, RestChange change,
-            int changesetId, int deletionId, string relativePath, bool noFallback)
-        {
-            var itemPath = change.Item.Path;
-            try
-            {
-                return client.DownloadFile(itemPath, changesetId);
-            }
-            catch (RestTfsException exception) when (exception.StatusCode == 404)
-            {
-                try
-                {
-                    return client.DownloadFile(itemPath, changesetId, "Changeset", "Previous");
-                }
-                catch (RestTfsException previousException) when (previousException.StatusCode == 404)
-                {
-                    if (HasMergeSource(change))
-                    {
-                        try
-                        {
-                            return client.DownloadFile(itemPath, changesetId, "MergeSource", "UseRename");
-                        }
-                        catch (RestTfsException renameException) when (renameException.StatusCode == 404)
-                        {
-                        }
-                    }
-
-                    if (noFallback)
-                    {
-                        throw new GitTfsException("The REST version, previous version, and rename version downloads failed for "
-                            + relativePath + " at C" + changesetId + "; legacy TFVC fallback is disabled.", previousException);
-                    }
-
-                    if (legacyHistoryProviderField?.IsAvailable == true)
-                    {
-                        try
-                        {
-                            return legacyHistoryProviderField.DownloadFile(
-                                targetServer, itemPath, changesetId, deletionId);
-                        }
-                        catch (Exception fallbackException)
-                        {
-                            throw new GitTfsException("The REST version, previous version, rename version, and legacy TFVC downloads failed for "
-                                + relativePath + " at C" + changesetId + ".", fallbackException);
-                        }
-                    }
-
-                    throw new GitTfsException("The REST version, previous version, and rename version downloads failed for "
-                        + relativePath + " at C" + changesetId + ".", previousException);
-                }
-            }
-        }
-
-        private static bool HasMergeSource(RestChange change)
-            => (change.MergeSources ?? new List<RestMergeSource>()).Any(source => source != null)
-                || (change.ChangeType ?? string.Empty)
-                    .Split(',')
-                    .Select(type => type.Trim())
-                    .Any(type => string.Equals(type, "merge", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(type, "rename", StringComparison.OrdinalIgnoreCase));
-
-        private static bool TryReadMatchingLocalFile(string outputPath, string relativePath, string hashValue,
-            out byte[] content)
-        {
-            content = null;
-            if (string.IsNullOrWhiteSpace(hashValue))
-                return false;
-
-            var filePath = GetWorkingFilePath(outputPath, relativePath);
-            if (!File.Exists(filePath))
-                return false;
-
-            content = File.ReadAllBytes(filePath);
-            var localHash = Convert.ToBase64String(MD5.HashData(content));
-            if (string.Equals(localHash, hashValue.Trim(), StringComparison.Ordinal))
-                return true;
-
-            content = null;
-            return false;
-        }
-
-        private static bool HasChangesWithinRepository(RestChangeset changeset, string repositoryPath)
-            => (changeset.Changes ?? new List<RestChange>())
-                .Any(change => change?.Item != null
-                    && !IsSourceRename(change)
-                    && (IsWithinRepository(change.Item.Path, repositoryPath)
-                        || IsWithinRepository(change.SourceServerItem, repositoryPath)
-                        || (change.MergeSources ?? new List<RestMergeSource>())
-                            .Any(source => IsWithinRepository(source.ServerItem, repositoryPath))));
-
-        private static bool HasTrackedSourceRename(RestChangeset changeset, string repositoryPath, Tree currentTree)
-        {
-            if (currentTree == null)
-                return false;
-
-            var sourceRenames = (changeset.Changes ?? new List<RestChange>())
-                .Where(change => IsSourceRename(change) && change.Item != null
-                    && IsWithinRepository(change.Item.Path, repositoryPath))
-                .Select(change => new
-                {
-                    Path = ToRelativeGitPath(change.Item.Path, repositoryPath),
-                    change.Item.IsFolder,
-                })
-                .ToArray();
-            if (sourceRenames.Length == 0)
-                return false;
-
-            return EnumerateFiles(currentTree).Any(file => sourceRenames.Any(source =>
-                source.IsFolder
-                    ? IsSameOrChildPath(file.Path, source.Path)
-                    : string.Equals(file.Path, source.Path, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        // A sourceRename describes the old side of a rename. Its item URL can
-        // legitimately be gone at the changeset version; the target record is
-        // the one that carries the content to import.
-        private static bool IsSourceRename(RestChange change)
-            => (change?.ChangeType ?? string.Empty)
-                .Split(',')
-                .Select(type => type.Trim())
-                .Any(type => string.Equals(type, "sourceRename", StringComparison.OrdinalIgnoreCase));
-
-        private static void RemoveRenameSources(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
-            RestChange change, string repositoryPath, string outputPath)
-        {
-            foreach (var source in GetRenameSources(change))
-            {
-                if (IsWithinRepository(source, repositoryPath))
-                    RemovePath(treeDefinition, pathMap, ToRelativeGitPath(source, repositoryPath), outputPath);
-            }
-        }
-
-        private static List<string> GetRenameSources(RestChange change)
-        {
-            var sources = new List<string>();
-            if (!string.IsNullOrWhiteSpace(change.SourceServerItem))
-                sources.Add(change.SourceServerItem);
-            sources.AddRange((change.MergeSources ?? new List<RestMergeSource>())
-                .Where(source => source.IsRename && !string.IsNullOrWhiteSpace(source.ServerItem))
-                .Select(source => source.ServerItem));
-            return sources.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        }
-
-        private static int RemovePathAndChildren(Repository repository, TreeDefinition treeDefinition,
-            IDictionary<string, string> pathMap, string relativePath, string outputPath)
-        {
-            if (relativePath == null)
-                return 0;
-
-            var files = EnumerateFiles(repository.ObjectDatabase.CreateTree(treeDefinition))
-                .Where(file => IsSameOrChildPath(file.Path, relativePath))
-                .ToArray();
-            foreach (var file in files)
-            {
-                treeDefinition.Remove(file.Path);
-                DeleteWorkingFile(outputPath, file.Path);
-            }
-
-            RemovePathMappings(pathMap, relativePath);
-            return files.Length;
-        }
-
-        private static void MovePathAndChildren(Repository repository, TreeDefinition treeDefinition,
-            IDictionary<string, string> pathMap, string sourcePath, string targetPath, string outputPath)
-        {
-            if (sourcePath == null || targetPath == null
-                || string.Equals(sourcePath, targetPath, StringComparison.Ordinal))
-                return;
-
-            var sourcePrefix = string.IsNullOrEmpty(sourcePath) ? null : sourcePath.TrimEnd('/') + "/";
-            var files = EnumerateFiles(repository.ObjectDatabase.CreateTree(treeDefinition))
-                .Where(file => sourcePrefix == null
-                    || file.Path.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-            foreach (var file in files)
-            {
-                treeDefinition.Remove(file.Path);
-                DeleteWorkingFile(outputPath, file.Path);
-            }
-            RemovePathMappings(pathMap, sourcePath);
-
-            foreach (var file in files)
-            {
-                var suffix = sourcePrefix == null ? file.Path : file.Path.Substring(sourcePrefix.Length);
-                var movedPath = string.IsNullOrEmpty(targetPath) ? suffix : targetPath.TrimEnd('/') + "/" + suffix;
-                treeDefinition.Remove(movedPath);
-                treeDefinition.Add(movedPath, (Blob)file.Entry.Target, file.Entry.Mode);
-                pathMap[movedPath] = movedPath;
-
-                using (var input = ((Blob)file.Entry.Target).GetContentStream())
-                using (var content = new MemoryStream())
-                {
-                    input.CopyTo(content);
-                    WriteWorkingFile(outputPath, movedPath, content.ToArray());
-                }
-            }
-        }
-
-        private static void RemovePathMappings(IDictionary<string, string> pathMap, string relativePath)
-        {
-            var keysToRemove = pathMap
-                .Where(pair => IsSameOrChildPath(pair.Key, relativePath)
-                    || IsSameOrChildPath(pair.Value, relativePath))
-                .Select(pair => pair.Key)
-                .ToArray();
-            foreach (var key in keysToRemove)
-                pathMap.Remove(key);
-        }
-
-        private static bool IsSameOrChildPath(string path, string parentPath)
-            => string.IsNullOrEmpty(parentPath)
-                ? !string.IsNullOrEmpty(path)
-                : string.Equals(path, parentPath, StringComparison.OrdinalIgnoreCase)
-                    || path.StartsWith(parentPath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
-
-        private static void RemovePath(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
-            string relativePath, string outputPath)
-        {
-            if (string.IsNullOrEmpty(relativePath))
-                return;
-
-            if (pathMap.TryGetValue(relativePath, out var existingPath))
-            {
-                treeDefinition.Remove(existingPath);
-                pathMap.Remove(relativePath);
-                DeleteWorkingFile(outputPath, existingPath);
-            }
-            else
-            {
-                treeDefinition.Remove(relativePath);
-                DeleteWorkingFile(outputPath, relativePath);
-            }
-        }
-
-        private string BuildCommitMessage(RestChangeset changeset, RestChangesetReference reference, string targetServer, string repositoryPath)
-        {
-            var comment = string.IsNullOrWhiteSpace(changeset.Comment) ? reference.Comment : changeset.Comment;
-            if (string.IsNullOrWhiteSpace(comment))
-                comment = "TFS changeset C" + changeset.ChangesetId.ToString(CultureInfo.InvariantCulture);
-
-            var builder = new StringBuilder();
-            builder.AppendLine(comment.TrimEnd());
-            builder.AppendLine(string.Format(CultureInfo.InvariantCulture, GitTfsConstants.TfsCommitInfoFormat,
-                targetServer, repositoryPath, changeset.ChangesetId));
-            return builder.ToString();
-        }
-
-        private AuthorIdentity ResolveIdentity(RestIdentity identity)
-        {
-            var key = identity?.UniqueName;
-            if (!string.IsNullOrWhiteSpace(key) && authorsFileField?.Authors?.TryGetValue(key, out var author) == true)
-                return new AuthorIdentity(author.Name, author.Email);
-
-            var name = identity?.DisplayName;
-            var uniqueName = identity?.UniqueName;
-            if (string.IsNullOrWhiteSpace(name))
-                name = uniqueName;
-            if (string.IsNullOrWhiteSpace(name))
-                name = "Unknown TFS user";
-
-            var email = uniqueName;
-            if (string.IsNullOrWhiteSpace(email) || email.IndexOf('@') < 0)
-            {
-                var separator = uniqueName?.IndexOf('\\') ?? -1;
-                if (separator > 0 && separator + 1 < uniqueName.Length)
-                    email = uniqueName.Substring(separator + 1).ToLowerInvariant() + "@" + uniqueName.Substring(0, separator).ToLowerInvariant() + ".tfs.local";
-                else
-                    email = name.ToLowerInvariant().Replace(' ', '.') + "@tfs.local";
-            }
-
-            return new AuthorIdentity(name, email);
-        }
-
-        private static DateTime GetCommitDate(RestChangeset changeset, RestChangesetReference reference)
-        {
-            var date = changeset.CreatedDate == default ? reference.CreatedDate : changeset.CreatedDate;
-            return (date == default ? DateTimeOffset.UtcNow : date).UtcDateTime;
-        }
-
         private static void ConfigureRepository(Repository repository, string targetServer, string repositoryPath)
         {
             repository.Config.Set("tfs-remote.default.url", targetServer, ConfigurationLevel.Local);
             repository.Config.Set("tfs-remote.default.repository", repositoryPath, ConfigurationLevel.Local);
             repository.Config.Set(GitTfsConstants.IgnoreBranches, "true", ConfigurationLevel.Local);
             repository.Config.Set(GitTfsConstants.DisableGitignoreSupport, "true", ConfigurationLevel.Local);
-        }
-
-        private static void UpdateRefs(Repository repository, Commit commit, int changesetId)
-        {
-            var headRef = repository.Head?.CanonicalName ?? "refs/heads/master";
-            repository.Refs.Add(headRef, commit.Sha, allowOverwrite: true);
-            repository.Refs.Add(GitRepository.ShortToTfsRemoteName(GitTfsConstants.DefaultRepositoryId), commit.Sha,
-                "C" + changesetId.ToString(CultureInfo.InvariantCulture), allowOverwrite: true);
         }
 
         private static int FindLastChangesetId(Commit commit)
@@ -982,30 +616,6 @@ namespace GitTfs.Core.RestTfs
         private static string ToRelativeGitPath(string serverPath, string repositoryPath)
             => serverPath.Substring(repositoryPath.Length).Trim('/').Replace('\\', '/');
 
-        private static bool IsDelete(RestChange change)
-            => (change.ChangeType ?? string.Empty).Split(',')
-                .Select(type => type.Trim())
-                .Any(type => string.Equals(type, "delete", StringComparison.OrdinalIgnoreCase));
-
-        private static bool IsRename(RestChange change)
-            => (change.ChangeType ?? string.Empty).Split(',')
-                .Select(type => type.Trim())
-                .Any(type => string.Equals(type, "rename", StringComparison.OrdinalIgnoreCase));
-
-        private static void WriteWorkingFile(string outputPath, string relativePath, byte[] content)
-        {
-            var filePath = GetWorkingFilePath(outputPath, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-            File.WriteAllBytes(filePath, content);
-        }
-
-        private static void DeleteWorkingFile(string outputPath, string relativePath)
-        {
-            var filePath = GetWorkingFilePath(outputPath, relativePath);
-            if (File.Exists(filePath))
-                File.Delete(filePath);
-        }
-
         private static string GetWorkingFilePath(string outputPath, string relativePath)
             => Path.Combine(outputPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
@@ -1029,18 +639,6 @@ namespace GitTfs.Core.RestTfs
             public int MismatchedFiles { get; set; }
             public int MissingFiles { get; set; }
             public int MetadataMissingFiles { get; set; }
-        }
-
-        private readonly struct AuthorIdentity
-        {
-            public AuthorIdentity(string name, string email)
-            {
-                Name = name;
-                Email = email;
-            }
-
-            public string Name { get; }
-            public string Email { get; }
         }
 
         private readonly struct TreeFile

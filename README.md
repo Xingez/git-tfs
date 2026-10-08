@@ -10,8 +10,9 @@ Follow [Migrate from TFS/TFVC to Git](doc/usecases/migrate_tfs_to_git.md) for
 the complete process, including authentication, verification, and publishing
 the result to a Git server.
 
-The guide follows the current implementation: the supported executable flow is
-the REST-based full clone described below.
+The main migration workflow is the REST-based full clone described below. A
+separate `changeset` command can append one selected changeset to an existing
+clone for focused troubleshooting.
 
 ## Quick start
 
@@ -51,6 +52,20 @@ the REST-based full clone described below.
    git remote add origin https://git.example.com/team/project.git
    git push --all origin
    ```
+
+### Import one changeset
+
+To isolate a specific TFVC change, use a disposable copy of an existing
+git-tfs clone whose `HEAD` represents the state immediately before that
+changeset. The command imports only the requested changeset and appends its
+commit; it does not scan the intervening history:
+
+```powershell
+git tfs changeset $/Project/Trunk C:\migration\Project 12345 --no-fallback
+```
+
+The output path must contain an existing git-tfs clone, and the requested
+changeset ID must be newer than its current `HEAD` changeset.
 
 The settings control the REST API version, whether a clone can resume, request
 parallelism, debug logging, and proxy use. A null `proxy` disables proxies; set

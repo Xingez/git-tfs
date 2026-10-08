@@ -10,10 +10,10 @@ namespace GitTfs.Commands
     {
         private const string DefaultTargetBranch = "main";
         private readonly GitTfsSettings settingsField;
-        private readonly RestTfsCloneService restCloneServiceField;
+        private readonly IRestTfsCloneService restCloneServiceField;
         private bool noFallbackField;
 
-        public Clone(GitTfsSettings settings, RestTfsCloneService restCloneService)
+        public Clone(GitTfsSettings settings, IRestTfsCloneService restCloneService)
         {
             settingsField = settings;
             restCloneServiceField = restCloneService;
