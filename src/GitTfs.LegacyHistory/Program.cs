@@ -19,13 +19,50 @@ namespace GitTfs.LegacyHistory
 
         public static int Main(string[] args)
         {
+            TfsTeamProjectCollection collection = null;
+            VersionControlServer versionControl = null;
+            string connectedServer = null;
             try
             {
-                var request = JsonConvert.DeserializeObject<HistoryRequest>(Console.In.ReadToEnd());
-                if (request == null)
-                    throw new InvalidOperationException("The legacy history request was empty.");
+                string line;
+                while ((line = Console.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
 
-                Run(request);
+                    try
+                    {
+                        var request = JsonConvert.DeserializeObject<HistoryRequest>(line);
+                        if (request == null)
+                            throw new InvalidOperationException("The legacy history request was empty.");
+
+                        if (versionControl == null
+                            || !string.Equals(connectedServer, request.ServerUrl, StringComparison.OrdinalIgnoreCase))
+                        {
+                            collection?.Dispose();
+                            collection = Connect(request);
+                            versionControl = collection.GetService<VersionControlServer>();
+                            connectedServer = request.ServerUrl;
+                        }
+
+                        Run(versionControl, request);
+                    }
+                    catch (Exception exception)
+                    {
+                        collection?.Dispose();
+                        collection = null;
+                        versionControl = null;
+                        connectedServer = null;
+                        Console.WriteLine(JsonConvert.SerializeObject(new HistoryError
+                        {
+                            Message = exception.ToString(),
+                        }));
+                        Console.WriteLine(JsonConvert.SerializeObject(new HistoryComplete()));
+                    }
+
+                    Console.Out.Flush();
+                }
+
                 return 0;
             }
             catch (Exception exception)
@@ -33,65 +70,70 @@ namespace GitTfs.LegacyHistory
                 Console.Error.WriteLine(exception);
                 return 1;
             }
+            finally
+            {
+                collection?.Dispose();
+            }
         }
 
-        private static void Run(HistoryRequest request)
+        private static TfsTeamProjectCollection Connect(HistoryRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.ServerUrl))
                 throw new ArgumentException("The TFS server URL is required.");
 
             var serverUri = new Uri(request.ServerUrl, UriKind.Absolute);
             var credentials = CreateCredentials(request);
-            using (var collection = new TfsTeamProjectCollection(serverUri, credentials))
+            var collection = new TfsTeamProjectCollection(serverUri, credentials);
+            collection.EnsureAuthenticated();
+            return collection;
+        }
+
+        private static void Run(VersionControlServer versionControl, HistoryRequest request)
+        {
+            if (string.Equals(request.Operation, "download", StringComparison.OrdinalIgnoreCase))
             {
-                collection.EnsureAuthenticated();
-                var versionControl = collection.GetService<VersionControlServer>();
-
-                if (string.Equals(request.Operation, "download", StringComparison.OrdinalIgnoreCase))
-                {
-                    DownloadFile(versionControl, request);
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(request.RepositoryPath))
-                    throw new ArgumentException("The TFS repository path is required.");
-
-                var nextChangesetId = request.FromChangesetId >= int.MaxValue
-                    ? int.MaxValue
-                    : request.FromChangesetId + 1;
-                var batchSize = request.BatchSize > 0 ? request.BatchSize : DefaultBatchSize;
-
-                while (nextChangesetId < int.MaxValue)
-                {
-                    var changesets = QueryHistory(versionControl, request.RepositoryPath, nextChangesetId, batchSize);
-                    if (changesets.Count == 0)
-                        break;
-
-                    foreach (var changeset in changesets)
-                    {
-                        Console.WriteLine(JsonConvert.SerializeObject(new HistoryChangeset
-                        {
-                            ChangesetId = changeset.ChangesetId,
-                            CreatedDate = changeset.CreationDate,
-                            Comment = changeset.Comment,
-                            Author = new HistoryIdentity
-                            {
-                                DisplayName = changeset.OwnerDisplayName,
-                                UniqueName = changeset.Owner,
-                            },
-                        }));
-                    }
-
-                    var lastChangesetId = changesets.Max(changeset => changeset.ChangesetId);
-                    if (lastChangesetId < nextChangesetId)
-                        break;
-                    nextChangesetId = lastChangesetId >= int.MaxValue - 1
-                        ? int.MaxValue
-                        : lastChangesetId + 1;
-                }
-
-                Console.WriteLine(JsonConvert.SerializeObject(new HistoryComplete()));
+                DownloadFile(versionControl, request);
+                return;
             }
+
+            if (string.IsNullOrWhiteSpace(request.RepositoryPath))
+                throw new ArgumentException("The TFS repository path is required.");
+
+            var nextChangesetId = request.FromChangesetId >= int.MaxValue
+                ? int.MaxValue
+                : request.FromChangesetId + 1;
+            var batchSize = request.BatchSize > 0 ? request.BatchSize : DefaultBatchSize;
+
+            while (nextChangesetId < int.MaxValue)
+            {
+                var changesets = QueryHistory(versionControl, request.RepositoryPath, nextChangesetId, batchSize);
+                if (changesets.Count == 0)
+                    break;
+
+                foreach (var changeset in changesets)
+                {
+                    Console.WriteLine(JsonConvert.SerializeObject(new HistoryChangeset
+                    {
+                        ChangesetId = changeset.ChangesetId,
+                        CreatedDate = changeset.CreationDate,
+                        Comment = changeset.Comment,
+                        Author = new HistoryIdentity
+                        {
+                            DisplayName = changeset.OwnerDisplayName,
+                            UniqueName = changeset.Owner,
+                        },
+                    }));
+                }
+
+                var lastChangesetId = changesets.Max(changeset => changeset.ChangesetId);
+                if (lastChangesetId < nextChangesetId)
+                    break;
+                nextChangesetId = lastChangesetId >= int.MaxValue - 1
+                    ? int.MaxValue
+                    : lastChangesetId + 1;
+            }
+
+            Console.WriteLine(JsonConvert.SerializeObject(new HistoryComplete()));
         }
 
         private static void DownloadFile(VersionControlServer versionControl, HistoryRequest request)
@@ -196,6 +238,12 @@ namespace GitTfs.LegacyHistory
         private sealed class HistoryComplete
         {
             public string Type { get; } = "complete";
+        }
+
+        private sealed class HistoryError
+        {
+            public string Type { get; } = "error";
+            public string Message { get; set; }
         }
 
         private sealed class HistoryIdentity

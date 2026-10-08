@@ -11,13 +11,19 @@ namespace GitTfs.Core.RestTfs
     /// resolve an item.
     /// </summary>
     [SingletonService]
-    public sealed class LegacyTfvcHistoryProvider
+    public sealed class LegacyTfvcHistoryProvider : IDisposable
     {
         private readonly GitTfsSettings settingsField;
+        private readonly object helperSyncField = new object();
         private readonly JsonSerializerOptions jsonOptionsField = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
         };
+        private Process helperProcessField;
+        private StreamWriter helperInputField;
+        private StreamReader helperOutputField;
+        private Task<string> helperErrorTaskField;
+        private string helperServerField;
 
         public LegacyTfvcHistoryProvider(GitTfsSettings settings)
         {
@@ -87,12 +93,84 @@ namespace GitTfs.Core.RestTfs
             }
         }
 
+        public void Dispose()
+        {
+            lock (helperSyncField)
+                StopHelper();
+        }
+
         private IReadOnlyList<LegacyHistoryMessage> RunHelper(LegacyHistoryRequest request)
         {
             var helperPath = GetHelperPath();
             if (!File.Exists(helperPath))
                 throw new GitTfsException("The legacy TFVC helper is not available.");
 
+            request.Username = settingsField.Username;
+            request.Password = settingsField.Password;
+            request.Pat = GetPat();
+
+            lock (helperSyncField)
+            {
+                EnsureHelper(helperPath, request.ServerUrl);
+                try
+                {
+                    helperInputField.WriteLine(JsonSerializer.Serialize(request, jsonOptionsField));
+                    helperInputField.Flush();
+
+                    var messages = new List<LegacyHistoryMessage>();
+                    string error = null;
+                    var completed = false;
+                    string line;
+                    while ((line = helperOutputField.ReadLine()) != null)
+                    {
+                        var message = JsonSerializer.Deserialize<LegacyHistoryMessage>(line, jsonOptionsField);
+                        if (message == null)
+                            continue;
+
+                        if (string.Equals(message.Type, "complete", StringComparison.OrdinalIgnoreCase))
+                        {
+                            completed = true;
+                            break;
+                        }
+
+                        if (string.Equals(message.Type, "error", StringComparison.OrdinalIgnoreCase))
+                        {
+                            error = message.Message;
+                            continue;
+                        }
+
+                        messages.Add(message);
+                    }
+
+                    if (!completed)
+                    {
+                        var processError = GetHelperError();
+                        throw new GitTfsException("The legacy TFVC history helper ended without completing its response."
+                            + (string.IsNullOrWhiteSpace(processError) ? string.Empty : " " + processError));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(error))
+                        throw new GitTfsException("The legacy TFVC history helper failed: " + error);
+
+                    return messages;
+                }
+                catch
+                {
+                    StopHelper();
+                    throw;
+                }
+            }
+        }
+
+        private void EnsureHelper(string helperPath, string serverUrl)
+        {
+            if (helperProcessField != null && !helperProcessField.HasExited
+                && string.Equals(helperServerField, serverUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            StopHelper();
             var startInfo = new ProcessStartInfo
             {
                 FileName = helperPath,
@@ -103,40 +181,67 @@ namespace GitTfs.Core.RestTfs
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            var process = Process.Start(startInfo);
+            if (process == null)
+                throw new GitTfsException("Unable to start the legacy TFVC history helper.");
 
-            request.Username = settingsField.Username;
-            request.Password = settingsField.Password;
-            request.Pat = GetPat();
+            helperProcessField = process;
+            helperInputField = process.StandardInput;
+            helperOutputField = process.StandardOutput;
+            helperErrorTaskField = process.StandardError.ReadToEndAsync();
+            helperServerField = serverUrl;
+        }
 
-            using (var process = Process.Start(startInfo))
+        private string GetHelperError()
+        {
+            if (helperErrorTaskField == null)
+                return null;
+
+            try
             {
-                if (process == null)
-                    throw new GitTfsException("Unable to start the legacy TFVC history helper.");
+                return helperErrorTaskField.GetAwaiter().GetResult()?.Trim();
+            }
+            catch (Exception exception)
+            {
+                return exception.Message;
+            }
+        }
 
-                process.StandardInput.Write(JsonSerializer.Serialize(request, jsonOptionsField));
-                process.StandardInput.Close();
+        private void StopHelper()
+        {
+            var process = helperProcessField;
+            var input = helperInputField;
+            var output = helperOutputField;
+            helperProcessField = null;
+            helperInputField = null;
+            helperOutputField = null;
+            helperErrorTaskField = null;
+            helperServerField = null;
 
-                var standardOutputTask = process.StandardOutput.ReadToEndAsync();
-                var standardErrorTask = process.StandardError.ReadToEndAsync();
-                Task.WaitAll(standardOutputTask, standardErrorTask);
-                process.WaitForExit();
+            if (process == null)
+                return;
 
-                var error = standardErrorTask.Result?.Trim();
-                if (process.ExitCode != 0)
+            try
+            {
+                input?.Close();
+                if (!process.HasExited && !process.WaitForExit(2000))
+                    process.Kill();
+            }
+            catch
+            {
+                try
                 {
-                    throw new GitTfsException("The legacy TFVC history helper failed with exit code "
-                        + process.ExitCode + ". " + (string.IsNullOrWhiteSpace(error) ? "No error details were returned." : error));
+                    if (!process.HasExited)
+                        process.Kill();
                 }
-
-                var messages = standardOutputTask.Result
-                    .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(line => JsonSerializer.Deserialize<LegacyHistoryMessage>(line, jsonOptionsField))
-                    .Where(message => message != null)
-                    .ToArray();
-                if (!messages.Any(message => string.Equals(message.Type, "complete", StringComparison.OrdinalIgnoreCase)))
-                    throw new GitTfsException("The legacy TFVC history helper ended without completing its response.");
-
-                return messages;
+                catch
+                {
+                }
+            }
+            finally
+            {
+                output?.Dispose();
+                process.Dispose();
             }
         }
 
@@ -186,6 +291,7 @@ namespace GitTfs.Core.RestTfs
             public string Comment { get; set; }
             public LegacyHistoryIdentity Author { get; set; }
             public string Content { get; set; }
+            public string Message { get; set; }
         }
 
         private sealed class LegacyHistoryIdentity
