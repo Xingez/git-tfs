@@ -138,6 +138,12 @@ namespace GitTfs.Core.RestTfs
                     if (newestCommit != null)
                     {
                         MaterializeTree(repository, newestCommit.Tree, absoluteOutputPath);
+                        // Commits are created directly from the imported tree, so
+                        // LibGit2Sharp does not update the index as part of the
+                        // commit operation. Rebuild it from HEAD without touching
+                        // the files we just materialized. This is equivalent to
+                        // `git reset --mixed HEAD` and leaves a fresh clone clean.
+                        repository.Reset(ResetMode.Mixed, newestCommit);
                         Trace.TraceInformation("Clone complete: " + fetchedChangesets + " changeset(s), latest C" + lastChangesetId + ".");
                     }
                     else

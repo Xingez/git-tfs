@@ -38,6 +38,8 @@ namespace GitTfs.Test.Core
                         Assert.Equal("two", File.ReadAllText(Path.Combine(outputPath, "a.txt")));
                         Assert.Equal("git-tfs-id: [" + server.ServerUrl.TrimEnd('/') + "]$/Project/Branch;C2",
                             repository.Head.Tip.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Last());
+                        Assert.True(repository.Index.Any(entry => entry.Path == "a.txt"));
+                        Assert.Empty(repository.RetrieveStatus());
                         Assert.Equal(outputPath, repository.Info.WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar));
                     }
                 }
