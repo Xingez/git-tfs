@@ -80,7 +80,7 @@ namespace GitTfs.Core.RestTfs
                         ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         : GetTreePathMap(parent.Tree);
                     var batchSize = settingsField.BatchSize > 0 ? settingsField.BatchSize : 100;
-                    var fetchedChangesets = 0;
+                    var summary = new CloneSummary();
                     var newestCommit = parent;
                     var fromChangesetId = lastChangesetId;
                     var lastScannedChangesetId = lastChangesetId;
@@ -101,8 +101,8 @@ namespace GitTfs.Core.RestTfs
                                 continue;
 
                             ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
-                                absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets,
-                                legacyChangesetReferences.Count, noFallback);
+                                absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
+                                legacyChangesetReferences.Count, noFallback, summary);
                         }
                     }
                     else
@@ -132,8 +132,8 @@ namespace GitTfs.Core.RestTfs
 
                                 lastScannedChangesetId = changesetReference.ChangesetId;
                                 ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
-                                    absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId, ref fetchedChangesets,
-                                    null, noFallback);
+                                    absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
+                                    null, noFallback, summary);
                             }
 
                             var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
@@ -163,15 +163,31 @@ namespace GitTfs.Core.RestTfs
                         // the files we just materialized. This is equivalent to
                         // `git reset --mixed HEAD` and leaves a fresh clone clean.
                         repository.Reset(ResetMode.Mixed, newestCommit);
-                        loggerField?.LogInformation("Clone complete: {ChangesetCount} changeset(s), latest C{ChangesetId}.",
-                            fetchedChangesets, lastChangesetId);
+                        summary.TrackedFiles = EnumerateFiles(newestCommit.Tree).Count();
+                    }
+
+                    var maintenanceMode = RunGitMaintenance(absoluteOutputPath, newestCommit != null);
+                    if (newestCommit == null)
+                    {
+                        loggerField?.LogInformation("Clone complete for {RepositoryPath}: no changesets imported "
+                            + "({ChangesetsConsidered} considered, {ChangesetsSkipped} skipped); "
+                            + "{TrackedFiles} tracked file(s); Git maintenance: {MaintenanceMode}.",
+                            repositoryPath, summary.ChangesetsConsidered, summary.ChangesetsSkipped,
+                            summary.TrackedFiles, maintenanceMode);
                     }
                     else
                     {
-                        loggerField?.LogInformation("Clone complete: no changesets found under {RepositoryPath}.", repositoryPath);
+                        loggerField?.LogInformation("Clone complete for {RepositoryPath}: "
+                            + "{ChangesetsImported}/{ChangesetsConsidered} changeset(s) imported "
+                            + "({ChangesetsSkipped} skipped); {FilesProcessed} file change(s) "
+                            + "({FilesDownloaded} downloaded, {FilesReused} reused, {FilesDeleted} deleted); "
+                            + "{TrackedFiles} tracked file(s); latest C{ChangesetId} ({CommitSha}); "
+                            + "Git maintenance: {MaintenanceMode}.",
+                            repositoryPath, summary.ChangesetsImported, summary.ChangesetsConsidered,
+                            summary.ChangesetsSkipped, summary.FilesProcessed, summary.FilesDownloaded,
+                            summary.FilesReused, summary.FilesDeleted, summary.TrackedFiles,
+                            lastChangesetId, newestCommit.Sha, maintenanceMode);
                     }
-
-                    RunGitMaintenance(absoluteOutputPath, newestCommit != null);
                 }
 
                 return GitTfsExitCodes.OK;
@@ -193,10 +209,10 @@ namespace GitTfs.Core.RestTfs
             }
         }
 
-        private void RunGitMaintenance(string outputPath, bool repairIndex)
+        private string RunGitMaintenance(string outputPath, bool repairIndex)
         {
             if (gitHelpersField == null)
-                return;
+                return "not configured";
 
             loggerField?.LogDebug("Running forced Git index repair and maintenance.");
             if (repairIndex)
@@ -205,6 +221,7 @@ namespace GitTfs.Core.RestTfs
             try
             {
                 gitHelpersField.CommandNoisy("-C", outputPath, "maintenance", "run", "--force");
+                return "maintenance";
             }
             catch (GitCommandException)
             {
@@ -214,19 +231,22 @@ namespace GitTfs.Core.RestTfs
                 try
                 {
                     gitHelpersField.CommandNoisy("-C", outputPath, "gc", "--force");
+                    return "gc";
                 }
                 catch (GitCommandException exception)
                 {
                     loggerField?.LogWarning(exception, "Forced Git maintenance failed after clone.");
+                    return "failed";
                 }
             }
         }
 
         private void ImportChangeset(RestTfsClient client, Repository repository, RestChangesetReference changesetReference,
             string targetServer, string repositoryPath, string outputPath, IDictionary<string, string> pathMap,
-            ref Commit newestCommit, ref int lastChangesetId, ref int fetchedChangesets, int? totalChangesets,
-            bool noFallback)
+            ref Commit newestCommit, ref int lastChangesetId, int? totalChangesets, bool noFallback,
+            CloneSummary summary)
         {
+            summary.ChangesetsConsidered++;
             var changeset = client.GetChangeset(changesetReference.ChangesetId);
             changeset.Changes ??= new List<RestChange>();
             if (!HasChangesWithinRepository(changeset, repositoryPath))
@@ -238,13 +258,15 @@ namespace GitTfs.Core.RestTfs
                         ? "source rename records contain no downloadable content"
                         : "no changes",
                     repositoryPath);
+                summary.ChangesetsSkipped++;
                 return;
             }
 
             var treeDefinition = newestCommit == null
                 ? new TreeDefinition()
                 : TreeDefinition.From(newestCommit.Tree);
-            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, targetServer, repositoryPath, outputPath, noFallback);
+            ApplyChanges(client, repository, treeDefinition, pathMap, changeset, targetServer, repositoryPath,
+                outputPath, noFallback, summary);
 
             var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
             var message = BuildCommitMessage(changeset, changesetReference, targetServer, repositoryPath);
@@ -256,12 +278,12 @@ namespace GitTfs.Core.RestTfs
             UpdateRefs(repository, commit, changeset.ChangesetId);
             newestCommit = commit;
             lastChangesetId = changeset.ChangesetId;
-            fetchedChangesets++;
+            summary.ChangesetsImported++;
 
             var progress = totalChangesets.HasValue
-                ? fetchedChangesets.ToString(CultureInfo.InvariantCulture) + "/"
+                ? summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/"
                     + totalChangesets.Value.ToString(CultureInfo.InvariantCulture)
-                : fetchedChangesets.ToString(CultureInfo.InvariantCulture) + "/?";
+                : summary.ChangesetsImported.ToString(CultureInfo.InvariantCulture) + "/?";
             loggerField?.LogInformation("[{Progress}] C{ChangesetId} committed as {CommitSha}.",
                 progress, changeset.ChangesetId, commit.Sha);
         }
@@ -278,7 +300,7 @@ namespace GitTfs.Core.RestTfs
 
         private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,
             IDictionary<string, string> pathMap, RestChangeset changeset, string targetServer,
-            string repositoryPath, string outputPath, bool noFallback)
+            string repositoryPath, string outputPath, bool noFallback, CloneSummary summary)
         {
             var changes = changeset.Changes
                 .Where(change => change?.Item != null)
@@ -308,6 +330,7 @@ namespace GitTfs.Core.RestTfs
                 if (IsDelete(change))
                 {
                     RemovePath(treeDefinition, pathMap, relativePath, outputPath);
+                    summary.FilesDeleted++;
                     continue;
                 }
 
@@ -328,15 +351,18 @@ namespace GitTfs.Core.RestTfs
                 {
                     WriteWorkingFile(outputPath, relativePath, content);
                     downloaded++;
+                    summary.FilesDownloaded++;
                 }
                 else
                 {
                     reused++;
+                    summary.FilesReused++;
                     loggerField?.LogDebug("C{ChangesetId}: reusing local file {RelativePath}; its TFVC hash matches.",
                         changeset.ChangesetId, relativePath);
                 }
 
                 processed++;
+                summary.FilesProcessed++;
                 var percent = filesToProcess == 0 ? 100 : processed * 100 / filesToProcess;
                 loggerField?.LogInformation("C{ChangesetId}: processed {ProcessedFiles}/{TotalFiles} file(s) ({Percent}%; downloaded {Downloaded}, reused {Reused}).",
                     changeset.ChangesetId, processed, filesToProcess, percent, downloaded, reused);
@@ -627,6 +653,18 @@ namespace GitTfs.Core.RestTfs
 
         private static string GetWorkingFilePath(string outputPath, string relativePath)
             => Path.Combine(outputPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        private sealed class CloneSummary
+        {
+            public int ChangesetsConsidered { get; set; }
+            public int ChangesetsImported { get; set; }
+            public int ChangesetsSkipped { get; set; }
+            public int FilesProcessed { get; set; }
+            public int FilesDownloaded { get; set; }
+            public int FilesReused { get; set; }
+            public int FilesDeleted { get; set; }
+            public int TrackedFiles { get; set; }
+        }
 
         private readonly struct AuthorIdentity
         {
