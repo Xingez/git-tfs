@@ -1,0 +1,15 @@
+<Solution>
+  <Configurations>
+    <Platform Name="AnyCPU" />
+  </Configurations>
+  <Folder Name="/doc/">
+    <File Path="../doc/release-notes/NEXT.md" />
+    <File Path="../doc/running-the-unit-tests.md" />
+    <File Path="../README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/" />
+  <Project Path="GitTfs.LegacyHistory/GitTfs.LegacyHistory.csproj" />
+  <Project Path="GitTfs.VsFake/GitTfs.VsFake.csproj" />
+  <Project Path="GitTfs/GitTfs.csproj" />
+  <Project Path="GitTfsTest/GitTfsTest.csproj" />
+</Solution>
