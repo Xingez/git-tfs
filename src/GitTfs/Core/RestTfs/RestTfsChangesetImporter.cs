@@ -155,30 +155,46 @@ namespace GitTfs.Core.RestTfs
                     continue;
                 }
 
-                RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
                 if (!IsWithinRepository(change.Item.Path, repositoryPath))
+                {
+                    RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
                     continue;
+                }
 
                 var relativePath = ToRelativeGitPath(change.Item.Path, repositoryPath);
                 if (string.IsNullOrEmpty(relativePath))
+                {
+                    RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
                     continue;
+                }
 
                 if (IsDelete(change))
                 {
+                    RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
                     RemovePath(treeDefinition, pathMap, relativePath, outputPath);
                     summary.FilesDeleted++;
                     continue;
                 }
 
+                var isMergeChange = IsMergeChange(change);
                 var existingPath = pathMap.TryGetValue(relativePath, out var currentPath) ? currentPath : relativePath;
+                byte[] content = null;
+                var reusedLocalFile = !isMergeChange
+                    && TryReadMatchingLocalFile(outputPath, relativePath, change.Item.HashValue, out content);
+                if (!reusedLocalFile)
+                    content = DownloadFileWithFallback(client, change, changeset.ChangesetId,
+                        targetServer, change.Item.DeletionId, relativePath, noFallback, summary, isMergeChange);
+                if (content == null)
+                {
+                    processed++;
+                    progressReporter?.ReportFiles(changeset.ChangesetId, processed, filesToProcess);
+                    continue;
+                }
+
+                RemoveRenameSources(treeDefinition, pathMap, change, repositoryPath, outputPath);
                 if (!string.Equals(existingPath, relativePath, StringComparison.Ordinal))
                     treeDefinition.Remove(existingPath);
 
-                var reusedLocalFile = TryReadMatchingLocalFile(outputPath, relativePath, change.Item.HashValue,
-                    out var content);
-                if (!reusedLocalFile)
-                    content = DownloadFileWithFallback(client, change, changeset.ChangesetId,
-                        targetServer, change.Item.DeletionId, relativePath, noFallback, summary);
                 var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
                 treeDefinition.Add(relativePath, blob, LibGit2Sharp.Mode.NonExecutableFile);
                 pathMap.Remove(relativePath);
@@ -214,7 +230,7 @@ namespace GitTfs.Core.RestTfs
 
         private byte[] DownloadFileWithFallback(IRestTfsClient client, RestChange change,
             int changesetId, string targetServer, int deletionId, string relativePath, bool noFallback,
-            ChangesetFileSummary summary)
+            ChangesetFileSummary summary, bool isMergeChange)
         {
             var itemPath = change.Item.Path;
             try
@@ -223,6 +239,13 @@ namespace GitTfs.Core.RestTfs
             }
             catch (RestTfsException exception) when (exception.StatusCode == 404)
             {
+                if (isMergeChange)
+                {
+                    loggerField?.LogDebug("Skipping merge-only file {RelativePath} from C{ChangesetId}; "
+                        + "the target changeset returned 404.", relativePath, changesetId);
+                    return null;
+                }
+
                 try
                 {
                     return client.DownloadFile(itemPath, changesetId, "Changeset", "Previous");
@@ -275,6 +298,14 @@ namespace GitTfs.Core.RestTfs
                     .Select(type => type.Trim())
                     .Any(type => string.Equals(type, "merge", StringComparison.OrdinalIgnoreCase)
                         || string.Equals(type, "rename", StringComparison.OrdinalIgnoreCase));
+
+        private static bool IsMergeChange(RestChange change)
+            => (change?.MergeSources ?? new List<RestMergeSource>())
+                .Any(source => source != null)
+                || (change?.ChangeType ?? string.Empty)
+                    .Split(',')
+                    .Select(type => type.Trim())
+                    .Any(type => string.Equals(type, "merge", StringComparison.OrdinalIgnoreCase));
 
         private static bool TryReadMatchingLocalFile(string outputPath, string relativePath, string hashValue,
             out byte[] content)

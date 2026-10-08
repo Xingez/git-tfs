@@ -2,6 +2,7 @@ namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using Assert = global::GitTfs.Test.TestAssert;
+    using global::System.Collections.Concurrent;
     using global::GitTfs.Core;
     using global::GitTfs.Core.RestTfs;
     using global::GitTfs.Util;
@@ -88,6 +89,47 @@ namespace GitTfs.Test.Core
 
                     Assert.Equal(3, server.FileDownloadCount);
                     Assert.Equal("two", File.ReadAllText(Path.Combine(outputPath, "a.txt")));
+                }
+                finally
+                {
+                    DeleteDirectory(outputPath);
+                }
+            }
+        }
+
+        [TestMethod]
+        public void SkipsMissingMergeOnlyFileAndStillAppliesExplicitDelete()
+        {
+            using (var server = new FakeTfvcServer { ReturnMissingMergeTargetAndDeleteAFile = true })
+            {
+                var outputPath = Path.Combine(Path.GetTempPath(), "git-tfs-rest-merge-404-test-"
+                    + Guid.NewGuid().ToString("N"));
+                try
+                {
+                    var settings = new GitTfsSettings
+                    {
+                        BatchSize = 1,
+                        Proxy = "none",
+                    };
+                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                        gitHelpers: new GitHelpers(null));
+
+                    var result = service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
+
+                    Assert.Equal(GitTfsExitCodes.OK, result);
+                    Assert.False(File.Exists(Path.Combine(outputPath, "a.txt")));
+                    Assert.False(File.Exists(Path.Combine(outputPath, "merged.txt")));
+                    Assert.Equal(2, server.FileDownloadCount);
+                    Assert.True(server.FileDownloadQueries.All(query =>
+                        !query.Contains("versionDescriptor.versionType=MergeSource", StringComparison.OrdinalIgnoreCase)
+                        && !query.Contains("versionDescriptor.versionOption=Previous", StringComparison.OrdinalIgnoreCase)));
+
+                    using (var repository = new Repository(outputPath))
+                    {
+                        Assert.Equal(2, repository.Commits.Count());
+                        Assert.Empty(repository.Head.Tip.Tree);
+                        Assert.Empty(repository.RetrieveStatus());
+                    }
                 }
                 finally
                 {
@@ -257,6 +299,8 @@ namespace GitTfs.Test.Core
             public string ServerUrl { get; }
             public int FileDownloadCount => Volatile.Read(ref fileDownloadCountField);
             public bool ReturnMismatchedLatestHash { get; set; }
+            public bool ReturnMissingMergeTargetAndDeleteAFile { get; set; }
+            public ConcurrentQueue<string> FileDownloadQueries { get; } = new ConcurrentQueue<string>();
 
             public void Dispose()
             {
@@ -314,7 +358,7 @@ namespace GitTfs.Test.Core
                     var target = requestLine.Split(' ')[1];
                     var uri = new Uri("http://localhost" + target);
                     var response = BuildResponse(uri, server);
-                    var header = "HTTP/1.1 200 OK\r\nContent-Type: " + response.ContentType
+                    var header = "HTTP/1.1 " + response.Status + "\r\nContent-Type: " + response.ContentType
                         + "\r\nContent-Length: " + response.Content.Length
                         + "\r\nConnection: close\r\n\r\n";
                     var headerBytes = Encoding.ASCII.GetBytes(header);
@@ -351,7 +395,16 @@ namespace GitTfs.Test.Core
                 if (path.EndsWith("/Project/_apis/tfvc/changesets/1", StringComparison.OrdinalIgnoreCase))
                     return Json(ChangeSet(1, "first", "add"));
                 if (path.EndsWith("/Project/_apis/tfvc/changesets/2", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (server.ReturnMissingMergeTargetAndDeleteAFile)
+                        return Json("{\"changesetId\":2,\"createdDate\":\"2020-01-02T00:00:00Z\","
+                            + "\"comment\":\"merge and delete\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"},"
+                            + "\"changes\":["
+                            + "{\"changeType\":\"merge\",\"item\":{\"path\":\"$/Project/Branch/merged.txt\",\"isFolder\":false},"
+                            + "\"mergeSources\":[{\"serverItem\":\"$/Project/Other/merged.txt\",\"versionFrom\":1,\"versionTo\":1}]},"
+                            + "{\"changeType\":\"delete\",\"item\":{\"path\":\"$/Project/Branch/a.txt\",\"isFolder\":false,\"deletionId\":1}}]}");
                     return Json(ChangeSet(2, "second", "edit"));
+                }
                 if (path.EndsWith("/Project/_apis/tfvc/changesets/3", StringComparison.OrdinalIgnoreCase))
                     return Json("{\"changesetId\":3,\"createdDate\":\"2020-01-03T00:00:00Z\",\"comment\":\"source rename\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"},\"changes\":[{\"changeType\":\"sourceRename\",\"item\":{\"path\":\"$/Project/Branch/old.txt\",\"isFolder\":false,\"hashValue\":\"FJYD5sA1FjYqjaI/Yk25RQ==\"}}]}");
                 if (path.EndsWith("/Project/_apis/tfvc/changesets/4", StringComparison.OrdinalIgnoreCase))
@@ -362,8 +415,16 @@ namespace GitTfs.Test.Core
                     if (string.Equals(GetQueryValue(uri, "download"), "true", StringComparison.OrdinalIgnoreCase))
                     {
                         Interlocked.Increment(ref server.fileDownloadCountField);
+                        server.FileDownloadQueries.Enqueue(uri.Query);
+                        if (server.ReturnMissingMergeTargetAndDeleteAFile
+                            && version == "2"
+                            && string.Equals(GetQueryValue(uri, "path"), "$/Project/Branch/merged.txt", StringComparison.OrdinalIgnoreCase))
+                            return Json("{\"message\":\"not found\"}", "404 Not Found");
                         return new FakeResponse(Encoding.UTF8.GetBytes(version == "1" ? "one" : "two"), "application/octet-stream");
                     }
+
+                    if (server.ReturnMissingMergeTargetAndDeleteAFile)
+                        return Json("{\"count\":0,\"value\":[]}");
 
                     var hash = server.ReturnMismatchedLatestHash
                         ? Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes("not-two")))
