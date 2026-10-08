@@ -318,7 +318,8 @@ namespace GitTfs.Core.RestTfs
             summary.ChangesetsConsidered++;
             var changeset = client.GetChangeset(changesetReference.ChangesetId);
             changeset.Changes ??= new List<RestChange>();
-            if (!HasChangesWithinRepository(changeset, repositoryPath))
+            if (!HasChangesWithinRepository(changeset, repositoryPath)
+                && !HasTrackedSourceRename(changeset, repositoryPath, newestCommit?.Tree))
             {
                 var sourceRenameCount = changeset.Changes.Count(IsSourceRename);
                 loggerField?.LogInformation("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
@@ -373,21 +374,39 @@ namespace GitTfs.Core.RestTfs
         {
             var changes = changeset.Changes
                 .Where(change => change?.Item != null)
-                .Where(change => !IsSourceRename(change))
                 .Where(change => IsWithinRepository(change.Item.Path, repositoryPath)
                     || IsWithinRepository(change.SourceServerItem, repositoryPath)
                     || (change.MergeSources ?? new List<RestMergeSource>())
                         .Any(source => IsWithinRepository(source.ServerItem, repositoryPath)))
                 .ToArray();
-            var filesToProcess = changes.Count(change => !IsDelete(change) && !change.Item.IsFolder);
+            var filesToProcess = changes.Count(change => !IsDelete(change) && !change.Item.IsFolder
+                && !IsSourceRename(change));
             var downloaded = 0;
             var reused = 0;
             var processed = 0;
             loggerField?.LogInformation("C{ChangesetId}: processing {FileCount} file(s) (0%).",
                 changeset.ChangesetId, filesToProcess);
 
-            foreach (var change in changes)
+            foreach (var change in changes.OrderBy(change => IsSourceRename(change) ? 1 : 0))
             {
+                if (IsSourceRename(change))
+                {
+                    if (!IsWithinRepository(change.Item.Path, repositoryPath))
+                        continue;
+
+                    var sourcePath = ToRelativeGitPath(change.Item.Path, repositoryPath);
+                    if (change.Item.IsFolder)
+                        summary.FilesDeleted += RemovePathAndChildren(repository, treeDefinition,
+                            pathMap, sourcePath, outputPath);
+                    else
+                    {
+                        RemovePath(treeDefinition, pathMap, sourcePath, outputPath);
+                        summary.FilesDeleted++;
+                    }
+
+                    continue;
+                }
+
                 if (change.Item.IsFolder)
                 {
                     var targetWithinRepository = IsWithinRepository(change.Item.Path, repositoryPath);
@@ -397,14 +416,14 @@ namespace GitTfs.Core.RestTfs
 
                     if (IsDelete(change))
                     {
-                        if (!string.IsNullOrEmpty(targetPath))
+                        if (targetWithinRepository)
                             summary.FilesDeleted += RemovePathAndChildren(repository, treeDefinition,
                                 pathMap, targetPath, outputPath);
                         continue;
                     }
 
                     var renameSources = GetRenameSources(change);
-                    if (IsRename(change) && !string.IsNullOrEmpty(targetPath))
+                    if (IsRename(change) && targetWithinRepository)
                     {
                         foreach (var source in renameSources.Where(source => IsWithinRepository(source, repositoryPath)))
                         {
@@ -641,6 +660,29 @@ namespace GitTfs.Core.RestTfs
                         || (change.MergeSources ?? new List<RestMergeSource>())
                             .Any(source => IsWithinRepository(source.ServerItem, repositoryPath))));
 
+        private static bool HasTrackedSourceRename(RestChangeset changeset, string repositoryPath, Tree currentTree)
+        {
+            if (currentTree == null)
+                return false;
+
+            var sourceRenames = (changeset.Changes ?? new List<RestChange>())
+                .Where(change => IsSourceRename(change) && change.Item != null
+                    && IsWithinRepository(change.Item.Path, repositoryPath))
+                .Select(change => new
+                {
+                    Path = ToRelativeGitPath(change.Item.Path, repositoryPath),
+                    change.Item.IsFolder,
+                })
+                .ToArray();
+            if (sourceRenames.Length == 0)
+                return false;
+
+            return EnumerateFiles(currentTree).Any(file => sourceRenames.Any(source =>
+                source.IsFolder
+                    ? IsSameOrChildPath(file.Path, source.Path)
+                    : string.Equals(file.Path, source.Path, StringComparison.OrdinalIgnoreCase)));
+        }
+
         // A sourceRename describes the old side of a rename. Its item URL can
         // legitimately be gone at the changeset version; the target record is
         // the one that carries the content to import.
@@ -674,7 +716,7 @@ namespace GitTfs.Core.RestTfs
         private static int RemovePathAndChildren(Repository repository, TreeDefinition treeDefinition,
             IDictionary<string, string> pathMap, string relativePath, string outputPath)
         {
-            if (string.IsNullOrWhiteSpace(relativePath))
+            if (relativePath == null)
                 return 0;
 
             var files = EnumerateFiles(repository.ObjectDatabase.CreateTree(treeDefinition))
@@ -693,13 +735,14 @@ namespace GitTfs.Core.RestTfs
         private static void MovePathAndChildren(Repository repository, TreeDefinition treeDefinition,
             IDictionary<string, string> pathMap, string sourcePath, string targetPath, string outputPath)
         {
-            if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(targetPath)
+            if (sourcePath == null || targetPath == null
                 || string.Equals(sourcePath, targetPath, StringComparison.Ordinal))
                 return;
 
-            var sourcePrefix = sourcePath.TrimEnd('/') + "/";
+            var sourcePrefix = string.IsNullOrEmpty(sourcePath) ? null : sourcePath.TrimEnd('/') + "/";
             var files = EnumerateFiles(repository.ObjectDatabase.CreateTree(treeDefinition))
-                .Where(file => file.Path.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
+                .Where(file => sourcePrefix == null
+                    || file.Path.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
             foreach (var file in files)
             {
@@ -710,8 +753,8 @@ namespace GitTfs.Core.RestTfs
 
             foreach (var file in files)
             {
-                var suffix = file.Path.Substring(sourcePrefix.Length);
-                var movedPath = targetPath.TrimEnd('/') + "/" + suffix;
+                var suffix = sourcePrefix == null ? file.Path : file.Path.Substring(sourcePrefix.Length);
+                var movedPath = string.IsNullOrEmpty(targetPath) ? suffix : targetPath.TrimEnd('/') + "/" + suffix;
                 treeDefinition.Remove(movedPath);
                 treeDefinition.Add(movedPath, (Blob)file.Entry.Target, file.Entry.Mode);
                 pathMap[movedPath] = movedPath;
@@ -737,8 +780,10 @@ namespace GitTfs.Core.RestTfs
         }
 
         private static bool IsSameOrChildPath(string path, string parentPath)
-            => string.Equals(path, parentPath, StringComparison.OrdinalIgnoreCase)
-                || path.StartsWith(parentPath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
+            => string.IsNullOrEmpty(parentPath)
+                ? !string.IsNullOrEmpty(path)
+                : string.Equals(path, parentPath, StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith(parentPath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
 
         private static void RemovePath(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
             string relativePath, string outputPath)
