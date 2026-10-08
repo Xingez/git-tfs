@@ -51,4 +51,14 @@
           DestinationFiles="@(LegacyHistoryFiles->'$(TargetDir)legacy-history\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
+
+  <Target Name="CopyLegacyHistoryHelperToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <PublishedLegacyHistoryFiles Include="..\GitTfs.LegacyHistory\bin\$(Configuration)\net48\**\*" />
+    </ItemGroup>
+    <MakeDir Directories="$(PublishDir)legacy-history" />
+    <Copy SourceFiles="@(PublishedLegacyHistoryFiles)"
+          DestinationFiles="@(PublishedLegacyHistoryFiles->'$(PublishDir)legacy-history\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
