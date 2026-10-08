@@ -21,12 +21,14 @@ namespace GitTfs.Core.RestTfs
         private readonly ILogger<RestTfsCloneService> loggerField;
         private readonly ILoggerFactory loggerFactoryField;
         private readonly IHttpClientFactory httpClientFactoryField;
+        private readonly IGitHelpers gitHelpersField;
 
         public RestTfsCloneService(GitTfsSettings settings, AuthorsFile authorsFile,
             LegacyTfvcHistoryProvider legacyHistoryProvider = null,
             ILogger<RestTfsCloneService> logger = null,
             ILoggerFactory loggerFactory = null,
-            IHttpClientFactory httpClientFactory = null)
+            IHttpClientFactory httpClientFactory = null,
+            IGitHelpers gitHelpers = null)
         {
             settingsField = settings;
             authorsFileField = authorsFile;
@@ -34,6 +36,7 @@ namespace GitTfs.Core.RestTfs
             loggerField = logger;
             loggerFactoryField = loggerFactory;
             httpClientFactoryField = httpClientFactory;
+            gitHelpersField = gitHelpers;
         }
 
         public int Run(string targetServer, string repositoryPath, string outputPath, bool noFallback = false)
@@ -167,6 +170,8 @@ namespace GitTfs.Core.RestTfs
                     {
                         loggerField?.LogInformation("Clone complete: no changesets found under {RepositoryPath}.", repositoryPath);
                     }
+
+                    RunGitMaintenance(absoluteOutputPath, newestCommit != null);
                 }
 
                 return GitTfsExitCodes.OK;
@@ -185,6 +190,35 @@ namespace GitTfs.Core.RestTfs
                     }
                 }
                 throw;
+            }
+        }
+
+        private void RunGitMaintenance(string outputPath, bool repairIndex)
+        {
+            if (gitHelpersField == null)
+                return;
+
+            loggerField?.LogDebug("Running forced Git index repair and maintenance.");
+            if (repairIndex)
+                gitHelpersField.CommandNoisy("-C", outputPath, "reset", "--mixed", "HEAD");
+
+            try
+            {
+                gitHelpersField.CommandNoisy("-C", outputPath, "maintenance", "run", "--force");
+            }
+            catch (GitCommandException)
+            {
+                // Git maintenance is unavailable before Git 2.29. Keep the
+                // forced cleanup behavior for older Git installations.
+                loggerField?.LogDebug("Git maintenance is unavailable; running forced git gc instead.");
+                try
+                {
+                    gitHelpersField.CommandNoisy("-C", outputPath, "gc", "--force");
+                }
+                catch (GitCommandException exception)
+                {
+                    loggerField?.LogWarning(exception, "Forced Git maintenance failed after clone.");
+                }
             }
         }
 

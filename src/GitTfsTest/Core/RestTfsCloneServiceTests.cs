@@ -29,7 +29,7 @@ namespace GitTfs.Test.Core
                         Resumable = true,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile());
+                    var service = new RestTfsCloneService(settings, new AuthorsFile(), gitHelpers: new GitHelpers(null));
 
                     var result = service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
 
@@ -67,7 +67,7 @@ namespace GitTfs.Test.Core
                         Resumable = true,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile());
+                    var service = new RestTfsCloneService(settings, new AuthorsFile(), gitHelpers: new GitHelpers(null));
 
                     service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
                     Assert.Equal(2, server.FileDownloadCount);
