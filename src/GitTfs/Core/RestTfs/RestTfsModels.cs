@@ -50,6 +50,7 @@ namespace GitTfs.Core.RestTfs
     public sealed class RestItem
     {
         public int Version { get; set; }
+        public DateTimeOffset ChangeDate { get; set; }
         public long Size { get; set; }
         public string HashValue { get; set; }
         public string Path { get; set; }

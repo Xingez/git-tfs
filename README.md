@@ -73,6 +73,10 @@ it to an absolute HTTP(S) proxy URL when your network requires one. The
 `--no-fallback` option stops on a REST download error instead of trying the
 legacy TFVC helper.
 
+After verification, downloaded files receive the TFVC item's `changeDate` as
+their local last-write time. Git does not store filesystem timestamps, so this
+is preserved in the working tree, not in commits or future checkouts.
+
 ### TFS authentication
 
 Git-TFS uses the current Windows credentials by default. For Azure DevOps or

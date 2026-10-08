@@ -422,6 +422,7 @@ namespace GitTfs.Core.RestTfs
         {
             var summary = new FileVerificationSummary();
             var expectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var timestampUpdates = new List<KeyValuePair<string, DateTime>>();
             var items = client.GetItems(repositoryPath, changesetId);
             foreach (var item in items)
             {
@@ -441,6 +442,9 @@ namespace GitTfs.Core.RestTfs
                         relativePath, changesetId);
                     continue;
                 }
+
+                if (item.ChangeDate != default)
+                    timestampUpdates.Add(new KeyValuePair<string, DateTime>(filePath, item.ChangeDate.UtcDateTime));
 
                 if (string.IsNullOrWhiteSpace(item.HashValue))
                 {
@@ -487,6 +491,9 @@ namespace GitTfs.Core.RestTfs
                     + summary.MetadataMissingFiles.ToString(CultureInfo.InvariantCulture)
                     + " file(s) missing from latest TFVC metadata.");
             }
+
+            foreach (var timestampUpdate in timestampUpdates)
+                File.SetLastWriteTimeUtc(timestampUpdate.Key, timestampUpdate.Value);
 
             return summary;
         }
