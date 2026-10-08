@@ -19,8 +19,6 @@ namespace GitTfs.Commands
                         v => Username = v },
                     { "p|password=", "TFS password",
                         v => Password = v },
-                    { "no-parallel", "Do not do parallel requests to TFS",
-                        v => NoParallel = (v != null) },
                 };
 
         public string IgnoreRegex { get; set; }
@@ -30,6 +28,5 @@ namespace GitTfs.Commands
         public bool NoGitIgnore { get; set; }
         public string Username { get; set; }
         public string Password { get; set; }
-        public bool NoParallel { get; set; }
     }
 }

@@ -43,8 +43,9 @@ that contains the project:
 {
   "TargetServer": "https://dev.azure.com/your-organization",
   "api-version": "7.1",
-  "resumable": true,
-  "no-parallel": true,
+  "Username": "",
+  "Password": "",
+  "pat": "",
   "debug": false,
   "proxy": null
 }
@@ -71,7 +72,10 @@ To use a settings file outside the executable directory:
 $env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
 ```
 
-Do not put passwords or personal access tokens in `appsettings.json`.
+Environment variables such as `GIT_TFS_TARGET_SERVER`, `GIT_TFS_API_VERSION`,
+`GIT_TFS_USERNAME`, `GIT_TFS_PASSWORD`, `GIT_TFS_PAT`, `GIT_TFS_BATCH_SIZE`,
+`GIT_TFS_DEBUG`, and `GIT_TFS_PROXY` override their matching configuration
+values. Do not commit real credentials in `appsettings.json`.
 
 ## Authenticate to TFS
 
@@ -94,7 +98,7 @@ not need to be repeated on the command line:
 git tfs $/Project/Trunk C:\migration\Trunk
 ```
 
-Clones are resumable. If a full clone is interrupted, rerun the same command
+Clones are always resumable. If a full clone is interrupted, rerun the same command
 from the same location and allow it to continue.
 
 For file changes that include TFVC hash metadata, an existing local file is
@@ -118,8 +122,9 @@ git tfs $/Project/Trunk C:\migration\Trunk --authors 'C:\migration\authors.txt'
 
 ### Clone settings
 
-The clone reads `resumable`, `no-parallel`, `debug`, `proxy`, and
-`api-version` from `appsettings.json`. The default proxy is disabled. Use a
+The clone reads `debug`, `proxy`, `api-version`, and authentication settings
+from `appsettings.json` (environment variables override these values). Cloning
+is always resumable. The default proxy is disabled. Use a
 local drive for the output rather than a network share; no TFVC workspace path
 is needed.
 

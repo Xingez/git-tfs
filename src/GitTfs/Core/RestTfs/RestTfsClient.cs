@@ -344,11 +344,7 @@ namespace GitTfs.Core.RestTfs
                 handler.Proxy = new WebProxy(proxyUri, false);
             }
 
-            var pat = string.IsNullOrWhiteSpace(settings.Pat)
-                ? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Process)
-                    ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.User)
-                    ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Machine)
-                : settings.Pat;
+            var pat = settings.Pat;
             if (!string.IsNullOrWhiteSpace(pat))
             {
                 handler.UseDefaultCredentials = false;
@@ -376,11 +372,7 @@ namespace GitTfs.Core.RestTfs
                 throw new ArgumentNullException(nameof(settings));
 
             client.Timeout = TimeSpan.FromMinutes(30);
-            var pat = string.IsNullOrWhiteSpace(settings.Pat)
-                ? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Process)
-                    ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.User)
-                    ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Machine)
-                : settings.Pat;
+            var pat = settings.Pat;
             if (!string.IsNullOrWhiteSpace(pat))
             {
                 var token = Convert.ToBase64String(Encoding.UTF8.GetBytes(":" + pat));

@@ -35,8 +35,6 @@ namespace GitTfs.Core
                         remote.Aliases = entry.Value.Split(',');
                     else if (key == "autotag")
                         remote.Autotag = bool.Parse(entry.Value);
-                    else if (key == "noparallel")
-                        remote.NoParallel = bool.Parse(entry.Value);
                 }
             }
             return remotes.Values.Where(r => !string.IsNullOrWhiteSpace(r.Url));
@@ -56,7 +54,6 @@ namespace GitTfs.Core
                 yield return c(prefix + "gitignore-path", remote.GitIgnorePath);
                 yield return c(prefix + "legacy-urls", remote.Aliases == null ? null : string.Join(",", remote.Aliases));
                 yield return c(prefix + "autotag", remote.Autotag ? "true" : null);
-                yield return c(prefix + "noparallel", remote.NoParallel ? "true" : null);
             }
         }
 

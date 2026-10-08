@@ -42,7 +42,6 @@ namespace GitTfs.Test.Core
                 AssertContainsConfig("tfs-remote.default.ignore-paths", null, config);
                 AssertContainsConfig("tfs-remote.default.legacy-urls", null, config);
                 AssertContainsConfig("tfs-remote.default.autotag", null, config);
-                AssertContainsConfig("tfs-remote.default.noparallel", null, config);
             }
 
             [TestMethod]
@@ -60,7 +59,6 @@ namespace GitTfs.Test.Core
                     GitIgnorePath = ".gitignore",
                     Autotag = true,
                     Aliases = new string[] { "http://abc", "http://def" },
-                    NoParallel = true,
                 };
                 var config = dumperField.Dump(remote);
                 AssertContainsConfig("tfs-remote.default.url", "http://server/path", config);
@@ -72,7 +70,6 @@ namespace GitTfs.Test.Core
                 AssertContainsConfig("tfs-remote.default.gitignore-path", ".gitignore", config);
                 AssertContainsConfig("tfs-remote.default.legacy-urls", "http://abc,http://def", config);
                 AssertContainsConfig("tfs-remote.default.autotag", "true", config);
-                AssertContainsConfig("tfs-remote.default.noparallel", "true", config);
             }
 
             /// <summary>
@@ -92,8 +89,7 @@ namespace GitTfs.Test.Core
                         Password = "pass",
                         IgnoreRegex = "abc",
                         ExceptRegex = "def",
-                        GitIgnorePath = ".gitignore",
-                        NoParallel = true
+                        GitIgnorePath = ".gitignore"
                     },
                     Autotag = true,
                     Aliases = new[] { "http://abc", "http://def" },
@@ -108,7 +104,6 @@ namespace GitTfs.Test.Core
                 AssertContainsConfig("tfs-remote.default.gitignore-path", ".gitignore", config);
                 AssertContainsConfig("tfs-remote.default.legacy-urls", "http://abc,http://def", config);
                 AssertContainsConfig("tfs-remote.default.autotag", "true", config);
-                AssertContainsConfig("tfs-remote.default.noparallel", "true", config);
             }
 
             /// <summary>
@@ -128,8 +123,7 @@ namespace GitTfs.Test.Core
                     IgnoreExceptRegex = "def",
                     GitIgnorePath = ".gitignore",
                     Autotag = true,
-                    Aliases = new[] { "http://abc", "http://def" },
-                    NoParallel = true
+                    Aliases = new[] { "http://abc", "http://def" }
                 };
                 var remoteOptions = remote.RemoteOptions;
 
@@ -138,7 +132,6 @@ namespace GitTfs.Test.Core
                 Assert.Equal("abc", remoteOptions.IgnoreRegex);
                 Assert.Equal("def", remoteOptions.ExceptRegex);
                 Assert.Equal(".gitignore", remoteOptions.GitIgnorePath);
-                Assert.True(remoteOptions.NoParallel);
             }
 
             private void AssertContainsConfig(string key, string value, IEnumerable<KeyValuePair<string, string>> configs) => Assert.Contains(new KeyValuePair<string, string>(key, value), configs);
@@ -196,8 +189,7 @@ namespace GitTfs.Test.Core
                     c("tfs-remote.default.ignore-except", "dontignorethis.zip"),
                     c("tfs-remote.default.gitignore-path", ".gitignore"),
                     c("tfs-remote.default.legacy-urls", "http://old:8080/,http://other/"),
-                    c("tfs-remote.default.autotag", "true"),
-                    c("tfs-remote.default.noparallel", "true"));
+                    c("tfs-remote.default.autotag", "true"));
                 Assert.Single(remotes);
                 var remote = remotes.First();
                 Assert.Equal("default", remote.Id);
@@ -210,7 +202,6 @@ namespace GitTfs.Test.Core
                 Assert.Equal(".gitignore", remote.GitIgnorePath);
                 Assert.Equal(new string[] { "http://old:8080/", "http://other/" }, remote.Aliases);
                 Assert.True(remote.Autotag);
-                Assert.True(remote.NoParallel);
             }
 
 

@@ -50,7 +50,6 @@ namespace GitTfs.Core.RestTfs
             var absoluteOutputPath = Path.GetFullPath(outputPath);
             var gitDirectory = Path.Combine(absoluteOutputPath, ".git");
             var repositoryExists = Directory.Exists(gitDirectory);
-            var repositoryCreated = false;
 
             if (Directory.Exists(absoluteOutputPath) && !repositoryExists
                 && Directory.EnumerateFileSystemEntries(absoluteOutputPath).Any())
@@ -64,7 +63,6 @@ namespace GitTfs.Core.RestTfs
                 if (!repositoryExists)
                 {
                     Repository.Init(absoluteOutputPath);
-                    repositoryCreated = true;
                 }
 
                 using (var repository = new Repository(absoluteOutputPath))
@@ -196,17 +194,7 @@ namespace GitTfs.Core.RestTfs
             }
             catch
             {
-                if (repositoryCreated && !settingsField.Resumable)
-                {
-                    try
-                    {
-                        Directory.Delete(absoluteOutputPath, true);
-                    }
-                    catch (Exception cleanupException)
-                    {
-                        loggerField?.LogWarning(cleanupException, "Unable to clean failed clone directory.");
-                    }
-                }
+                loggerField?.LogDebug("Clone failed; leaving the partial repository in place so it can be resumed.");
                 throw;
             }
         }

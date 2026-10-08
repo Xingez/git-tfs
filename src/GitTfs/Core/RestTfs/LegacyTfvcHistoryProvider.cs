@@ -227,14 +227,7 @@ namespace GitTfs.Core.RestTfs
         }
 
         private string GetPat()
-        {
-            if (!string.IsNullOrWhiteSpace(settingsField.Pat))
-                return settingsField.Pat;
-
-            return Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Process)
-                ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.User)
-                ?? Environment.GetEnvironmentVariable("GIT_TFS_PAT", EnvironmentVariableTarget.Machine);
-        }
+            => settingsField.Pat;
 
         private sealed class LegacyHistoryRequest
         {

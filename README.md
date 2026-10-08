@@ -23,8 +23,9 @@ clone for focused troubleshooting.
    {
      "TargetServer": "https://dev.azure.com/your-organization",
      "api-version": "7.1",
-     "resumable": true,
-     "no-parallel": true,
+     "Username": "",
+     "Password": "",
+     "pat": "",
      "debug": false,
      "proxy": null
    }
@@ -71,11 +72,13 @@ git tfs changeset $/Project/Trunk C:\migration\Project 12345 --no-fallback
 The output path must contain an existing git-tfs clone, and the requested
 changeset ID must be newer than its current `HEAD` changeset.
 
-The settings control the REST API version, whether a clone can resume, request
-parallelism, debug logging, and proxy use. A null `proxy` disables proxies; set
-it to an absolute HTTP(S) proxy URL when your network requires one. The
-`--no-fallback` option stops on a REST download error instead of trying the
-legacy TFVC helper.
+Clones are always resumable. Settings can also be supplied through environment
+variables, which override matching values in `appsettings.json`:
+`GIT_TFS_TARGET_SERVER`, `GIT_TFS_API_VERSION`, `GIT_TFS_USERNAME`,
+`GIT_TFS_PASSWORD`, `GIT_TFS_PAT`, `GIT_TFS_BATCH_SIZE`, `GIT_TFS_DEBUG`, and
+`GIT_TFS_PROXY`. A null `proxy` disables proxies; set it to an absolute HTTP(S)
+proxy URL when your network requires one. The `--no-fallback` option stops on a
+REST download error instead of trying the legacy TFVC helper.
 
 Changeset scanning and normal file downloads use REST. The legacy helper
 process starts only when REST cannot retrieve a file and fallback is enabled;
@@ -104,8 +107,9 @@ finally {
 }
 ```
 
-For CI, configure `GIT_TFS_PAT` as a masked secret environment variable. Do
-not put the token in `appsettings.json` or commit it to a script.
+For CI, configure `GIT_TFS_PAT` as a masked secret environment variable. A PAT
+can also be set in `appsettings.json`, but avoid committing a file containing
+a real token.
 
 The settings file is read from the executable directory or current working
 directory. To select a file stored elsewhere, set `GIT_TFS_APPSETTINGS`:

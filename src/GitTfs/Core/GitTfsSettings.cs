@@ -2,12 +2,12 @@
 namespace GitTfs.Core
 {
     using global::System.Diagnostics;
+    using global::System.Globalization;
     using global::System.Net;
     using global::System.Text.Json;
     using global::System.Text.Json.Serialization;
     /// <summary>
-    /// Settings that apply to the local git-tfs executable. Credentials are kept
-    /// out of this file and continue to use the existing TFS credential flow.
+    /// Settings that apply to the local git-tfs executable.
     /// </summary>
     public sealed class GitTfsSettings
     {
@@ -22,13 +22,8 @@ namespace GitTfs.Core
 
         public string Pat { get; set; }
 
-        public bool Resumable { get; set; } = true;
-
         [JsonPropertyName("batch-size")]
         public int BatchSize { get; set; } = 1;
-
-        [JsonPropertyName("no-parallel")]
-        public bool NoParallel { get; set; } = true;
 
         public bool Debug { get; set; }
 
@@ -53,7 +48,7 @@ namespace GitTfs.Core
                 throw new GitTfsException("The configured proxy must be an absolute HTTP(S) URI or 'none'.");
 
             WebRequest.DefaultWebProxy = new WebProxy(proxyUri, false);
-            Trace.WriteLine("HTTP(S) proxy enabled from appsettings.");
+            Trace.WriteLine("HTTP(S) proxy enabled from configuration.");
         }
 
         public static GitTfsSettings Load()
@@ -77,8 +72,9 @@ namespace GitTfs.Core
                     {
                         PropertyNameCaseInsensitive = true
                     }) ?? new GitTfsSettings();
-                    settings.TargetServer = settings.TargetServer?.Trim().TrimEnd('/');
                     settings.SourcePath = path;
+                    settings.ApplyEnvironmentOverrides();
+                    settings.TargetServer = settings.TargetServer?.Trim().TrimEnd('/');
                     return settings;
                 }
                 catch (JsonException ex)
@@ -87,7 +83,55 @@ namespace GitTfs.Core
                 }
             }
 
-            return new GitTfsSettings();
+            var defaultSettings = new GitTfsSettings();
+            defaultSettings.ApplyEnvironmentOverrides();
+            defaultSettings.TargetServer = defaultSettings.TargetServer?.Trim().TrimEnd('/');
+            return defaultSettings;
+        }
+
+        private void ApplyEnvironmentOverrides()
+        {
+            TargetServer = GetEnvironmentSetting("GIT_TFS_TARGET_SERVER") ?? TargetServer;
+            ApiVersion = GetEnvironmentSetting("GIT_TFS_API_VERSION") ?? ApiVersion;
+            Username = GetEnvironmentSetting("GIT_TFS_USERNAME") ?? Username;
+            Password = GetEnvironmentSetting("GIT_TFS_PASSWORD") ?? Password;
+            Pat = GetEnvironmentSetting("GIT_TFS_PAT") ?? Pat;
+            Proxy = GetEnvironmentSetting("GIT_TFS_PROXY") ?? Proxy;
+
+            var batchSize = GetEnvironmentSetting("GIT_TFS_BATCH_SIZE");
+            if (batchSize != null)
+            {
+                if (!int.TryParse(batchSize, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedBatchSize))
+                    throw new GitTfsException("GIT_TFS_BATCH_SIZE must be an integer.");
+
+                BatchSize = parsedBatchSize;
+            }
+
+            var debug = GetEnvironmentSetting("GIT_TFS_DEBUG");
+            if (debug == null)
+                return;
+
+            if (!bool.TryParse(debug, out var parsedDebug))
+                throw new GitTfsException("GIT_TFS_DEBUG must be 'true' or 'false'.");
+
+            Debug = parsedDebug;
+        }
+
+        private static string GetEnvironmentSetting(string name)
+        {
+            foreach (var target in new[]
+            {
+                EnvironmentVariableTarget.Process,
+                EnvironmentVariableTarget.User,
+                EnvironmentVariableTarget.Machine
+            })
+            {
+                var value = Environment.GetEnvironmentVariable(name, target);
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+
+            return null;
         }
     }
 }

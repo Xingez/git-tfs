@@ -25,8 +25,6 @@ namespace GitTfs.Test.Core
                     var settings = new GitTfsSettings
                     {
                         BatchSize = 1,
-                        NoParallel = true,
-                        Resumable = true,
                         Proxy = "none",
                     };
                     var service = new RestTfsCloneService(settings, new AuthorsFile(), gitHelpers: new GitHelpers(null));
@@ -63,8 +61,6 @@ namespace GitTfs.Test.Core
                     var settings = new GitTfsSettings
                     {
                         BatchSize = 1,
-                        NoParallel = true,
-                        Resumable = true,
                         Proxy = "none",
                     };
                     var service = new RestTfsCloneService(settings, new AuthorsFile(), gitHelpers: new GitHelpers(null));
@@ -112,8 +108,6 @@ namespace GitTfs.Test.Core
                     var settings = new GitTfsSettings
                     {
                         BatchSize = 1,
-                        NoParallel = true,
-                        Resumable = true,
                         Proxy = "none",
                     };
                     var service = new RestTfsCloneService(settings, new AuthorsFile(),
@@ -150,8 +144,6 @@ namespace GitTfs.Test.Core
                     var settings = new GitTfsSettings
                     {
                         BatchSize = 1,
-                        NoParallel = true,
-                        Resumable = true,
                         Proxy = "none",
                     };
                     var service = new RestTfsCloneService(settings, new AuthorsFile(),
@@ -182,8 +174,6 @@ namespace GitTfs.Test.Core
                     var settings = new GitTfsSettings
                     {
                         BatchSize = 1,
-                        NoParallel = true,
-                        Resumable = true,
                         Proxy = "none",
                     };
                     var service = new RestTfsCloneService(settings, new AuthorsFile(),

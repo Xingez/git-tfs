@@ -25,7 +25,6 @@ Prefer the [clone](clone.md) command to initialize and fetch changesets from a T
           --ignore-regex=VALUE   a regex of files to ignore
       -u, --username=VALUE       TFS username
       -p, --password=VALUE       TFS password
-          --no-parallel          Do not do parallel requests to TFS
 
 ## Examples
 

@@ -16,8 +16,9 @@ Configure the server in `appsettings.json` first:
 {
   "TargetServer": "https://dev.azure.com/your-organization",
   "api-version": "7.1",
-  "resumable": true,
-  "no-parallel": true,
+  "Username": "",
+  "Password": "",
+  "pat": "",
   "debug": false,
   "proxy": null
 }
@@ -38,8 +39,8 @@ file percentage; completed rows turn green. Pass `--debug` to disable the
 progress display and show full diagnostic logging instead. Setting `debug` to
 `true` in `appsettings.json` has the same effect.
 
-Clones are resumable. If a clone is interrupted, rerun the same command from
-the same location.
+Clones are always resumable. If a clone is interrupted, rerun the same command
+from the same location.
 
 When TFVC supplies a file hash, the clone compares it with an existing local
 file and reuses the file when it matches. A missing or mismatched file is
