@@ -23,6 +23,7 @@ namespace GitTfs.Core.RestTfs
         private readonly bool ownsHttpClientField;
         private readonly Uri serverUriField;
         private readonly string projectField;
+        private readonly string repositoryPathField;
         private readonly string apiVersionField;
         private readonly JsonSerializerOptions jsonOptionsField = new JsonSerializerOptions
         {
@@ -40,6 +41,7 @@ namespace GitTfs.Core.RestTfs
 
             serverUriField = new Uri(serverUri.AbsoluteUri.TrimEnd('/') + "/", UriKind.Absolute);
             projectField = ExtractProject(repositoryPath);
+            repositoryPathField = NormalizeServerPath(repositoryPath);
             apiVersionField = string.IsNullOrWhiteSpace(settings.ApiVersion) ? "7.1" : settings.ApiVersion.Trim();
             httpClientField = CreateHttpClient(settings);
             ownsHttpClientField = true;
@@ -55,6 +57,7 @@ namespace GitTfs.Core.RestTfs
 
             serverUriField = new Uri(serverUri.AbsoluteUri.TrimEnd('/') + "/", UriKind.Absolute);
             projectField = ExtractProject(repositoryPath);
+            repositoryPathField = NormalizeServerPath(repositoryPath);
             apiVersionField = string.IsNullOrWhiteSpace(apiVersion) ? "7.1" : apiVersion.Trim();
         }
 
@@ -133,7 +136,7 @@ namespace GitTfs.Core.RestTfs
                 new KeyValuePair<string, string>("versionDescriptor.versionType", "Changeset"),
             };
 
-            return GetBytes(BuildUri("items", query)).Value ?? Array.Empty<byte>();
+            return GetBytes(BuildUri("items", query), GetRelativeFilePath(path)).Value ?? Array.Empty<byte>();
         }
 
         public void Dispose()
@@ -148,25 +151,26 @@ namespace GitTfs.Core.RestTfs
             {
                 var json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
                 return JsonSerializer.Deserialize<T>(json, jsonOptionsField);
-            });
+            }, uri.AbsolutePath);
         }
 
-        private RestResponse<byte[]> GetBytes(Uri uri)
+        private RestResponse<byte[]> GetBytes(Uri uri, string relativeFilePath)
         {
-            return Send(uri, true, response => response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult());
+            return Send(uri, true, response => response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult(), relativeFilePath);
         }
 
-        private RestResponse<T> Send<T>(Uri uri, bool binary, Func<HttpResponseMessage, T> readResponse)
+        private RestResponse<T> Send<T>(Uri uri, bool binary, Func<HttpResponseMessage, T> readResponse, string logTarget)
         {
+            logTarget = string.IsNullOrWhiteSpace(logTarget) ? uri.AbsolutePath : logTarget;
             for (var attempt = 1; attempt <= MaxRequestAttempts; attempt++)
             {
-                WaitForPendingServerDelay(uri);
+                WaitForPendingServerDelay(logTarget);
                 var requestTimer = Stopwatch.StartNew();
                 using (var request = new HttpRequestMessage(HttpMethod.Get, uri))
                 {
                     request.Headers.Accept.Clear();
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(binary ? "application/octet-stream" : "application/json"));
-                    Trace.WriteLine("TFS request: GET " + uri);
+                    Trace.WriteLine("TFS request: GET " + logTarget);
 
                     HttpResponseMessage response;
                     try
@@ -227,14 +231,14 @@ namespace GitTfs.Core.RestTfs
             throw new GitTfsException("TFS REST request retry limit was reached for " + uri + ".");
         }
 
-        private void WaitForPendingServerDelay(Uri uri)
+        private void WaitForPendingServerDelay(string logTarget)
         {
             if (pendingServerDelayField <= TimeSpan.Zero)
                 return;
 
             var delay = pendingServerDelayField;
             pendingServerDelayField = TimeSpan.Zero;
-            Trace.WriteLine("Waiting " + FormatDuration(delay) + " before TFS request: " + uri);
+            Trace.WriteLine("Waiting " + FormatDuration(delay) + " before TFS request: " + logTarget);
             var waitTimer = Stopwatch.StartNew();
             Thread.Sleep(delay);
             Trace.WriteLine("TFS request wait completed in " + FormatDuration(waitTimer.Elapsed)
@@ -356,6 +360,17 @@ namespace GitTfs.Core.RestTfs
         private static TimeSpan Max(TimeSpan left, TimeSpan right) => left >= right ? left : right;
 
         private static string FormatDuration(TimeSpan duration) => duration.ToString("c", CultureInfo.InvariantCulture);
+
+        private string GetRelativeFilePath(string path)
+        {
+            var normalizedPath = NormalizeServerPath(path);
+            var repositoryPrefix = repositoryPathField + "/";
+            return normalizedPath.StartsWith(repositoryPrefix, StringComparison.OrdinalIgnoreCase)
+                ? normalizedPath.Substring(repositoryPrefix.Length)
+                : normalizedPath;
+        }
+
+        private static string NormalizeServerPath(string path) => (path ?? string.Empty).Replace('\\', '/').TrimEnd('/');
 
         private static string TrimBody(string body)
         {
