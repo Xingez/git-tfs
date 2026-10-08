@@ -143,11 +143,10 @@ namespace GitTfs.LegacyHistory
             if (request.ChangesetId <= 0)
                 throw new ArgumentException("A positive changeset ID is required for a file download.");
 
-            var item = versionControl.GetItem(
-                request.ItemPath,
-                new ChangesetVersionSpec(request.ChangesetId),
-                DeletedState.Any,
-                GetItemsOptions.Download);
+            var version = new ChangesetVersionSpec(request.ChangesetId);
+            var item = request.DeletionId > 0
+                ? versionControl.GetItem(request.ItemPath, version, request.DeletionId, GetItemsOptions.Download)
+                : versionControl.GetItem(request.ItemPath, version, DeletedState.Any, GetItemsOptions.Download);
             if (item == null || item.ItemType != ItemType.File)
                 throw new InvalidOperationException("The requested TFS item is not a file at changeset C"
                     + request.ChangesetId + ".");
@@ -215,6 +214,7 @@ namespace GitTfs.LegacyHistory
             public int BatchSize { get; set; }
             public string ItemPath { get; set; }
             public int ChangesetId { get; set; }
+            public int DeletionId { get; set; }
             public string Username { get; set; }
             public string Password { get; set; }
             public string Pat { get; set; }

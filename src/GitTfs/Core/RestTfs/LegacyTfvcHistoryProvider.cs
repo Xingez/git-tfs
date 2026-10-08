@@ -66,7 +66,7 @@ namespace GitTfs.Core.RestTfs
                 .ToArray();
         }
 
-        public byte[] DownloadFile(string targetServer, string itemPath, int changesetId)
+        public byte[] DownloadFile(string targetServer, string itemPath, int changesetId, int deletionId = 0)
         {
             if (!IsAvailable)
                 throw new GitTfsException("The legacy TFVC helper is not available.");
@@ -77,6 +77,7 @@ namespace GitTfs.Core.RestTfs
                 ServerUrl = targetServer,
                 ItemPath = itemPath,
                 ChangesetId = changesetId,
+                DeletionId = deletionId,
             });
             var file = messages.FirstOrDefault(message =>
                 string.Equals(message.Type, "file", StringComparison.OrdinalIgnoreCase));
@@ -278,6 +279,7 @@ namespace GitTfs.Core.RestTfs
             public int BatchSize { get; set; }
             public string ItemPath { get; set; }
             public int ChangesetId { get; set; }
+            public int DeletionId { get; set; }
             public string Username { get; set; }
             public string Password { get; set; }
             public string Pat { get; set; }

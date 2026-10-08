@@ -257,7 +257,7 @@ namespace GitTfs.Core.RestTfs
                     out var content);
                 if (!reusedLocalFile)
                     content = DownloadFileWithFallback(client, targetServer, change.Item.Path,
-                        changeset.ChangesetId, relativePath);
+                        changeset.ChangesetId, change.Item.DeletionId, relativePath);
                 var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
                 treeDefinition.Add(relativePath, blob, Mode.NonExecutableFile);
                 pathMap.Remove(relativePath);
@@ -285,7 +285,7 @@ namespace GitTfs.Core.RestTfs
         }
 
         private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, string itemPath,
-            int changesetId, string relativePath)
+            int changesetId, int deletionId, string relativePath)
         {
             try
             {
@@ -297,7 +297,7 @@ namespace GitTfs.Core.RestTfs
                 try
                 {
                     return legacyHistoryProviderField.DownloadFile(
-                        targetServer, itemPath, changesetId);
+                        targetServer, itemPath, changesetId, deletionId);
                 }
                 catch (Exception fallbackException)
                 {
