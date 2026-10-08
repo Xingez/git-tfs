@@ -135,15 +135,18 @@ namespace GitTfs.Core.RestTfs
             return changeset;
         }
 
-        public byte[] DownloadFile(string path, int changesetId)
+        public byte[] DownloadFile(string path, int changesetId, string versionType = "Changeset",
+            string versionOption = null)
         {
             var query = new List<KeyValuePair<string, string>>
             {
                 new KeyValuePair<string, string>("path", path),
                 new KeyValuePair<string, string>("download", "true"),
                 new KeyValuePair<string, string>("versionDescriptor.version", changesetId.ToString(CultureInfo.InvariantCulture)),
-                new KeyValuePair<string, string>("versionDescriptor.versionType", "Changeset"),
+                new KeyValuePair<string, string>("versionDescriptor.versionType", versionType),
             };
+            if (!string.IsNullOrWhiteSpace(versionOption))
+                query.Add(new KeyValuePair<string, string>("versionDescriptor.versionOption", versionOption));
 
             return GetBytes(BuildUri("items", query), GetRelativeFilePath(path)).Value ?? Array.Empty<byte>();
         }

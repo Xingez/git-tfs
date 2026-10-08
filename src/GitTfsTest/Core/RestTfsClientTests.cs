@@ -59,6 +59,45 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void DownloadsPreviousTfvcVersionWhenRequested()
+        {
+            var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 4, 5, 6 }),
+            });
+
+            using (var httpClient = new HttpClient(handler))
+            using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
+            {
+                var content = client.DownloadFile("$/Project/Branch/deleted.bin", 42, "Changeset", "Previous");
+
+                CollectionAssert.AreEqual(new byte[] { 4, 5, 6 }, content);
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.version=42");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionType=Changeset");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionOption=Previous");
+            }
+        }
+
+        [TestMethod]
+        public void DownloadsMergeSourceUsingRenameVersionOptionWhenRequested()
+        {
+            var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 7, 8, 9 }),
+            });
+
+            using (var httpClient = new HttpClient(handler))
+            using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
+            {
+                var content = client.DownloadFile("$/Project/Branch/renamed.bin", 42, "MergeSource", "UseRename");
+
+                CollectionAssert.AreEqual(new byte[] { 7, 8, 9 }, content);
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionType=MergeSource");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionOption=UseRename");
+            }
+        }
+
+        [TestMethod]
         public void ExposesNotFoundStatusForHistoricalFileFallbacks()
         {
             var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.NotFound)

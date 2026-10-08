@@ -280,7 +280,7 @@ namespace GitTfs.Core.RestTfs
                 var reusedLocalFile = TryReadMatchingLocalFile(outputPath, relativePath, change.Item.HashValue,
                     out var content);
                 if (!reusedLocalFile)
-                    content = DownloadFileWithFallback(client, targetServer, change.Item.Path,
+                    content = DownloadFileWithFallback(client, targetServer, change,
                         changeset.ChangesetId, change.Item.DeletionId, relativePath);
                 var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(content, writable: false));
                 treeDefinition.Add(relativePath, blob, Mode.NonExecutableFile);
@@ -308,28 +308,60 @@ namespace GitTfs.Core.RestTfs
                 loggerField?.LogInformation("C{ChangesetId}: no file content to download.", changeset.ChangesetId);
         }
 
-        private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, string itemPath,
+        private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, RestChange change,
             int changesetId, int deletionId, string relativePath)
         {
+            var itemPath = change.Item.Path;
             try
             {
                 return client.DownloadFile(itemPath, changesetId);
             }
-            catch (RestTfsException exception) when (exception.StatusCode == 404
-                && legacyHistoryProviderField?.IsAvailable == true)
+            catch (RestTfsException exception) when (exception.StatusCode == 404)
             {
                 try
                 {
-                    return legacyHistoryProviderField.DownloadFile(
-                        targetServer, itemPath, changesetId, deletionId);
+                    return client.DownloadFile(itemPath, changesetId, "Changeset", "Previous");
                 }
-                catch (Exception fallbackException)
+                catch (RestTfsException previousException) when (previousException.StatusCode == 404)
                 {
-                    throw new GitTfsException("The REST and legacy TFVC downloads failed for "
-                        + relativePath + " at C" + changesetId + ".", fallbackException);
+                    if (HasMergeSource(change))
+                    {
+                        try
+                        {
+                            return client.DownloadFile(itemPath, changesetId, "MergeSource", "UseRename");
+                        }
+                        catch (RestTfsException renameException) when (renameException.StatusCode == 404)
+                        {
+                        }
+                    }
+
+                    if (legacyHistoryProviderField?.IsAvailable == true)
+                    {
+                        try
+                        {
+                            return legacyHistoryProviderField.DownloadFile(
+                                targetServer, itemPath, changesetId, deletionId);
+                        }
+                        catch (Exception fallbackException)
+                        {
+                            throw new GitTfsException("The REST version, previous version, rename version, and legacy TFVC downloads failed for "
+                                + relativePath + " at C" + changesetId + ".", fallbackException);
+                        }
+                    }
+
+                    throw new GitTfsException("The REST version, previous version, and rename version downloads failed for "
+                        + relativePath + " at C" + changesetId + ".", previousException);
                 }
             }
         }
+
+        private static bool HasMergeSource(RestChange change)
+            => (change.MergeSources ?? new List<RestMergeSource>()).Any(source => source != null)
+                || (change.ChangeType ?? string.Empty)
+                    .Split(',')
+                    .Select(type => type.Trim())
+                    .Any(type => string.Equals(type, "merge", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(type, "rename", StringComparison.OrdinalIgnoreCase));
 
         private static bool TryReadMatchingLocalFile(string outputPath, string relativePath, string hashValue,
             out byte[] content)
