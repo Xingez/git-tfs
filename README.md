@@ -39,7 +39,7 @@ the REST-based full clone described below.
 4. Clone the TFS subfolder:
 
    ```powershell
-   git tfs clone $/Project/Trunk C:\migration\Project
+   git tfs $/Project/Trunk C:\migration\Project
    ```
 
 5. Enter the created directory, verify the content, and push it to the empty

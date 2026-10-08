@@ -109,7 +109,7 @@ namespace GitTfs
         }
 
         private static IEnumerable<string> GetAvailableCommands()
-            => new[] { "clone" };
+            => Array.Empty<string>();
 
         private static Core.TfsInterop.TfsPlugin LoadTfsPlugin()
         {

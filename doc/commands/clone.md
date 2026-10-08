@@ -1,4 +1,4 @@
-# `git tfs clone`
+# `git tfs` (clone workflow)
 
 Creates a Git repository from a TFS/TFVC path and imports its changeset
 history. A bundled legacy TFVC helper asks the server for recursive history of
@@ -25,12 +25,12 @@ Configure the server in `appsettings.json` first:
 Then pass both the TFS subfolder and the output path:
 
 ```powershell
-git tfs clone $/Project/Trunk C:\migration\Project
+git tfs $/Project/Trunk C:\migration\Project
 ```
 
 The server and the values in `appsettings.json` are applied automatically.
-The command intentionally has only two positional arguments: the TFVC
-subfolder and the Git output path.
+The default workflow accepts the TFVC subfolder and Git output path, followed
+optionally by a target Git URL and target branch.
 
 Clones are resumable. If a clone is interrupted, rerun the same command from
 the same location.

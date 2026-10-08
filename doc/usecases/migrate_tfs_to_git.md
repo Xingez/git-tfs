@@ -91,7 +91,7 @@ The TFS subfolder and output path are supplied after `clone`; the server does
 not need to be repeated on the command line:
 
 ```powershell
-git tfs clone $/Project/Trunk C:\migration\Trunk
+git tfs $/Project/Trunk C:\migration\Trunk
 ```
 
 Clones are resumable. If a full clone is interrupted, rerun the same command
@@ -113,7 +113,7 @@ DOMAIN\jane.doe = Jane Doe <jane.doe@example.com>
 Pass it to `clone`:
 
 ```powershell
-git tfs clone $/Project/Trunk C:\migration\Trunk --authors 'C:\migration\authors.txt'
+git tfs $/Project/Trunk C:\migration\Trunk --authors 'C:\migration\authors.txt'
 ```
 
 ### Clone settings

@@ -49,7 +49,7 @@ namespace GitTfs.Commands
         /// </summary>
         public int Run()
         {
-            Trace.TraceInformation("Usage: git-tfs [command] [options]");
+            Trace.TraceInformation("Usage: git-tfs [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]");
             foreach (var pair in GetCommandMap())
             {
                 var command = "    " + pair.Key;
@@ -60,7 +60,7 @@ namespace GitTfs.Commands
                 }
                 Trace.TraceInformation(command);
             }
-            Trace.TraceInformation(" (use 'git-tfs help [command]' or 'git-tfs [command] --help' for more information)");
+            Trace.TraceInformation(" (use 'git-tfs --help' for more information)");
             Trace.TraceInformation("\nFind more help in our online help : https://github.com/git-tfs/git-tfs");
             return GitTfsExitCodes.Help;
         }
@@ -89,9 +89,14 @@ namespace GitTfs.Commands
                                                                             select instance.Name)
                 .ToDictionary(s => s, s => commandFactoryField.GetAliasesForCommandName(s));
 
-        private string GetCommandName(GitTfsCommand command) => (from instance in GetCommandInstances()
-                                                                 where instance.ImplementationType == command.GetType()
-                                                                 select instance.Name).Single();
+        private string GetCommandName(GitTfsCommand command)
+        {
+            var registeredName = GetCommandInstances()
+                .Where(instance => instance.ImplementationType == command.GetType())
+                .Select(instance => instance.Name)
+                .FirstOrDefault();
+            return registeredName ?? (command is Clone ? "clone" : command.GetType().Name.ToLowerInvariant());
+        }
 
         private IEnumerable<ServiceCatalog.ServiceRegistration> GetCommandInstances() => catalogField.Commands;
 

@@ -2,7 +2,7 @@
 
 ## TFS server
 
-The current short form of `git tfs clone` reads the TFS collection URL from
+The default `git tfs` workflow reads the TFS collection URL from
 `appsettings.json`:
 
 ```json
@@ -32,7 +32,7 @@ $env:GIT_TFS_APPSETTINGS = 'C:\git-tfs\appsettings.json'
 ```
 
 `TargetServer` is trimmed and trailing slashes are removed when it is loaded.
-The remaining values are applied automatically by `git tfs clone`:
+The remaining values are applied automatically by `git tfs`:
 
 - `resumable`: keep the output repository so an interrupted clone can resume.
 - `api-version`: TFVC REST API version; the default is `7.1`.

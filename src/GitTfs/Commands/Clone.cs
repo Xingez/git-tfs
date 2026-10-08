@@ -5,8 +5,7 @@ namespace GitTfs.Commands
     using global::GitTfs.Core.RestTfs;
     using global::GitTfs.Util;
 
-    [Pluggable("clone")]
-    [Description("clone [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]\n  The target server and clone defaults are read from appsettings.json.\n  target-branch defaults to main.\n  ex : git tfs clone $/ProjectName/ProjectBranch .\n")]
+    [Description("[options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]\n  Clone is the default workflow. The target server and clone defaults are read from appsettings.json.\n  target-branch defaults to main.\n  ex : git tfs $/ProjectName/ProjectBranch .\n")]
     public class Clone : GitTfsCommand
     {
         private const string DefaultTargetBranch = "main";
@@ -51,7 +50,7 @@ namespace GitTfs.Commands
                     ? "appsettings.json"
                     : settingsField.SourcePath;
                 throw new GitTfsException("TargetServer is not configured in " + source
-                    + ". Set it before using 'git tfs clone <tfs-subfolder> <output-path>'.");
+                    + ". Set it before using 'git tfs <tfs-subfolder> <output-path>'.");
             }
 
             var result = restCloneServiceField.Run(settingsField.TargetServer, tfsRepositoryPath,

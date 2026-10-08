@@ -36,9 +36,9 @@ namespace GitTfs.Test.Commands
             mocks.RegisterCommand("test", new TestCommand());
             mocks.ClassUnderTest.Run();
 
-            Assert.Equal("Usage: git-tfs [command] [options]", memoryTarget.Logs[0]);
+            Assert.Equal("Usage: git-tfs [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]", memoryTarget.Logs[0]);
             Assert.Contains("test", memoryTarget.Logs[1]);
-            Assert.Equal(" (use 'git-tfs help [command]' or 'git-tfs [command] --help' for more information)", memoryTarget.Logs[2]);
+            Assert.Equal(" (use 'git-tfs --help' for more information)", memoryTarget.Logs[2]);
             Assert.Contains("Find more help in our online help : https://github.com/git-tfs/git-tfs", memoryTarget.Logs[3]);
         }
 
