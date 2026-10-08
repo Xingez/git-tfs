@@ -8,6 +8,7 @@ namespace GitTfs.Core.RestTfs
     using global::System.Net.Http.Headers;
     using global::System.Text;
     using global::System.Text.Json;
+    using global::Microsoft.Extensions.Logging;
 
     /// <summary>
     /// Small, transport-level TFVC REST client used by the REST clone pipeline.
@@ -25,13 +26,15 @@ namespace GitTfs.Core.RestTfs
         private readonly string projectField;
         private readonly string repositoryPathField;
         private readonly string apiVersionField;
+        private readonly ILogger<RestTfsClient> loggerField;
         private readonly JsonSerializerOptions jsonOptionsField = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
         };
         private TimeSpan pendingServerDelayField;
 
-        public RestTfsClient(string serverUrl, string repositoryPath, GitTfsSettings settings)
+        public RestTfsClient(string serverUrl, string repositoryPath, GitTfsSettings settings,
+            ILogger<RestTfsClient> logger = null)
         {
             if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out var serverUri))
                 throw new GitTfsException("TargetServer must be an absolute HTTP(S) URI.");
@@ -43,14 +46,17 @@ namespace GitTfs.Core.RestTfs
             projectField = ExtractProject(repositoryPath);
             repositoryPathField = NormalizeServerPath(repositoryPath);
             apiVersionField = string.IsNullOrWhiteSpace(settings.ApiVersion) ? "7.1" : settings.ApiVersion.Trim();
+            loggerField = logger;
             httpClientField = CreateHttpClient(settings);
             ownsHttpClientField = true;
         }
 
-        public RestTfsClient(HttpClient httpClient, string serverUrl, string repositoryPath, string apiVersion = "7.1")
+        public RestTfsClient(HttpClient httpClient, string serverUrl, string repositoryPath, string apiVersion = "7.1",
+            ILogger<RestTfsClient> logger = null)
         {
             httpClientField = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             ownsHttpClientField = false;
+            loggerField = logger;
 
             if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out var serverUri))
                 throw new ArgumentException("The server URL must be absolute.", nameof(serverUrl));
@@ -170,7 +176,7 @@ namespace GitTfs.Core.RestTfs
                 {
                     request.Headers.Accept.Clear();
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(binary ? "application/octet-stream" : "application/json"));
-                    Trace.WriteLine("TFS request: GET " + logTarget);
+                    loggerField?.LogDebug("TFS request: GET {RequestTarget}", logTarget);
 
                     HttpResponseMessage response;
                     try
@@ -190,7 +196,8 @@ namespace GitTfs.Core.RestTfs
                             name => headers.TryGetValue(name, out var value) ? value : null,
                             (int)response.StatusCode);
                         if (rateLimit.HasHeaders || response.StatusCode >= HttpStatusCode.BadRequest)
-                            Trace.WriteLine("TFS response " + (int)response.StatusCode + " for " + uri + ": " + rateLimit.ToLogString());
+                            loggerField?.LogDebug("TFS response {StatusCode} for {RequestUrl}: {RateLimit}",
+                                (int)response.StatusCode, uri, rateLimit.ToLogString());
 
                         if (response.IsSuccessStatusCode)
                         {
@@ -198,8 +205,8 @@ namespace GitTfs.Core.RestTfs
                             if (rateLimit.IsThrottled && serverDelay.HasValue)
                             {
                                 pendingServerDelayField = Max(pendingServerDelayField, serverDelay.Value);
-                                Trace.WriteLine("TFS server requested " + FormatDuration(serverDelay.Value)
-                                    + " before the next request (source: " + delaySource + ").");
+                                loggerField?.LogInformation("TFS server requested {Delay} before the next request (source: {DelaySource}).",
+                                    FormatDuration(serverDelay.Value), delaySource);
                             }
 
                             var result = readResponse(response);
@@ -207,7 +214,7 @@ namespace GitTfs.Core.RestTfs
                                 ? "TFS request completed in " + FormatDuration(requestTimer.Elapsed) + "."
                                 : "TFS retry request " + attempt + "/" + MaxRequestAttempts
                                     + " completed in " + FormatDuration(requestTimer.Elapsed) + ".";
-                            Trace.WriteLine(completionMessage);
+                            loggerField?.LogDebug("{CompletionMessage}", completionMessage);
                             return new RestResponse<T>(result, headers, (int)response.StatusCode);
                         }
 
@@ -238,25 +245,26 @@ namespace GitTfs.Core.RestTfs
 
             var delay = pendingServerDelayField;
             pendingServerDelayField = TimeSpan.Zero;
-            Trace.WriteLine("Waiting " + FormatDuration(delay) + " before TFS request: " + logTarget);
+            loggerField?.LogInformation("Waiting {Delay} before TFS request: {RequestTarget}.",
+                FormatDuration(delay), logTarget);
             var waitTimer = Stopwatch.StartNew();
             Thread.Sleep(delay);
-            Trace.WriteLine("TFS request wait completed in " + FormatDuration(waitTimer.Elapsed)
-                + " (requested " + FormatDuration(delay) + ").");
+            loggerField?.LogInformation("TFS request wait completed in {Elapsed} (requested {Delay}).",
+                FormatDuration(waitTimer.Elapsed), FormatDuration(delay));
         }
 
-        private static void WaitBeforeRetry(Uri uri, int attempt, TimeSpan? serverDelay, TimeSpan defaultDelay, string source, string reason)
+        private void WaitBeforeRetry(Uri uri, int attempt, TimeSpan? serverDelay, TimeSpan defaultDelay, string source, string reason)
         {
             var delay = serverDelay ?? defaultDelay;
             if (delay < TimeSpan.Zero)
                 delay = TimeSpan.Zero;
 
-            Trace.WriteLine("Waiting " + FormatDuration(delay) + " before TFS retry request "
-                + (attempt + 1) + "/" + MaxRequestAttempts + " (source: " + source + ", url: " + uri + "). " + reason);
+            loggerField?.LogWarning("Waiting {Delay} before TFS retry request {RetryAttempt}/{MaxAttempts} (source: {DelaySource}, url: {RequestUrl}). {Reason}",
+                FormatDuration(delay), attempt + 1, MaxRequestAttempts, source, uri, reason);
             var waitTimer = Stopwatch.StartNew();
             Thread.Sleep(delay);
-            Trace.WriteLine("TFS retry wait completed in " + FormatDuration(waitTimer.Elapsed)
-                + " (requested " + FormatDuration(delay) + ").");
+            loggerField?.LogInformation("TFS retry wait completed in {Elapsed} (requested {Delay}).",
+                FormatDuration(waitTimer.Elapsed), FormatDuration(delay));
         }
 
         private Uri BuildUri(string resource, IEnumerable<KeyValuePair<string, string>> query = null,

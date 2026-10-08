@@ -7,6 +7,7 @@ namespace GitTfs.Core.RestTfs
     using global::System.Globalization;
     using global::System.Security.Cryptography;
     using global::System.Text;
+    using global::Microsoft.Extensions.Logging;
 
     /// <summary>
     /// Imports one TFVC folder into Git without creating or using a TFVC workspace.
@@ -16,13 +17,19 @@ namespace GitTfs.Core.RestTfs
         private readonly GitTfsSettings settingsField;
         private readonly AuthorsFile authorsFileField;
         private readonly LegacyTfvcHistoryProvider legacyHistoryProviderField;
+        private readonly ILogger<RestTfsCloneService> loggerField;
+        private readonly ILoggerFactory loggerFactoryField;
 
         public RestTfsCloneService(GitTfsSettings settings, AuthorsFile authorsFile,
-            LegacyTfvcHistoryProvider legacyHistoryProvider = null)
+            LegacyTfvcHistoryProvider legacyHistoryProvider = null,
+            ILogger<RestTfsCloneService> logger = null,
+            ILoggerFactory loggerFactory = null)
         {
             settingsField = settings;
             authorsFileField = authorsFile;
             legacyHistoryProviderField = legacyHistoryProvider;
+            loggerField = logger;
+            loggerFactoryField = loggerFactory;
         }
 
         public int Run(string targetServer, string repositoryPath, string outputPath)
@@ -54,7 +61,8 @@ namespace GitTfs.Core.RestTfs
                 }
 
                 using (var repository = new Repository(absoluteOutputPath))
-                using (var client = new RestTfsClient(targetServer, repositoryPath, settingsField))
+                using (var client = new RestTfsClient(targetServer, repositoryPath, settingsField,
+                    loggerFactoryField?.CreateLogger<RestTfsClient>()))
                 {
                     ConfigureRepository(repository, targetServer, repositoryPath);
                     var parent = repository.Head?.Tip;
@@ -71,16 +79,16 @@ namespace GitTfs.Core.RestTfs
                     var fromChangesetId = lastChangesetId;
                     var lastScannedChangesetId = lastChangesetId;
 
-                    Trace.TraceInformation("Using REST TFVC clone for " + repositoryPath + ".");
-                    Trace.TraceInformation("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
+                    loggerField?.LogInformation("Using REST TFVC clone for {RepositoryPath}.", repositoryPath);
+                    loggerField?.LogDebug("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
                     var legacyChangesetReferences = legacyHistoryProviderField?.IsAvailable == true
                         ? legacyHistoryProviderField.GetChangesets(targetServer, repositoryPath, lastChangesetId)
                         : null;
                     if (legacyChangesetReferences != null)
                     {
-                        Trace.TraceInformation("Using legacy TFVC recursive history for " + repositoryPath + ".");
-                        Trace.TraceInformation("Legacy history returned " + legacyChangesetReferences.Count
-                            + " relevant changeset reference(s).");
+                        loggerField?.LogInformation("Using legacy TFVC recursive history for {RepositoryPath}.", repositoryPath);
+                        loggerField?.LogInformation("Legacy history returned {ChangesetCount} relevant changeset reference(s).",
+                            legacyChangesetReferences.Count);
                         foreach (var changesetReference in legacyChangesetReferences)
                         {
                             if (changesetReference.ChangesetId <= lastChangesetId)
@@ -93,8 +101,8 @@ namespace GitTfs.Core.RestTfs
                     }
                     else
                     {
-                        Trace.TraceWarning("Legacy TFVC history helper is unavailable; scanning project changesets as a REST fallback.");
-                        Trace.TraceInformation("Scanning project changesets and filtering changes under " + repositoryPath + ".");
+                        loggerField?.LogWarning("Legacy TFVC history helper is unavailable; scanning project changesets as a REST fallback.");
+                        loggerField?.LogInformation("Scanning project changesets and filtering changes under {RepositoryPath}.", repositoryPath);
 
                         while (true)
                         {
@@ -104,9 +112,9 @@ namespace GitTfs.Core.RestTfs
                             if (changesetReferences.Count == 0)
                                 break;
 
-                            Trace.TraceInformation("Changeset scan after C" + pageStartChangesetId + " returned "
-                                + changesetReferences.Count + " reference(s), through C"
-                                + changesetReferences.Max(reference => reference.ChangesetId) + ".");
+                            loggerField?.LogInformation("Changeset scan after C{StartingChangesetId} returned {ChangesetCount} reference(s), through C{EndingChangesetId}.",
+                                pageStartChangesetId, changesetReferences.Count,
+                                changesetReferences.Max(reference => reference.ChangesetId));
 
                             foreach (var changesetReference in changesetReferences.OrderBy(reference => reference.ChangesetId))
                             {
@@ -129,8 +137,8 @@ namespace GitTfs.Core.RestTfs
                                 // the Azure DevOps REST contract describes it as exclusive. Move past
                                 // the repeated result so a folder history cannot stop at its first page.
                                 fromChangesetId = pageStartChangesetId + 1;
-                                Trace.TraceInformation("Changeset scan page did not advance; retrying after C"
-                                    + pageStartChangesetId + ".");
+                                loggerField?.LogWarning("Changeset scan page did not advance; retrying after C{StartingChangesetId}.",
+                                    pageStartChangesetId);
                                 continue;
                             }
                             fromChangesetId = lastReferenceId;
@@ -146,11 +154,12 @@ namespace GitTfs.Core.RestTfs
                         // the files we just materialized. This is equivalent to
                         // `git reset --mixed HEAD` and leaves a fresh clone clean.
                         repository.Reset(ResetMode.Mixed, newestCommit);
-                        Trace.TraceInformation("Clone complete: " + fetchedChangesets + " changeset(s), latest C" + lastChangesetId + ".");
+                        loggerField?.LogInformation("Clone complete: {ChangesetCount} changeset(s), latest C{ChangesetId}.",
+                            fetchedChangesets, lastChangesetId);
                     }
                     else
                     {
-                        Trace.TraceInformation("Clone complete: no changesets found under " + repositoryPath + ".");
+                        loggerField?.LogInformation("Clone complete: no changesets found under {RepositoryPath}.", repositoryPath);
                     }
                 }
 
@@ -166,7 +175,7 @@ namespace GitTfs.Core.RestTfs
                     }
                     catch (Exception cleanupException)
                     {
-                        Trace.WriteLine("Unable to clean failed clone directory: " + cleanupException.Message);
+                        loggerField?.LogWarning(cleanupException, "Unable to clean failed clone directory.");
                     }
                 }
                 throw;
@@ -182,11 +191,12 @@ namespace GitTfs.Core.RestTfs
             if (!HasChangesWithinRepository(changeset, repositoryPath))
             {
                 var sourceRenameCount = changeset.Changes.Count(IsSourceRename);
-                Trace.TraceInformation("C" + changeset.ChangesetId + ": skipped; "
-                    + (sourceRenameCount > 0
+                loggerField?.LogInformation("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
+                    changeset.ChangesetId,
+                    sourceRenameCount > 0
                         ? "source rename records contain no downloadable content"
-                        : "no changes")
-                    + " under " + repositoryPath + ".");
+                        : "no changes",
+                    repositoryPath);
                 return;
             }
 
@@ -211,8 +221,8 @@ namespace GitTfs.Core.RestTfs
                 ? fetchedChangesets.ToString(CultureInfo.InvariantCulture) + "/"
                     + totalChangesets.Value.ToString(CultureInfo.InvariantCulture)
                 : fetchedChangesets.ToString(CultureInfo.InvariantCulture) + "/?";
-            Trace.TraceInformation("[" + progress + "] C" + changeset.ChangesetId
-                + " committed as " + commit.Sha + ".");
+            loggerField?.LogInformation("[{Progress}] C{ChangesetId} committed as {CommitSha}.",
+                progress, changeset.ChangesetId, commit.Sha);
         }
 
         private void ApplyChanges(RestTfsClient client, Repository repository, TreeDefinition treeDefinition,
@@ -231,7 +241,8 @@ namespace GitTfs.Core.RestTfs
             var downloaded = 0;
             var reused = 0;
             var processed = 0;
-            Trace.TraceInformation("C" + changeset.ChangesetId + ": processing " + filesToProcess + " file(s) (0%).");
+            loggerField?.LogInformation("C{ChangesetId}: processing {FileCount} file(s) (0%).",
+                changeset.ChangesetId, filesToProcess);
 
             foreach (var change in changes)
             {
@@ -270,18 +281,18 @@ namespace GitTfs.Core.RestTfs
                 else
                 {
                     reused++;
-                    Trace.TraceInformation("C" + changeset.ChangesetId + ": reusing local file " + relativePath
-                        + "; its TFVC hash matches.");
+                    loggerField?.LogDebug("C{ChangesetId}: reusing local file {RelativePath}; its TFVC hash matches.",
+                        changeset.ChangesetId, relativePath);
                 }
 
                 processed++;
                 var percent = filesToProcess == 0 ? 100 : processed * 100 / filesToProcess;
-                Trace.TraceInformation("C" + changeset.ChangesetId + ": processed " + processed + "/" + filesToProcess
-                    + " file(s) (" + percent + "%; downloaded " + downloaded + ", reused " + reused + ").");
+                loggerField?.LogInformation("C{ChangesetId}: processed {ProcessedFiles}/{TotalFiles} file(s) ({Percent}%; downloaded {Downloaded}, reused {Reused}).",
+                    changeset.ChangesetId, processed, filesToProcess, percent, downloaded, reused);
             }
 
             if (filesToProcess == 0)
-                Trace.TraceInformation("C" + changeset.ChangesetId + ": no file content to download.");
+                loggerField?.LogInformation("C{ChangesetId}: no file content to download.", changeset.ChangesetId);
         }
 
         private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, string itemPath,

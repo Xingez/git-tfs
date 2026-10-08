@@ -8,6 +8,7 @@ namespace GitTfs
     using global::GitTfs.Core.TfsInterop;
     using global::GitTfs.Util;
     using global::Microsoft.Extensions.DependencyInjection;
+    using global::Microsoft.Extensions.Logging;
     using global::Serilog;
     using global::Serilog.Core;
     using global::Serilog.Events;
@@ -87,6 +88,7 @@ namespace GitTfs
             var services = new ServiceCollection();
             var catalog = new ServiceCatalog(GetAvailableCommands());
 
+            services.AddLogging(logging => logging.AddSerilog(Log.Logger, dispose: false));
             services.AddSingleton(catalog);
             services.AddGitTfsServices(catalog,
                 new[] { typeof(Program).Assembly }
