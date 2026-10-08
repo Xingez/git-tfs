@@ -227,6 +227,7 @@ namespace GitTfs.Test.Integration
         {
             var origPwd = Environment.CurrentDirectory;
             var origClient = Environment.GetEnvironmentVariable("GIT_TFS_CLIENT");
+            var origLegacyCommands = Environment.GetEnvironmentVariable("GIT_TFS_ENABLE_LEGACY_TEST_COMMANDS");
             var origScript = Environment.GetEnvironmentVariable(Script.EnvVar);
             var origNoSystem = Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
             var origGlobalConfig = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
@@ -243,6 +244,7 @@ namespace GitTfs.Test.Integration
 
                 Environment.CurrentDirectory = testDirectory;
                 Environment.SetEnvironmentVariable("GIT_TFS_CLIENT", "Fake");
+                Environment.SetEnvironmentVariable("GIT_TFS_ENABLE_LEGACY_TEST_COMMANDS", "true");
                 Environment.SetEnvironmentVariable(Script.EnvVar, FakeScript);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "true");
                 Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", globalConfigPath);
@@ -261,6 +263,7 @@ namespace GitTfs.Test.Integration
             finally
             {
                 Environment.SetEnvironmentVariable("GIT_TFS_CLIENT", origClient);
+                Environment.SetEnvironmentVariable("GIT_TFS_ENABLE_LEGACY_TEST_COMMANDS", origLegacyCommands);
                 Environment.SetEnvironmentVariable(Script.EnvVar, origScript);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", origNoSystem);
                 Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", origGlobalConfig);

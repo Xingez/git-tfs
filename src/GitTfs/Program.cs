@@ -103,10 +103,10 @@ namespace GitTfs
 
         private static IEnumerable<string> GetAvailableCommands()
         {
-            // Integration tests use the fake TFS client to exercise the legacy
-            // command implementations directly. The production executable is
-            // intentionally limited to the supported clone workflow.
-            if (string.Equals(Environment.GetEnvironmentVariable("GIT_TFS_CLIENT"), "Fake", StringComparison.OrdinalIgnoreCase))
+            // The shipped executable exposes the clone workflow only. The
+            // legacy command set is enabled solely by the integration-test
+            // harness, which still exercises the old fake client implementation.
+            if (string.Equals(Environment.GetEnvironmentVariable("GIT_TFS_ENABLE_LEGACY_TEST_COMMANDS"), "true", StringComparison.OrdinalIgnoreCase))
                 return null;
 
             return new[] { "clone", "help", "version" };

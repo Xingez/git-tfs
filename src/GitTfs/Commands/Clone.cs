@@ -38,8 +38,17 @@ namespace GitTfs.Commands
             globals.GcCountdown = globals.GcPeriod;
         }
 
-        public OptionSet OptionSet => initField.OptionSet.Merge(fetchField.OptionSet)
-                           .Add("resumable", "if an error occurred, try to continue when you restart clone with same parameters", v => resumableField = v != null);
+        public OptionSet OptionSet
+        {
+            get
+            {
+                if (!UseLegacyTfsClient())
+                    return new OptionSet();
+
+                return initField.OptionSet.Merge(fetchField.OptionSet)
+                    .Add("resumable", "if an error occurred, try to continue when you restart clone with same parameters", v => resumableField = v != null);
+            }
+        }
 
         public int Run(string tfsRepositoryPath, string gitRepositoryPath)
         {
