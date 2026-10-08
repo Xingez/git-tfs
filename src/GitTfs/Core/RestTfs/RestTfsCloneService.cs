@@ -294,8 +294,6 @@ namespace GitTfs.Core.RestTfs
             catch (RestTfsException exception) when (exception.StatusCode == 404
                 && legacyHistoryProviderField?.IsAvailable == true)
             {
-                Trace.TraceWarning("REST returned 404 for " + relativePath + " at C" + changesetId
-                    + "; trying the legacy TFVC content fallback.");
                 try
                 {
                     return legacyHistoryProviderField.DownloadFile(
