@@ -39,7 +39,8 @@ namespace GitTfs.Core.RestTfs
             gitHelpersField = gitHelpers;
         }
 
-        public int Run(string targetServer, string repositoryPath, string outputPath, bool noFallback = false)
+        public int Run(string targetServer, string repositoryPath, string outputPath, bool noFallback = false,
+            string targetCloneUrl = null, string targetBranch = "main")
         {
             repositoryPath = repositoryPath.TrimEnd('/');
             repositoryPath.AssertValidTfsPath();
@@ -167,6 +168,21 @@ namespace GitTfs.Core.RestTfs
                     }
 
                     var maintenanceMode = RunGitMaintenance(absoluteOutputPath, newestCommit != null);
+                    if (!string.IsNullOrWhiteSpace(targetCloneUrl))
+                    {
+                        if (newestCommit == null)
+                            throw new GitTfsException("A target Git repository requires an imported changeset to merge.");
+
+                        targetBranch = string.IsNullOrWhiteSpace(targetBranch) ? "main" : targetBranch.Trim();
+                        var sourceBranch = repository.Head?.FriendlyName ?? "source";
+                        MergeIntoTargetRepository(absoluteOutputPath, targetCloneUrl, targetBranch,
+                            sourceBranch, newestCommit.Sha);
+                        var targetMaintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
+                        loggerField?.LogInformation("Target Git sync complete: {SourceBranch} merged into "
+                            + "origin/{TargetBranch} and pushed; Git maintenance: {MaintenanceMode}.",
+                            sourceBranch, targetBranch, targetMaintenanceMode);
+                    }
+
                     if (newestCommit == null)
                     {
                         loggerField?.LogInformation("Clone complete for {RepositoryPath}: no changesets imported "
@@ -206,6 +222,53 @@ namespace GitTfs.Core.RestTfs
                     }
                 }
                 throw;
+            }
+        }
+
+        private void MergeIntoTargetRepository(string outputPath, string targetCloneUrl, string targetBranch,
+            string sourceBranch, string sourceCommitSha)
+        {
+            targetBranch = string.IsNullOrWhiteSpace(targetBranch) ? "main" : targetBranch.Trim();
+            if (!Reference.IsValidName("refs/heads/" + targetBranch))
+                throw new GitTfsException("The target Git branch name is invalid: " + targetBranch + ".");
+
+            if (gitHelpersField == null)
+                throw new GitTfsException("Git helpers are not available for target repository synchronization.");
+
+            try
+            {
+                gitHelpersField.CommandNoisy("-C", outputPath, "remote", "add", "origin", targetCloneUrl);
+            }
+            catch (GitCommandException)
+            {
+                gitHelpersField.CommandNoisy("-C", outputPath, "remote", "set-url", "origin", targetCloneUrl);
+            }
+
+            try
+            {
+                gitHelpersField.CommandNoisy("-C", outputPath, "fetch", "origin");
+                gitHelpersField.CommandOneline("-C", outputPath, "rev-parse", "--verify",
+                    "refs/remotes/origin/" + targetBranch);
+            }
+            catch (GitCommandException exception)
+            {
+                throw new GitTfsException("Unable to fetch target Git branch origin/" + targetBranch + ".", exception);
+            }
+
+            try
+            {
+                gitHelpersField.CommandNoisy("-C", outputPath, "checkout", "-B", targetBranch,
+                    "refs/remotes/origin/" + targetBranch);
+                gitHelpersField.CommandNoisy("-C", outputPath, "-c", "user.name=git-tfs",
+                    "-c", "user.email=git-tfs@noreply", "merge", "--allow-unrelated-histories",
+                    "--no-edit", "-m", "GIT-TFS Merge (" + sourceBranch + ") with " + targetBranch,
+                    sourceCommitSha);
+                gitHelpersField.CommandNoisy("-C", outputPath, "push", "origin", targetBranch);
+            }
+            catch (GitCommandException exception)
+            {
+                throw new GitTfsException("Unable to merge and push the TFVC clone into origin/"
+                    + targetBranch + ". Resolve the target repository state and retry.", exception);
             }
         }
 

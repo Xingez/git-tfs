@@ -100,6 +100,70 @@ namespace GitTfs.Test.Core
             }
         }
 
+        [TestMethod]
+        public void MergesCloneIntoTargetBranchAndPushes()
+        {
+            using (var server = new FakeTfvcServer())
+            {
+                var outputPath = Path.Combine(Path.GetTempPath(), "git-tfs-rest-target-test-" + Guid.NewGuid().ToString("N"));
+                var targetPath = Path.Combine(Path.GetTempPath(), "git-tfs-rest-target-bare-test-" + Guid.NewGuid().ToString("N"));
+                try
+                {
+                    CreateTargetRepository(targetPath);
+                    var settings = new GitTfsSettings
+                    {
+                        BatchSize = 1,
+                        NoParallel = true,
+                        Resumable = true,
+                        Proxy = "none",
+                    };
+                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                        gitHelpers: new GitHelpers(null));
+
+                    var result = service.Run(server.ServerUrl, "$/Project/Branch", outputPath,
+                        targetCloneUrl: targetPath.Replace('\\', '/'), targetBranch: "main");
+
+                    Assert.Equal(GitTfsExitCodes.OK, result);
+                    using (var repository = new Repository(outputPath))
+                    {
+                        Assert.Equal("main", repository.Head.FriendlyName);
+                        Assert.Contains("GIT-TFS Merge (master) with main", repository.Head.Tip.Message);
+                        Assert.True(repository.Index.Any(entry => entry.Path == "a.txt"));
+                        Assert.True(repository.Index.Any(entry => entry.Path == "target.txt"));
+                        Assert.Empty(repository.RetrieveStatus());
+                    }
+
+                    using (var targetRepository = new Repository(targetPath))
+                    {
+                        Assert.Contains("GIT-TFS Merge (master) with main",
+                            targetRepository.Branches["main"].Tip.Message);
+                    }
+                }
+                finally
+                {
+                    DeleteDirectory(outputPath);
+                    DeleteDirectory(targetPath);
+                }
+            }
+        }
+
+        private static void CreateTargetRepository(string path)
+        {
+            Repository.Init(path, isBare: true);
+            using (var repository = new Repository(path))
+            {
+                var blob = repository.ObjectDatabase.CreateBlob(
+                    new MemoryStream(Encoding.UTF8.GetBytes("target"), writable: false));
+                var treeDefinition = new TreeDefinition();
+                treeDefinition.Add("target.txt", blob, LibGit2Sharp.Mode.NonExecutableFile);
+                var tree = repository.ObjectDatabase.CreateTree(treeDefinition);
+                var signature = new Signature("Target User", "target@example.com", DateTimeOffset.UtcNow);
+                var commit = repository.ObjectDatabase.CreateCommit(signature, signature, "target", tree,
+                    Enumerable.Empty<Commit>(), false);
+                repository.Refs.Add("refs/heads/main", commit.Sha, allowOverwrite: true);
+            }
+        }
+
         private static void DeleteDirectory(string path)
         {
             if (!Directory.Exists(path))

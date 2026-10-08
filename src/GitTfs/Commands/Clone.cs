@@ -8,9 +8,10 @@ namespace GitTfs.Commands
     using global::GitTfs.Core.RestTfs;
     using global::GitTfs.Core.TfsInterop;
     [Pluggable("clone")]
-    [Description("clone [options] <tfs-subfolder> <output-path>\n  The target server and clone defaults are read from appsettings.json.\n  ex : git tfs clone $/ProjectName/ProjectBranch .\n")]
+    [Description("clone [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]\n  The target server and clone defaults are read from appsettings.json.\n  target-branch defaults to main.\n  ex : git tfs clone $/ProjectName/ProjectBranch .\n")]
     public class Clone : GitTfsCommand
     {
+        private const string DefaultTargetBranch = "main";
         private readonly Fetch fetchField;
         private readonly Init initField;
         private readonly Globals globalsField;
@@ -56,6 +57,23 @@ namespace GitTfs.Commands
 
         public int Run(string tfsRepositoryPath, string gitRepositoryPath)
         {
+            return RunConfiguredClone(tfsRepositoryPath, gitRepositoryPath, null, DefaultTargetBranch);
+        }
+
+        public int Run(string firstArgument, string secondArgument, string thirdArgument)
+        {
+            if (LooksLikeTfsRepositoryPath(firstArgument))
+                return RunConfiguredClone(firstArgument, secondArgument, thirdArgument, DefaultTargetBranch);
+
+            return RunTfsClone(firstArgument, secondArgument, thirdArgument, noFallbackField, null, DefaultTargetBranch);
+        }
+
+        public int Run(string tfsRepositoryPath, string gitRepositoryPath, string targetCloneUrl, string targetBranch)
+            => RunConfiguredClone(tfsRepositoryPath, gitRepositoryPath, targetCloneUrl, targetBranch);
+
+        private int RunConfiguredClone(string tfsRepositoryPath, string gitRepositoryPath,
+            string targetCloneUrl, string targetBranch)
+        {
             if (string.IsNullOrWhiteSpace(tfsRepositoryPath) || string.Equals(tfsRepositoryPath, GitTfsConstants.TfsRoot, StringComparison.OrdinalIgnoreCase))
                 throw new GitTfsException("Clone requires a TFS subfolder, not the TFS root.");
 
@@ -70,20 +88,23 @@ namespace GitTfs.Commands
                 throw new GitTfsException("TargetServer is not configured in " + source + ". Set it before using 'git tfs clone <tfs-subfolder> <output-path>'.");
             }
 
-            return Run(settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath, noFallbackField);
+            return RunTfsClone(settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath,
+                noFallbackField, targetCloneUrl, targetBranch);
         }
 
-        public int Run(string tfsUrl, string tfsRepositoryPath, string gitRepositoryPath)
-            => Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath, noFallback: false);
-
-        public int Run(string tfsUrl, string tfsRepositoryPath, string gitRepositoryPath, bool noFallback)
+        private int RunTfsClone(string tfsUrl, string tfsRepositoryPath, string gitRepositoryPath,
+            bool noFallback, string targetCloneUrl, string targetBranch)
         {
             if (!UseLegacyTfsClient())
             {
-                var result = restCloneServiceField.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath, noFallback);
+                var result = restCloneServiceField.Run(tfsUrl, tfsRepositoryPath, gitRepositoryPath,
+                    noFallback, targetCloneUrl, targetBranch);
                 Environment.CurrentDirectory = Path.GetFullPath(gitRepositoryPath);
                 return result;
             }
+
+            if (!string.IsNullOrWhiteSpace(targetCloneUrl))
+                throw new GitTfsException("Target Git merging is only supported by the REST TFVC clone.");
 
             var currentDir = Environment.CurrentDirectory;
             var repositoryDirCreated = InitGitDir(gitRepositoryPath);
@@ -190,6 +211,9 @@ namespace GitTfs.Commands
             }
             return retVal;
         }
+
+        private static bool LooksLikeTfsRepositoryPath(string value)
+            => value?.StartsWith("$/", StringComparison.OrdinalIgnoreCase) == true;
 
         private static bool UseLegacyTfsClient()
             => string.Equals(Environment.GetEnvironmentVariable("GIT_TFS_CLIENT"), "Fake", StringComparison.OrdinalIgnoreCase);
