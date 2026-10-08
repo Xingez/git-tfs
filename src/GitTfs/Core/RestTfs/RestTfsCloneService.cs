@@ -167,6 +167,9 @@ namespace GitTfs.Core.RestTfs
                         summary.TrackedFiles = EnumerateFiles(newestCommit.Tree).Count();
                     }
 
+                    var verification = newestCommit == null
+                        ? null
+                        : VerifyLatestFiles(client, repositoryPath, absoluteOutputPath, newestCommit.Tree, lastChangesetId);
                     var maintenanceMode = RunGitMaintenance(absoluteOutputPath, newestCommit != null);
                     if (!string.IsNullOrWhiteSpace(targetCloneUrl))
                     {
@@ -198,11 +201,14 @@ namespace GitTfs.Core.RestTfs
                             + "({ChangesetsSkipped} skipped); {FilesProcessed} file change(s) "
                             + "({FilesDownloaded} downloaded, {FilesReused} reused, {FilesDeleted} deleted); "
                             + "{TrackedFiles} tracked file(s); latest C{ChangesetId} ({CommitSha}); "
+                            + "verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
+                            + "({HashlessFiles} without hash); "
                             + "Git maintenance: {MaintenanceMode}.",
                             repositoryPath, summary.ChangesetsImported, summary.ChangesetsConsidered,
                             summary.ChangesetsSkipped, summary.FilesProcessed, summary.FilesDownloaded,
                             summary.FilesReused, summary.FilesDeleted, summary.TrackedFiles,
-                            lastChangesetId, newestCommit.Sha, maintenanceMode);
+                            lastChangesetId, newestCommit.Sha, verification.MatchedFiles,
+                            verification.CheckedFiles, verification.HashlessFiles, maintenanceMode);
                     }
                 }
 
@@ -433,6 +439,80 @@ namespace GitTfs.Core.RestTfs
 
             if (filesToProcess == 0)
                 loggerField?.LogInformation("C{ChangesetId}: no file content to download.", changeset.ChangesetId);
+        }
+
+        private FileVerificationSummary VerifyLatestFiles(RestTfsClient client, string repositoryPath,
+            string outputPath, Tree tree, int changesetId)
+        {
+            var summary = new FileVerificationSummary();
+            var expectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var items = client.GetItems(repositoryPath, changesetId);
+            foreach (var item in items)
+            {
+                if (item == null || item.IsFolder || item.DeletionId > 0 || !IsWithinRepository(item.Path, repositoryPath))
+                    continue;
+
+                var relativePath = ToRelativeGitPath(item.Path, repositoryPath);
+                if (string.IsNullOrWhiteSpace(relativePath))
+                    continue;
+
+                expectedPaths.Add(relativePath);
+                var filePath = GetWorkingFilePath(outputPath, relativePath);
+                if (!File.Exists(filePath))
+                {
+                    summary.MissingFiles++;
+                    loggerField?.LogError("TFVC verification failed: missing relative file {RelativePath} at C{ChangesetId}.",
+                        relativePath, changesetId);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(item.HashValue))
+                {
+                    summary.HashlessFiles++;
+                    continue;
+                }
+
+                summary.CheckedFiles++;
+                var localHash = Convert.ToBase64String(MD5.HashData(File.ReadAllBytes(filePath)));
+                if (string.Equals(localHash, item.HashValue.Trim(), StringComparison.Ordinal))
+                {
+                    summary.MatchedFiles++;
+                }
+                else
+                {
+                    summary.MismatchedFiles++;
+                    loggerField?.LogError("TFVC verification failed: checksum mismatch for relative file {RelativePath} at C{ChangesetId}.",
+                        relativePath, changesetId);
+                }
+            }
+
+            foreach (var treeFile in EnumerateFiles(tree))
+            {
+                if (!expectedPaths.Contains(treeFile.Path))
+                {
+                    summary.MetadataMissingFiles++;
+                    loggerField?.LogError("TFVC verification failed: latest metadata did not include relative file {RelativePath}.",
+                        treeFile.Path);
+                }
+            }
+
+            loggerField?.LogInformation("TFVC verification at C{ChangesetId}: {MatchedFiles}/{CheckedFiles} checksum(s) matched; "
+                + "{HashlessFiles} file(s) without a hash; {MismatchedFiles} mismatch(es), {MissingFiles} missing file(s), "
+                + "{MetadataMissingFiles} file(s) missing from metadata.",
+                changesetId, summary.MatchedFiles, summary.CheckedFiles, summary.HashlessFiles,
+                summary.MismatchedFiles, summary.MissingFiles, summary.MetadataMissingFiles);
+
+            if (summary.MismatchedFiles > 0 || summary.MissingFiles > 0 || summary.MetadataMissingFiles > 0)
+            {
+                throw new GitTfsException("TFVC file verification failed at C"
+                    + changesetId.ToString(CultureInfo.InvariantCulture) + ": "
+                    + summary.MismatchedFiles.ToString(CultureInfo.InvariantCulture) + " checksum mismatch(es), "
+                    + summary.MissingFiles.ToString(CultureInfo.InvariantCulture) + " missing file(s), and "
+                    + summary.MetadataMissingFiles.ToString(CultureInfo.InvariantCulture)
+                    + " file(s) missing from latest TFVC metadata.");
+            }
+
+            return summary;
         }
 
         private byte[] DownloadFileWithFallback(RestTfsClient client, string targetServer, RestChange change,
@@ -727,6 +807,16 @@ namespace GitTfs.Core.RestTfs
             public int FilesReused { get; set; }
             public int FilesDeleted { get; set; }
             public int TrackedFiles { get; set; }
+        }
+
+        private sealed class FileVerificationSummary
+        {
+            public int CheckedFiles { get; set; }
+            public int MatchedFiles { get; set; }
+            public int HashlessFiles { get; set; }
+            public int MismatchedFiles { get; set; }
+            public int MissingFiles { get; set; }
+            public int MetadataMissingFiles { get; set; }
         }
 
         private readonly struct AuthorIdentity

@@ -135,6 +135,38 @@ namespace GitTfs.Core.RestTfs
             return changeset;
         }
 
+        public IReadOnlyList<RestItem> GetItems(string repositoryPath, int changesetId)
+        {
+            var items = new List<RestItem>();
+            string continuationToken = null;
+            do
+            {
+                var query = new List<KeyValuePair<string, string>>
+                {
+                    new KeyValuePair<string, string>("scopePath", repositoryPath),
+                    new KeyValuePair<string, string>("recursionLevel", "Full"),
+                    new KeyValuePair<string, string>("includeItems", "true"),
+                    new KeyValuePair<string, string>("versionDescriptor.version", changesetId.ToString(CultureInfo.InvariantCulture)),
+                    new KeyValuePair<string, string>("versionDescriptor.versionType", "Changeset"),
+                    new KeyValuePair<string, string>("versionDescriptor.versionOption", "none"),
+                };
+                if (!string.IsNullOrWhiteSpace(continuationToken))
+                    query.Add(new KeyValuePair<string, string>("continuationToken", continuationToken));
+
+                var response = GetJson<RestPage<RestItem>>(BuildUri("items", query));
+                if (response.Value?.Value != null)
+                    items.AddRange(response.Value.Value);
+
+                var nextContinuationToken = FindHeader(response.Headers, "x-ms-continuationtoken");
+                if (string.Equals(nextContinuationToken, continuationToken, StringComparison.Ordinal))
+                    break;
+                continuationToken = nextContinuationToken;
+            }
+            while (!string.IsNullOrWhiteSpace(continuationToken));
+
+            return items;
+        }
+
         public byte[] DownloadFile(string path, int changesetId, string versionType = "Changeset",
             string versionOption = null)
         {

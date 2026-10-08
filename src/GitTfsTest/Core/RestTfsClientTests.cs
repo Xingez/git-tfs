@@ -59,6 +59,34 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void ListsLatestItemsWithHashesAtAChangeset()
+        {
+            var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"count\":1,\"value\":[{\"path\":\"$/Project/Branch/file.bin\",\"isFolder\":false,\"hashValue\":\"AQI=\"}]} ",
+                    Encoding.UTF8,
+                    "application/json"),
+            });
+
+            using (var httpClient = new HttpClient(handler))
+            using (var client = new RestTfsClient(httpClient, "https://tfs.example/tfs/DefaultCollection", "$/Project/Branch"))
+            {
+                var items = client.GetItems("$/Project/Branch", 42);
+
+                Assert.Single(items);
+                Assert.Equal("$/Project/Branch/file.bin", items[0].Path);
+                Assert.Equal("AQI=", items[0].HashValue);
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "scopePath=");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "recursionLevel=Full");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "includeItems=true");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.version=42");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionType=Changeset");
+                StringAssert.Contains(handler.Requests[0].RequestUri.Query, "versionDescriptor.versionOption=none");
+            }
+        }
+
+        [TestMethod]
         public void DownloadsPreviousTfvcVersionWhenRequested()
         {
             var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)

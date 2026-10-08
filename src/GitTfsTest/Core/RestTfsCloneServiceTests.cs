@@ -101,6 +101,37 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void StopsWhenLatestTfvcChecksumDoesNotMatchTheDownloadedFile()
+        {
+            using (var server = new FakeTfvcServer { ReturnMismatchedLatestHash = true })
+            {
+                var outputPath = Path.Combine(Path.GetTempPath(), "git-tfs-rest-verification-test-"
+                    + Guid.NewGuid().ToString("N"));
+                try
+                {
+                    var settings = new GitTfsSettings
+                    {
+                        BatchSize = 1,
+                        NoParallel = true,
+                        Resumable = true,
+                        Proxy = "none",
+                    };
+                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                        gitHelpers: new GitHelpers(null));
+
+                    var exception = Assert.Throws<GitTfsException>(() =>
+                        service.Run(server.ServerUrl, "$/Project/Branch", outputPath));
+
+                    Assert.Contains("checksum mismatch", exception.Message);
+                }
+                finally
+                {
+                    DeleteDirectory(outputPath);
+                }
+            }
+        }
+
+        [TestMethod]
         public void MergesCloneIntoTargetBranchAndPushes()
         {
             using (var server = new FakeTfvcServer())
@@ -197,6 +228,7 @@ namespace GitTfs.Test.Core
 
             public string ServerUrl { get; }
             public int FileDownloadCount => Volatile.Read(ref fileDownloadCountField);
+            public bool ReturnMismatchedLatestHash { get; set; }
 
             public void Dispose()
             {
@@ -299,8 +331,17 @@ namespace GitTfs.Test.Core
                 if (path.EndsWith("/Project/_apis/tfvc/items", StringComparison.OrdinalIgnoreCase))
                 {
                     var version = GetQueryValue(uri, "versionDescriptor.version");
-                    Interlocked.Increment(ref server.fileDownloadCountField);
-                    return new FakeResponse(Encoding.UTF8.GetBytes(version == "1" ? "one" : "two"), "application/octet-stream");
+                    if (string.Equals(GetQueryValue(uri, "download"), "true", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Interlocked.Increment(ref server.fileDownloadCountField);
+                        return new FakeResponse(Encoding.UTF8.GetBytes(version == "1" ? "one" : "two"), "application/octet-stream");
+                    }
+
+                    var hash = server.ReturnMismatchedLatestHash
+                        ? Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes("not-two")))
+                        : Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes("two")));
+                    return Json("{\"count\":1,\"value\":[{\"path\":\"$/Project/Branch/a.txt\",\"isFolder\":false,\"hashValue\":\""
+                        + hash + "\"}]}");
                 }
 
                 return Json("{\"message\":\"not found\"}", "404 Not Found");
