@@ -15,5 +15,7 @@ namespace GitTfs.Core.RestTfs
         void ReportFiles(int changesetId, int processedFiles, int totalFiles);
 
         void CompleteChangeset(int changesetId, string commitSha);
+
+        void SkipChangeset(int changesetId) { }
     }
 }

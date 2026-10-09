@@ -53,9 +53,9 @@ namespace GitTfs.Test.Commands
                     return 0;
                 });
                 var frames = output.ToString();
-                Assert.IsTrue(frames.Split("Scanning TFVC").Length > 3,
+                Assert.IsTrue(frames.Split("Overall").Length > 3,
                     "The live display must refresh independently of the blocked request.");
-                StringAssert.Contains(frames, "Scanning TFVC");
+                StringAssert.Contains(frames, "Overall");
                 Assert.IsFalse(frames.Contains("page "), "Page details must not appear in the live view.");
                 Assert.IsFalse(frames.Contains(" found"), "Found counts must not appear in the live titles.");
                 StringAssert.Contains(frames, "C42");
@@ -68,6 +68,81 @@ namespace GitTfs.Test.Commands
                 Assert.IsFalse(frames.Contains("files"), "Changeset rows must show only their ID and percentage.");
                 Assert.IsFalse(frames.Contains("Verifying checksums"));
                 Assert.IsFalse(frames.Contains("committed so far"));
+            }
+            finally { AnsiConsole.Console = originalConsole; }
+        }
+
+        [TestMethod]
+        [DataRow(80)]
+        [DataRow(180)]
+        public void DashboardKeepsMetricsOnTheLeftAndOnlyTenRecentChangesets(int width)
+        {
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes,
+                Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = width;
+            var originalConsole = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.CompleteScan(13);
+                    for (var id = 1; id <= 12; id++)
+                    {
+                        progress.StartChangeset(id, 1);
+                        progress.CompleteChangeset(id, "abcdef1234");
+                    }
+                    progress.SkipChangeset(13);
+                    return 0;
+                });
+                var text = System.Text.RegularExpressions.Regex.Replace(output.ToString(), @"\x1B\[[0-?]*[ -/]*[@-~]", "");
+                var finalFrame = text[text.LastIndexOf("Live metrics", StringComparison.Ordinal)..];
+                var header = finalFrame.Split('\n')[0];
+                Assert.IsTrue(header.IndexOf("Changesets", StringComparison.Ordinal) > 0,
+                    "Metrics and changesets must appear side by side, with metrics on the left.");
+                for (var id = 1; id <= 3; id++)
+                    Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, $@"\bC{id}\b"));
+                for (var id = 4; id <= 13; id++)
+                    Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, $@"\bC{id}\b"));
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, @"Overall[^\r\n]*100%"));
+            }
+            finally { AnsiConsole.Console = originalConsole; }
+        }
+
+        [TestMethod]
+        public void OverallPercentageIncludesSkippedChangesetsAndPartialFileProgress()
+        {
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes,
+                Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = 180;
+            var originalConsole = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.CompleteScan(4);
+                    progress.StartChangeset(1, 1);
+                    progress.CompleteChangeset(1, "abcdef1234");
+                    progress.SkipChangeset(2);
+                    progress.StartChangeset(3, 4);
+                    progress.ReportFiles(3, 1, 4);
+                    return 0;
+                });
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(output.ToString(), @"Overall[^\r\n]*56%"),
+                    "Two finished changesets and one quarter of the next must show 56% of four changesets.");
             }
             finally { AnsiConsole.Console = originalConsole; }
         }

@@ -52,9 +52,10 @@ clone for focused troubleshooting.
    git push --all origin
    ```
 
-Normal runs show a live Spectre list of changeset IDs and percentage progress.
-Completed changesets remain visible at 100%. A scan spinner appears until the first
-changeset is found. Redirected output prints changeset IDs and percentage updates.
+Normal runs show metrics on the left and the latest 10 changeset IDs with percentage
+progress on the right. History is counted before importing so the overall bar uses
+the complete total, including skipped changesets. The bar animates during scanning.
+Redirected output prints changeset IDs and percentage updates.
 The live metrics table groups HTTP attempts into history, changeset, file download,
 and metadata requests, showing counts and average milliseconds once per second. Retries count as
 requests; retry backoff is excluded from request timings. Import and file counters

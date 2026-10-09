@@ -54,6 +54,7 @@ namespace GitTfs.Core.RestTfs
                     loggerField?.LogDebug("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
                         changeset.ChangesetId, skipReason, repositoryPath);
                 GitTfsMetrics.RecordChangesetSkipped();
+                progressReporter?.SkipChangeset(changeset.ChangesetId);
                 return new RestTfsChangesetImportResult(true, changeset.ChangesetId, null,
                     0, 0, 0, 0, legacyFallbackUsed: false);
             }

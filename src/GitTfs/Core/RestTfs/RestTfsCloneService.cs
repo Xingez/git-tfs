@@ -96,7 +96,11 @@ namespace GitTfs.Core.RestTfs
                     loggerField?.LogDebug("Scanning changesets for {RepositoryPath}.", repositoryPath);
 
                     var scanner = new RestChangesetScanner(client, loggerField);
-                    foreach (var changesetReference in scanner.Scan(repositoryPath, lastChangesetId, batchSize, progressReporter))
+                    var changesets = scanner.Scan(repositoryPath, lastChangesetId, batchSize, progressReporter);
+                    // The dashboard needs the complete history count before showing an overall percentage.
+                    if (progressReporter != null)
+                        changesets = changesets.ToArray();
+                    foreach (var changesetReference in changesets)
                     {
                         ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
                             absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,

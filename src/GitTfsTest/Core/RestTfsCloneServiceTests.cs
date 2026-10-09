@@ -82,6 +82,35 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void DashboardGetsTheHistoryTotalBeforeImportingAndTracksSkippedChangesets()
+        {
+            using var server = new FakeTfvcServer();
+            var output = Path.Combine(Path.GetTempPath(), "git-tfs-dashboard-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var progress = new DashboardRecorder();
+                var service = new RestTfsCloneService(Options.Create(new GitTfsSettings { BatchSize = 1 }), new AuthorsFile());
+                service.Run(server.ServerUrl, "$/Project/Branch", output, progressReporter: progress);
+                Assert.Equal(3, progress.Total);
+                Assert.Equal(new[] { 1, 2 }, progress.Completed.ToArray());
+                Assert.Equal(new[] { 3 }, progress.Skipped.ToArray());
+            }
+            finally { DeleteDirectory(output); }
+        }
+
+        private sealed class DashboardRecorder : IChangesetProgressReporter
+        {
+            public int Total { get; private set; }
+            public List<int> Completed { get; } = new();
+            public List<int> Skipped { get; } = new();
+            public void CompleteScan(int found) => Total = found;
+            public void StartChangeset(int changesetId, int totalFiles) => Assert.True(Total > 0);
+            public void ReportFiles(int changesetId, int processedFiles, int totalFiles) { }
+            public void CompleteChangeset(int changesetId, string commitSha) => Completed.Add(changesetId);
+            public void SkipChangeset(int changesetId) => Skipped.Add(changesetId);
+        }
+
+        [TestMethod]
         public void ReleasesPackFilesBeforeRunningMaintenanceOnResume()
         {
             using var server = new FakeTfvcServer();

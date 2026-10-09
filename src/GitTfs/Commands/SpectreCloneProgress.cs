@@ -33,7 +33,7 @@ namespace GitTfs.Commands
                     new TaskDescriptionColumn { Wrap = true },
                     new ProgressBarColumn
                     {
-                        Width = 20,
+                        Width = 14,
                         CompletedStyle = new Style(Color.Blue),
                         FinishedStyle = new Style(Color.Green),
                         RemainingStyle = new Style(Color.Grey),
@@ -41,15 +41,25 @@ namespace GitTfs.Commands
                     },
                     new FilePercentageColumn());
             display.RefreshRate = TimeSpan.FromMilliseconds(250);
-            display.RenderHook = (progress, _) => new Rows(progress, metrics.RenderLive());
+            var finished = false;
+            display.RenderHook = (progress, _) => Dashboard(console,
+                finished ? metrics.Render() : metrics.RenderLive(), progress);
             var exitCode = display.Start(context =>
                 {
                     var reporter = new Reporter(context);
                     try { return action(reporter); }
-                    finally { reporter.Stop(); }
+                    finally { finished = true; reporter.Stop(); }
                 });
-            console.Write(metrics.Render());
             return exitCode;
+        }
+
+        internal static IRenderable Dashboard(IAnsiConsole console, IRenderable metrics, IRenderable progress)
+        {
+            var changesets = new Table().RoundedBorder().Title("[bold blue]Changesets[/]")
+                .HideHeaders().AddColumn("Progress").AddRow(progress);
+            if (console.Profile.Width < 80)
+                return new Rows(metrics, changesets);
+            return new Grid().AddColumn().AddColumn().AddRow(metrics, changesets);
         }
 
         private sealed class FilePercentageColumn : ProgressColumn
@@ -87,44 +97,46 @@ namespace GitTfs.Commands
                 percentages.Remove(changesetId);
                 console.MarkupLine("[green]C{0}[/] · 100%", changesetId);
             }
+
+            public void SkipChangeset(int changesetId) => CompleteChangeset(changesetId, null);
         }
 
         private sealed class Reporter : IChangesetProgressReporter
         {
             private readonly ProgressContext context;
-            private readonly ProgressTask scan;
+            private readonly ProgressTask overall;
             private readonly Dictionary<int, ProgressTask> entries = new();
+            private readonly Queue<ProgressTask> recent = new();
+            private int completed;
 
             public Reporter(ProgressContext context)
             {
                 this.context = context;
-                scan = context.AddTask("[cyan]Scanning TFVC[/]", maxValue: 1);
-                scan.IsIndeterminate = true;
-                scan.HideWhenCompleted = true;
-            }
-
-            public void ReportScan(int page, int found, int cursor, RestChangesetReference latest = null)
-            {
-                if (latest != null)
-                    CompleteScan(found);
+                overall = context.AddTask("[cyan]Overall[/]", maxValue: 1);
+                overall.IsIndeterminate = true;
             }
 
             public void CompleteScan(int found)
             {
-                scan.IsIndeterminate = false;
-                scan.Value = scan.MaxValue;
-                scan.StopTask();
+                overall.MaxValue = Math.Max(found, 1);
+                overall.IsIndeterminate = false;
+                overall.Value = found == 0 ? 1 : completed;
             }
 
             public void StartChangeset(int changesetId, int totalFiles)
             {
-                entries[changesetId] = context.AddTask($"[bold blue]C{changesetId}[/]", maxValue: Math.Max(totalFiles, 1));
+                var task = context.AddTask($"[bold blue]C{changesetId}[/]", maxValue: Math.Max(totalFiles, 1));
+                entries[changesetId] = task;
+                recent.Enqueue(task);
+                if (recent.Count > 10)
+                    recent.Dequeue().HideWhenCompleted = true;
             }
 
             public void ReportFiles(int changesetId, int processedFiles, int totalFiles)
             {
                 if (!entries.TryGetValue(changesetId, out var task)) return;
                 task.Value = Math.Min(processedFiles, task.MaxValue);
+                UpdateOverall();
             }
 
             public void CompleteChangeset(int changesetId, string commitSha)
@@ -132,11 +144,32 @@ namespace GitTfs.Commands
                 if (!entries.Remove(changesetId, out var task)) return;
                 task.Value = task.MaxValue;
                 task.StopTask();
+                completed++;
+                UpdateOverall();
+            }
+
+            public void SkipChangeset(int changesetId)
+            {
+                StartChangeset(changesetId, 1);
+                CompleteChangeset(changesetId, null);
+            }
+
+            private void UpdateOverall()
+            {
+                if (!overall.IsIndeterminate)
+                    overall.Value = Math.Min(overall.MaxValue,
+                        completed + entries.Values.Sum(task => task.Percentage / 100));
             }
 
             public void Stop()
             {
-                scan.StopTask();
+                if (overall.IsIndeterminate)
+                {
+                    overall.MaxValue = Math.Max(completed + entries.Count, 1);
+                    overall.IsIndeterminate = false;
+                    UpdateOverall();
+                }
+                overall.StopTask();
                 foreach (var task in entries.Values) task.StopTask();
             }
         }
