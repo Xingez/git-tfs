@@ -63,8 +63,10 @@ Changesets reach 100% after their Git commit is written; partial failures show a
 The compact footer shows HTTP attempts (🌐) and file download attempts (⬇), each
 with its count and latest duration in milliseconds, plus rate budget, throttle and
 retry counts. Counts and the folder tree refresh once per second; retry backoff is
-excluded from request timings. The tree omits `.git` and linked folders and shows
-up to 20 entries. Redirected output prints a final footer.
+excluded from request timings. The tree shows directories with their direct file
+count and combined file size, omitting individual files, `.git`, and linked folders.
+It shows up to 20 directories, fitting fewer in short terminals. Redirected output
+prints a final footer.
 Retry and throttle counters, the next-attempt countdown, and the last server delay
 make API pauses visible. When supplied, `Retry-After` and `X-RateLimit` headers show
 the server's delay and remaining rate budget in TSTUs

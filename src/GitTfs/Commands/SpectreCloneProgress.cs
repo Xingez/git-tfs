@@ -51,7 +51,7 @@ namespace GitTfs.Commands
                 var refresh = phase != lastPhase;
                 lastPhase = phase;
                 return Dashboard(console, metrics.RenderDisplay(live: !finished, refresh), progress, phase,
-                    folder?.Render(refresh || finished));
+                    folder?.Render(refresh || finished, maxNodes: Math.Clamp((console.Profile.Height - 8) / 2, 1, 20)));
             };
             var exitCode = display.Start(context =>
                 {
