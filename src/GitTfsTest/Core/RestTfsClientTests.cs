@@ -195,6 +195,32 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
+        public void ChangesetScanBeyondTheLastChangesetIsAnEmptyPage()
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("{\"message\":\"TF14019: The changeset 43 does not exist.\",\"typeKey\":\"ChangesetNotFoundException\"}")
+            };
+            using var http = new HttpClient(new QueueHandler(response));
+            using var client = new RestTfsClient(http, "https://tfs.example/collection", "$/Project/Main");
+
+            Assert.Empty(client.GetChangesets("$/Project/Main", 43, 1));
+        }
+
+        [TestMethod]
+        public void MissingProjectDuringChangesetScanStillFails()
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("{\"typeKey\":\"ProjectDoesNotExistException\"}")
+            };
+            using var http = new HttpClient(new QueueHandler(response));
+            using var client = new RestTfsClient(http, "https://tfs.example/collection", "$/Project/Main");
+
+            Assert.Throws<RestTfsException>(() => client.GetChangesets("$/Project/Main", 43, 1));
+        }
+
+        [TestMethod]
         public void UsesCollectionRouteForChangesetChangesPagination()
         {
             var handler = new QueueHandler(

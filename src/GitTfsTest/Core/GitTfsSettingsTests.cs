@@ -38,7 +38,8 @@ namespace GitTfs.Test.Core
                 "GIT_TFS_PAT",
                 "GIT_TFS_BATCH_SIZE",
                 "GIT_TFS_DEBUG",
-                "GIT_TFS_PROXY"
+                "GIT_TFS_PROXY",
+                "GIT_TFS_HTTP_CAPTURE"
             };
             var previousValues = new string[names.Length];
             for (var index = 0; index < names.Length; index++)
@@ -55,6 +56,7 @@ namespace GitTfs.Test.Core
                 Environment.SetEnvironmentVariable("GIT_TFS_BATCH_SIZE", "5");
                 Environment.SetEnvironmentVariable("GIT_TFS_DEBUG", "true");
                 Environment.SetEnvironmentVariable("GIT_TFS_PROXY", "none");
+                Environment.SetEnvironmentVariable("GIT_TFS_HTTP_CAPTURE", settingsDirectory);
 
                 var settings = GitTfsSettings.Load();
 
@@ -66,6 +68,7 @@ namespace GitTfs.Test.Core
                 Assert.Equal(5, settings.BatchSize);
                 Assert.True(settings.Debug);
                 Assert.Equal("none", settings.Proxy);
+                Assert.Equal(settingsDirectory, settings.HttpCaptureDirectory);
             }
             finally
             {

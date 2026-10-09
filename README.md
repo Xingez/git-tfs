@@ -84,6 +84,14 @@ Changeset scanning and normal file downloads use REST. The legacy helper
 process starts only when REST cannot retrieve a file and fallback is enabled;
 the completion summary reports whether it was used.
 
+For HTTP replay and troubleshooting, set `GIT_TFS_HTTP_CAPTURE` to a directory
+outside your source checkout. Each run saves numbered exchanges containing
+request/response JSON metadata and complete `.body` files, including binary
+downloads, HTTP errors, retries, and transport failures. Authentication and
+cookie headers are redacted. These captures contain repository content; keep
+them local. Capture is disabled by default and applies to REST traffic, not
+the legacy TFVC helper's protocol. Use `--no-fallback` for a REST-only run.
+
 After verification, downloaded files receive the TFVC item's `changeDate` as
 their local last-write time. Git does not store filesystem timestamps, so this
 is preserved in the working tree, not in commits or future checkouts.

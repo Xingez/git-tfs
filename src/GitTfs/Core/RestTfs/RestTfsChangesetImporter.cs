@@ -15,7 +15,7 @@ namespace GitTfs.Core.RestTfs
     public sealed class RestTfsChangesetImporter : IRestTfsChangesetImporter
     {
         private readonly AuthorsFile authorsFileField;
-        private readonly LegacyTfvcHistoryProvider legacyHistoryProviderField;
+        private readonly TfvcFileDownloader fileDownloaderField;
         private readonly ILogger<RestTfsChangesetImporter> loggerField;
 
         public RestTfsChangesetImporter(AuthorsFile authorsFile,
@@ -23,8 +23,8 @@ namespace GitTfs.Core.RestTfs
             ILogger<RestTfsChangesetImporter> logger = null)
         {
             authorsFileField = authorsFile;
-            legacyHistoryProviderField = legacyHistoryProvider;
             loggerField = logger;
+            fileDownloaderField = new TfvcFileDownloader(legacyHistoryProvider, logger);
         }
 
         public RestTfsChangesetImportResult Import(IRestTfsClient client, Repository repository,
@@ -78,11 +78,7 @@ namespace GitTfs.Core.RestTfs
             IChangesetProgressReporter progressReporter)
         {
             var changes = changeset.Changes
-                .Where(change => change?.Item != null)
-                .Where(change => IsWithinRepository(change.Item.Path, repositoryPath)
-                    || IsWithinRepository(change.SourceServerItem, repositoryPath)
-                    || (change.MergeSources ?? new List<RestMergeSource>())
-                        .Any(source => IsWithinRepository(source.ServerItem, repositoryPath)))
+                .Where(change => new TfvcChange(change).IsRelevantTo(repositoryPath))
                 .ToArray();
             var filesToProcess = changes.Count(change => !IsDelete(change) && !change.Item.IsFolder
                 && !IsSourceRename(change));
@@ -182,8 +178,12 @@ namespace GitTfs.Core.RestTfs
                 var reusedLocalFile = !isMergeChange
                     && TryReadMatchingLocalFile(outputPath, relativePath, change.Item.HashValue, out content);
                 if (!reusedLocalFile)
-                    content = DownloadFileWithFallback(client, change, changeset.ChangesetId,
-                        targetServer, change.Item.DeletionId, relativePath, noFallback, summary, isMergeChange);
+                {
+                    var download = fileDownloaderField.Download(client, change, changeset.ChangesetId,
+                        targetServer, relativePath, noFallback);
+                    content = download.Content;
+                    summary.LegacyFallbackUsed |= download.LegacyFallbackUsed;
+                }
                 if (content == null)
                 {
                     processed++;
@@ -228,84 +228,8 @@ namespace GitTfs.Core.RestTfs
                 loggerField?.LogInformation("C{ChangesetId}: no file content to download.", changeset.ChangesetId);
         }
 
-        private byte[] DownloadFileWithFallback(IRestTfsClient client, RestChange change,
-            int changesetId, string targetServer, int deletionId, string relativePath, bool noFallback,
-            ChangesetFileSummary summary, bool isMergeChange)
-        {
-            var itemPath = change.Item.Path;
-            try
-            {
-                return client.DownloadFile(itemPath, changesetId);
-            }
-            catch (RestTfsException exception) when (exception.StatusCode == 404)
-            {
-                if (isMergeChange)
-                {
-                    loggerField?.LogDebug("Skipping merge-only file {RelativePath} from C{ChangesetId}; "
-                        + "the target changeset returned 404.", relativePath, changesetId);
-                    return null;
-                }
-
-                try
-                {
-                    return client.DownloadFile(itemPath, changesetId, "Changeset", "Previous");
-                }
-                catch (RestTfsException previousException) when (previousException.StatusCode == 404)
-                {
-                    if (HasMergeSource(change))
-                    {
-                        try
-                        {
-                            return client.DownloadFile(itemPath, changesetId, "MergeSource", "UseRename");
-                        }
-                        catch (RestTfsException renameException) when (renameException.StatusCode == 404)
-                        {
-                        }
-                    }
-
-                    if (noFallback)
-                    {
-                        throw new GitTfsException("The REST version, previous version, and rename version downloads failed for "
-                            + relativePath + " at C" + changesetId + "; legacy TFVC fallback is disabled.", previousException);
-                    }
-
-                    if (legacyHistoryProviderField?.IsAvailable == true)
-                    {
-                        try
-                        {
-                            var content = legacyHistoryProviderField.DownloadFile(
-                                targetServer, itemPath, changesetId, deletionId);
-                            summary.LegacyFallbackUsed = true;
-                            return content;
-                        }
-                        catch (Exception fallbackException)
-                        {
-                            throw new GitTfsException("The REST version, previous version, rename version, and legacy TFVC downloads failed for "
-                                + relativePath + " at C" + changesetId + ".", fallbackException);
-                        }
-                    }
-
-                    throw new GitTfsException("The REST version, previous version, and rename version downloads failed for "
-                        + relativePath + " at C" + changesetId + ".", previousException);
-                }
-            }
-        }
-
-        private static bool HasMergeSource(RestChange change)
-            => (change.MergeSources ?? new List<RestMergeSource>()).Any(source => source != null)
-                || (change.ChangeType ?? string.Empty)
-                    .Split(',')
-                    .Select(type => type.Trim())
-                    .Any(type => string.Equals(type, "merge", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(type, "rename", StringComparison.OrdinalIgnoreCase));
-
         private static bool IsMergeChange(RestChange change)
-            => (change?.MergeSources ?? new List<RestMergeSource>())
-                .Any(source => source != null)
-                || (change?.ChangeType ?? string.Empty)
-                    .Split(',')
-                    .Select(type => type.Trim())
-                    .Any(type => string.Equals(type, "merge", StringComparison.OrdinalIgnoreCase));
+            => new TfvcChange(change).IsMerge;
 
         private static bool TryReadMatchingLocalFile(string outputPath, string relativePath, string hashValue,
             out byte[] content)
@@ -331,10 +255,7 @@ namespace GitTfs.Core.RestTfs
             => (changeset.Changes ?? new List<RestChange>())
                 .Any(change => change?.Item != null
                     && !IsSourceRename(change)
-                    && (IsWithinRepository(change.Item.Path, repositoryPath)
-                        || IsWithinRepository(change.SourceServerItem, repositoryPath)
-                        || (change.MergeSources ?? new List<RestMergeSource>())
-                            .Any(source => IsWithinRepository(source.ServerItem, repositoryPath))));
+                    && new TfvcChange(change).IsRelevantTo(repositoryPath));
 
         private static bool HasTrackedSourceRename(RestChangeset changeset, string repositoryPath, Tree currentTree)
         {
@@ -360,10 +281,7 @@ namespace GitTfs.Core.RestTfs
         }
 
         private static bool IsSourceRename(RestChange change)
-            => (change?.ChangeType ?? string.Empty)
-                .Split(',')
-                .Select(type => type.Trim())
-                .Any(type => string.Equals(type, "sourceRename", StringComparison.OrdinalIgnoreCase));
+            => new TfvcChange(change).IsSourceRename;
 
         private static void RemoveRenameSources(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
             RestChange change, string repositoryPath, string outputPath)
@@ -375,16 +293,8 @@ namespace GitTfs.Core.RestTfs
             }
         }
 
-        private static List<string> GetRenameSources(RestChange change)
-        {
-            var sources = new List<string>();
-            if (!string.IsNullOrWhiteSpace(change.SourceServerItem))
-                sources.Add(change.SourceServerItem);
-            sources.AddRange((change.MergeSources ?? new List<RestMergeSource>())
-                .Where(source => source.IsRename && !string.IsNullOrWhiteSpace(source.ServerItem))
-                .Select(source => source.ServerItem));
-            return sources.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        }
+        private static IEnumerable<string> GetRenameSources(RestChange change)
+            => new TfvcChange(change).RenameSources();
 
         private static int RemovePathAndChildren(Repository repository, TreeDefinition treeDefinition,
             IDictionary<string, string> pathMap, string relativePath, string outputPath)
@@ -540,14 +450,10 @@ namespace GitTfs.Core.RestTfs
             => serverPath.Substring(repositoryPath.Length).Trim('/').Replace('\\', '/');
 
         private static bool IsDelete(RestChange change)
-            => (change.ChangeType ?? string.Empty).Split(',')
-                .Select(type => type.Trim())
-                .Any(type => string.Equals(type, "delete", StringComparison.OrdinalIgnoreCase));
+            => new TfvcChange(change).IsDelete;
 
         private static bool IsRename(RestChange change)
-            => (change.ChangeType ?? string.Empty).Split(',')
-                .Select(type => type.Trim())
-                .Any(type => string.Equals(type, "rename", StringComparison.OrdinalIgnoreCase));
+            => new TfvcChange(change).IsRename;
 
         private static string GetWorkingFilePath(string outputPath, string relativePath)
             => Path.Combine(outputPath, relativePath.Replace('/', Path.DirectorySeparatorChar));

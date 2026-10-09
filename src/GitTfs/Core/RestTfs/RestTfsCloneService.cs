@@ -65,12 +65,18 @@ namespace GitTfs.Core.RestTfs
                     Repository.Init(absoluteOutputPath);
                 }
 
+                var summary = new CloneSummary();
+                FileVerificationSummary verification;
+                int lastChangesetId;
+                string commitSha;
+                string sourceBranch;
+
                 using (var repository = new Repository(absoluteOutputPath))
                 using (var client = CreateRestClient(targetServer, repositoryPath))
                 {
                     ConfigureRepository(repository, targetServer, repositoryPath);
                     var parent = repository.Head?.Tip;
-                    var lastChangesetId = FindLastChangesetId(parent);
+                    lastChangesetId = FindLastChangesetId(parent);
                     if (parent != null && lastChangesetId <= 0)
                         throw new GitTfsException("The existing repository does not contain a git-tfs changeset marker and cannot be resumed safely.");
 
@@ -78,10 +84,7 @@ namespace GitTfs.Core.RestTfs
                         ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         : GetTreePathMap(parent.Tree);
                     var batchSize = settingsField.BatchSize > 0 ? settingsField.BatchSize : 100;
-                    var summary = new CloneSummary();
                     var newestCommit = parent;
-                    var fromChangesetId = lastChangesetId;
-                    var lastScannedChangesetId = lastChangesetId;
 
                     loggerField?.LogDebug("Using REST TFVC clone for {RepositoryPath}.", repositoryPath);
                     loggerField?.LogDebug("Workspace creation is disabled; files are downloaded directly from the TFVC REST API.");
@@ -91,43 +94,12 @@ namespace GitTfs.Core.RestTfs
                     }
                     loggerField?.LogDebug("Scanning changesets for {RepositoryPath}.", repositoryPath);
 
-                    while (true)
+                    var scanner = new RestChangesetScanner(client, loggerField);
+                    foreach (var changesetReference in scanner.Scan(repositoryPath, lastChangesetId, batchSize))
                     {
-                        var pageStartChangesetId = fromChangesetId;
-                        var changesetReferences = client.GetChangesets(repositoryPath, fromChangesetId, batchSize);
-                        if (changesetReferences.Count == 0)
-                            break;
-
-                        loggerField?.LogDebug("Changeset scan after C{StartingChangesetId} returned {ChangesetCount} reference(s), through C{EndingChangesetId}.",
-                            pageStartChangesetId, changesetReferences.Count,
-                            changesetReferences.Max(reference => reference.ChangesetId));
-
-                        foreach (var changesetReference in changesetReferences.OrderBy(reference => reference.ChangesetId))
-                        {
-                            if (changesetReference.ChangesetId <= lastScannedChangesetId)
-                                continue;
-
-                            lastScannedChangesetId = changesetReference.ChangesetId;
-                            ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
-                                absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
-                                noFallback, summary, progressReporter);
-                        }
-
-                        var lastReferenceId = changesetReferences.Max(reference => reference.ChangesetId);
-                        if (lastReferenceId <= pageStartChangesetId)
-                        {
-                            if (pageStartChangesetId == int.MaxValue)
-                                break;
-
-                            // Some TFVC-compatible servers treat fromId as inclusive even though
-                            // the Azure DevOps REST contract describes it as exclusive. Move past
-                            // the repeated result so a folder history cannot stop at its first page.
-                            fromChangesetId = pageStartChangesetId + 1;
-                            loggerField?.LogWarning("Changeset scan page did not advance; retrying after C{StartingChangesetId}.",
-                                pageStartChangesetId);
-                            continue;
-                        }
-                        fromChangesetId = lastReferenceId;
+                        ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
+                            absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
+                            noFallback, summary, progressReporter);
                     }
 
                     if (newestCommit != null)
@@ -142,53 +114,55 @@ namespace GitTfs.Core.RestTfs
                         summary.TrackedFiles = EnumerateFiles(newestCommit.Tree).Count();
                     }
 
-                    var verification = newestCommit == null
+                    verification = newestCommit == null
                         ? null
                         : VerifyLatestFiles(client, repositoryPath, absoluteOutputPath, newestCommit.Tree, lastChangesetId);
-                    var maintenanceMode = RunGitMaintenance(absoluteOutputPath, newestCommit != null);
-                    if (!string.IsNullOrWhiteSpace(targetCloneUrl))
-                    {
-                        if (newestCommit == null)
-                            throw new GitTfsException("A target Git repository requires an imported changeset to merge.");
-
-                        targetBranch = string.IsNullOrWhiteSpace(targetBranch) ? "main" : targetBranch.Trim();
-                        var sourceBranch = repository.Head?.FriendlyName ?? "source";
-                        MergeIntoTargetRepository(absoluteOutputPath, targetCloneUrl, targetBranch,
-                            sourceBranch, newestCommit.Sha);
-                        var targetMaintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
-                        loggerField?.LogInformation("Target Git sync complete: {SourceBranch} merged into "
-                            + "origin/{TargetBranch} and pushed; Git maintenance: {MaintenanceMode}.",
-                            sourceBranch, targetBranch, targetMaintenanceMode);
-                    }
-
-                    if (newestCommit == null)
-                    {
-                        loggerField?.LogInformation("Clone complete for {RepositoryPath}: no changesets imported "
-                            + "({ChangesetsConsidered} considered, {ChangesetsSkipped} skipped); "
-                            + "{TrackedFiles} tracked file(s); legacy fallback helper used: {LegacyFallbackUsed}; "
-                            + "Git maintenance: {MaintenanceMode}.",
-                            repositoryPath, summary.ChangesetsConsidered, summary.ChangesetsSkipped,
-                            summary.TrackedFiles, summary.LegacyFallbackUsed, maintenanceMode);
-                    }
-                    else
-                    {
-                        loggerField?.LogInformation("Clone complete for {RepositoryPath}: "
-                            + "{ChangesetsImported}/{ChangesetsConsidered} changeset(s) imported "
-                            + "({ChangesetsSkipped} skipped); {FilesProcessed} file change(s) "
-                            + "({FilesDownloaded} downloaded, {FilesReused} reused, {FilesDeleted} deleted); "
-                            + "{TrackedFiles} tracked file(s); latest C{ChangesetId} ({CommitSha}); "
-                            + "verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
-                            + "({HashlessFiles} without hash); legacy fallback helper used: {LegacyFallbackUsed}; "
-                            + "Git maintenance: {MaintenanceMode}.",
-                            repositoryPath, summary.ChangesetsImported, summary.ChangesetsConsidered,
-                            summary.ChangesetsSkipped, summary.FilesProcessed, summary.FilesDownloaded,
-                            summary.FilesReused, summary.FilesDeleted, summary.TrackedFiles,
-                            lastChangesetId, newestCommit.Sha, verification.MatchedFiles,
-                            verification.CheckedFiles, verification.HashlessFiles, summary.LegacyFallbackUsed,
-                            maintenanceMode);
-                    }
+                    commitSha = newestCommit?.Sha;
+                    sourceBranch = repository.Head?.FriendlyName ?? "source";
                 }
 
+                // Release LibGit2Sharp's pack handles before external Git repacks or changes refs.
+                var maintenanceMode = RunGitMaintenance(absoluteOutputPath, commitSha != null);
+                if (!string.IsNullOrWhiteSpace(targetCloneUrl))
+                {
+                    if (commitSha == null)
+                        throw new GitTfsException("A target Git repository requires an imported changeset to merge.");
+
+                    targetBranch = string.IsNullOrWhiteSpace(targetBranch) ? "main" : targetBranch.Trim();
+                    MergeIntoTargetRepository(absoluteOutputPath, targetCloneUrl, targetBranch,
+                        sourceBranch, commitSha);
+                    var targetMaintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
+                    loggerField?.LogInformation("Target Git sync complete: {SourceBranch} merged into "
+                        + "origin/{TargetBranch} and pushed; Git maintenance: {MaintenanceMode}.",
+                        sourceBranch, targetBranch, targetMaintenanceMode);
+                }
+
+                if (commitSha == null)
+                {
+                    loggerField?.LogInformation("Clone complete for {RepositoryPath}: no changesets imported "
+                        + "({ChangesetsConsidered} considered, {ChangesetsSkipped} skipped); "
+                        + "{TrackedFiles} tracked file(s); legacy fallback helper used: {LegacyFallbackUsed}; "
+                        + "Git maintenance: {MaintenanceMode}.",
+                        repositoryPath, summary.ChangesetsConsidered, summary.ChangesetsSkipped,
+                        summary.TrackedFiles, summary.LegacyFallbackUsed, maintenanceMode);
+                }
+                else
+                {
+                    loggerField?.LogInformation("Clone complete for {RepositoryPath}: "
+                        + "{ChangesetsImported}/{ChangesetsConsidered} changeset(s) imported "
+                        + "({ChangesetsSkipped} skipped); {FilesProcessed} file change(s) "
+                        + "({FilesDownloaded} downloaded, {FilesReused} reused, {FilesDeleted} deleted); "
+                        + "{TrackedFiles} tracked file(s); latest C{ChangesetId} ({CommitSha}); "
+                        + "verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
+                        + "({HashlessFiles} without hash); legacy fallback helper used: {LegacyFallbackUsed}; "
+                        + "Git maintenance: {MaintenanceMode}.",
+                        repositoryPath, summary.ChangesetsImported, summary.ChangesetsConsidered,
+                        summary.ChangesetsSkipped, summary.FilesProcessed, summary.FilesDownloaded,
+                        summary.FilesReused, summary.FilesDeleted, summary.TrackedFiles,
+                        lastChangesetId, commitSha, verification.MatchedFiles,
+                        verification.CheckedFiles, verification.HashlessFiles, summary.LegacyFallbackUsed,
+                        maintenanceMode);
+                }
                 return GitTfsExitCodes.OK;
             }
             catch
@@ -215,6 +189,10 @@ namespace GitTfs.Core.RestTfs
                 throw new GitTfsException("The changeset command requires an existing git-tfs clone at "
                     + absoluteOutputPath + ".");
 
+            RestTfsChangesetImportResult result;
+            FileVerificationSummary verification;
+            string commitSha;
+
             using (var repository = new Repository(absoluteOutputPath))
             using (var client = CreateRestClient(targetServer, repositoryPath))
             {
@@ -240,7 +218,7 @@ namespace GitTfs.Core.RestTfs
 
                 var pathMap = GetTreePathMap(parent.Tree);
                 var reference = new RestChangesetReference { ChangesetId = changesetId };
-                var result = changesetImporterField.Import(client, repository, reference, targetServer,
+                result = changesetImporterField.Import(client, repository, reference, targetServer,
                     repositoryPath, absoluteOutputPath, pathMap, parent, noFallback, progressReporter);
                 if (result.Skipped)
                 {
@@ -252,20 +230,21 @@ namespace GitTfs.Core.RestTfs
 
                 MaterializeTree(repository, result.Commit.Tree, absoluteOutputPath);
                 repository.Reset(ResetMode.Mixed, result.Commit);
-                var verification = VerifyLatestFiles(client, repositoryPath, absoluteOutputPath,
+                verification = VerifyLatestFiles(client, repositoryPath, absoluteOutputPath,
                     result.Commit.Tree, changesetId);
-                var maintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
-                loggerField?.LogInformation("Single changeset import complete: C{ChangesetId} committed as {CommitSha}; "
-                    + "{FilesProcessed} file change(s) ({FilesDownloaded} downloaded, {FilesReused} reused, "
-                    + "{FilesDeleted} deleted); verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
-                    + "({HashlessFiles} without hash); legacy fallback helper used: {LegacyFallbackUsed}; "
-                    + "Git maintenance: {MaintenanceMode}.",
-                    result.ChangesetId, result.Commit.Sha, result.FilesProcessed, result.FilesDownloaded,
-                    result.FilesReused, result.FilesDeleted, verification.MatchedFiles,
-                    verification.CheckedFiles, verification.HashlessFiles, result.LegacyFallbackUsed,
-                    maintenanceMode);
+                commitSha = result.Commit.Sha;
             }
 
+            var maintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
+            loggerField?.LogInformation("Single changeset import complete: C{ChangesetId} committed as {CommitSha}; "
+                + "{FilesProcessed} file change(s) ({FilesDownloaded} downloaded, {FilesReused} reused, "
+                + "{FilesDeleted} deleted); verification: {VerifiedFiles}/{CheckedFiles} checksum(s) matched "
+                + "({HashlessFiles} without hash); legacy fallback helper used: {LegacyFallbackUsed}; "
+                + "Git maintenance: {MaintenanceMode}.",
+                result.ChangesetId, commitSha, result.FilesProcessed, result.FilesDownloaded,
+                result.FilesReused, result.FilesDeleted, verification.MatchedFiles,
+                verification.CheckedFiles, verification.HashlessFiles, result.LegacyFallbackUsed,
+                maintenanceMode);
             return GitTfsExitCodes.OK;
         }
 

@@ -82,8 +82,18 @@ namespace GitTfs.Core.RestTfs
             if (fromChangesetId > 0)
                 query.Add(new KeyValuePair<string, string>("searchCriteria.fromId", fromChangesetId.ToString(CultureInfo.InvariantCulture)));
 
-            var response = GetJson<RestPage<RestChangesetReference>>(BuildUri("changesets", query));
-            return response.Value?.Value ?? new List<RestChangesetReference>();
+            try
+            {
+                var response = GetJson<RestPage<RestChangesetReference>>(BuildUri("changesets", query));
+                return response.Value?.Value ?? new List<RestChangesetReference>();
+            }
+            catch (RestTfsException exception) when (fromChangesetId > 0 && exception.StatusCode == 404
+                && exception.ServerErrorType == "ChangesetNotFoundException")
+            {
+                // On-premises TFVC validates fromId against the collection's latest changeset.
+                // A cursor beyond that boundary means this scan is complete, not a missing project.
+                return Array.Empty<RestChangesetReference>();
+            }
         }
 
         public RestChangeset GetChangeset(int changesetId)
@@ -262,7 +272,7 @@ namespace GitTfs.Core.RestTfs
                         {
                             throw new RestTfsException("TFS REST request failed with HTTP "
                                 + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) + " for " + uri
-                                + ". " + TrimBody(body), (int)response.StatusCode, uri);
+                                + ". " + TrimBody(body), (int)response.StatusCode, uri, ReadServerErrorType(body));
                         }
 
                         WaitBeforeRetry(uri, attempt, serverDelayForRetry, DefaultRetryDelay,
@@ -347,10 +357,8 @@ namespace GitTfs.Core.RestTfs
             if (!string.IsNullOrWhiteSpace(pat))
             {
                 handler.UseDefaultCredentials = false;
-                return handler;
             }
-
-            if (!string.IsNullOrWhiteSpace(settings.Username))
+            else if (!string.IsNullOrWhiteSpace(settings.Username))
             {
                 handler.UseDefaultCredentials = false;
                 handler.Credentials = BuildCredential(settings.Username, settings.Password);
@@ -360,7 +368,9 @@ namespace GitTfs.Core.RestTfs
                 handler.UseDefaultCredentials = true;
             }
 
-            return handler;
+            return string.IsNullOrWhiteSpace(settings.HttpCaptureDirectory)
+                ? handler
+                : new HttpTrafficCaptureHandler(settings.HttpCaptureDirectory, handler);
         }
 
         public static void ConfigureHttpClient(HttpClient client, GitTfsSettings settings)
@@ -404,6 +414,21 @@ namespace GitTfs.Core.RestTfs
 
         private static bool IsTransientException(Exception exception)
             => exception is HttpRequestException || exception is TaskCanceledException || exception is IOException || exception is WebException;
+
+        private static string ReadServerErrorType(string body)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(body);
+                return document.RootElement.ValueKind == JsonValueKind.Object
+                    && document.RootElement.TryGetProperty("typeKey", out var type)
+                    && type.ValueKind == JsonValueKind.String ? type.GetString() : null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
 
         private static bool IsRetryableStatus(HttpStatusCode statusCode)
             => statusCode == HttpStatusCode.RequestTimeout

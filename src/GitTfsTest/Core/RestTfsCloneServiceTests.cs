@@ -16,6 +16,68 @@ namespace GitTfs.Test.Core
     public class RestTfsCloneServiceTests
     {
         [TestMethod]
+        public void ReleasesPackFilesBeforeRunningMaintenanceOnResume()
+        {
+            using var server = new FakeTfvcServer();
+            var output = Path.Combine(Path.GetTempPath(), "git-tfs-repack-" + Guid.NewGuid().ToString("N"));
+            var logger = new MaintenanceLogger();
+            try
+            {
+                var service = new RestTfsCloneService(new GitTfsSettings { BatchSize = 1 },
+                    new AuthorsFile(), logger: logger, gitHelpers: new GitHelpers(null));
+                service.Run(server.ServerUrl, "$/Project/Branch", output);
+                Assert.True(Directory.GetFiles(Path.Combine(output, ".git", "objects", "pack"), "*.pack").Length > 0);
+
+                service.Run(server.ServerUrl, "$/Project/Branch", output);
+
+                Assert.False(logger.MaintenanceFailed, "External Git must be able to repack a resumed repository.");
+                using var repository = new Repository(output);
+                Assert.Equal(2, repository.Commits.Count());
+                Assert.Empty(repository.RetrieveStatus());
+            }
+            finally { DeleteDirectory(output); }
+        }
+
+        private sealed class MaintenanceLogger : Microsoft.Extensions.Logging.ILogger<RestTfsCloneService>
+        {
+            public bool MaintenanceFailed { get; private set; }
+            public IDisposable BeginScope<TState>(TState state) => null;
+            public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel level) => true;
+            public void Log<TState>(Microsoft.Extensions.Logging.LogLevel level, Microsoft.Extensions.Logging.EventId id,
+                TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                MaintenanceFailed |= state.ToString().Contains("Forced Git maintenance failed");
+            }
+        }
+
+        [TestMethod]
+        [DataRow(1)]
+        [DataRow(2)]
+        [DataRow(100)]
+        public void ClonesAndResumesInclusivePagesEndingWithChangesetNotFound(int batchSize)
+        {
+            using var server = new FakeTfvcServer { InclusiveChangesetHistory = true };
+            var output = Path.Combine(Path.GetTempPath(), "git-tfs-inclusive-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var settings = new GitTfsSettings { BatchSize = batchSize, Proxy = "none" };
+                var service = new RestTfsCloneService(settings, new AuthorsFile());
+                Assert.Equal(GitTfsExitCodes.OK, service.Run(server.ServerUrl, "$/Project/Branch", output, noFallback: true));
+                Assert.True(server.ChangesetCursors.Count <= 5, "Inclusive history should need at most one repeated boundary page.");
+                using (var repository = new Repository(output))
+                {
+                    Assert.Equal(2, repository.Commits.Count());
+                    Assert.Empty(repository.RetrieveStatus());
+                }
+                Assert.Equal(GitTfsExitCodes.OK, service.Run(server.ServerUrl, "$/Project/Branch", output, noFallback: true));
+                using var resumed = new Repository(output);
+                Assert.Equal(2, resumed.Commits.Count());
+                Assert.Empty(resumed.RetrieveStatus());
+            }
+            finally { DeleteDirectory(output); }
+        }
+
+        [TestMethod]
         public void ClonesChangesetsIntoGitCommitsWithoutAWorkspace()
         {
             using (var server = new FakeTfvcServer())
@@ -304,6 +366,8 @@ namespace GitTfs.Test.Core
             public int FileDownloadCount => Volatile.Read(ref fileDownloadCountField);
             public bool ReturnMismatchedLatestHash { get; set; }
             public bool ReturnMissingMergeTargetAndDeleteAFile { get; set; }
+            public bool InclusiveChangesetHistory { get; set; }
+            public ConcurrentQueue<int> ChangesetCursors { get; } = new ConcurrentQueue<int>();
             public ConcurrentQueue<string> FileDownloadQueries { get; } = new ConcurrentQueue<string>();
             public ConcurrentQueue<string> ChangesetItemPaths { get; } = new ConcurrentQueue<string>();
 
@@ -379,6 +443,17 @@ namespace GitTfs.Test.Core
                 {
                     var fromId = GetQueryValue(uri, "searchCriteria.fromId");
                     var itemPath = GetQueryValue(uri, "searchCriteria.itemPath");
+                    if (server.InclusiveChangesetHistory)
+                    {
+                        var cursor = string.IsNullOrEmpty(fromId) ? 0 : int.Parse(fromId);
+                        server.ChangesetCursors.Enqueue(cursor);
+                        if (cursor > 3)
+                            return Json("{\"typeKey\":\"ChangesetNotFoundException\"}", "404 Not Found");
+                        var top = int.Parse(GetQueryValue(uri, "$top"));
+                        var references = Enumerable.Range(1, 3).Where(id => id >= cursor).Take(top)
+                            .Select(id => new { changesetId = id });
+                        return Json(System.Text.Json.JsonSerializer.Serialize(new { value = references }));
+                    }
                     if (!string.IsNullOrWhiteSpace(itemPath))
                     {
                         server.ChangesetItemPaths.Enqueue(itemPath);

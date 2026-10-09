@@ -32,6 +32,9 @@ namespace GitTfs.Core
         /// </summary>
         public string Proxy { get; set; }
 
+        /// <summary>Optional directory for complete HTTP request/response captures.</summary>
+        public string HttpCaptureDirectory { get; set; }
+
         public string SourcePath { get; private set; }
 
         public void ApplyProxySettings()
@@ -97,6 +100,7 @@ namespace GitTfs.Core
             Password = GetEnvironmentSetting("GIT_TFS_PASSWORD") ?? Password;
             Pat = GetEnvironmentSetting("GIT_TFS_PAT") ?? Pat;
             Proxy = GetEnvironmentSetting("GIT_TFS_PROXY") ?? Proxy;
+            HttpCaptureDirectory = GetEnvironmentSetting("GIT_TFS_HTTP_CAPTURE") ?? HttpCaptureDirectory;
 
             var batchSize = GetEnvironmentSetting("GIT_TFS_BATCH_SIZE");
             if (batchSize != null)
