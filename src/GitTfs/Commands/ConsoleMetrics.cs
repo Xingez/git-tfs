@@ -168,7 +168,7 @@ namespace GitTfs.Commands
             lock (gate)
             {
                 var requests = RequestRows.Sum(name => counters.GetValueOrDefault(name));
-                return new Text($"🌐 {requests} {Timing(lastRequestMilliseconds)}   ⬇ {counters.GetValueOrDefault("File downloads")} {Timing(lastDownloadMilliseconds)}"
+                return new Text($"Req {requests} {Timing(lastRequestMilliseconds)}   DL {counters.GetValueOrDefault("File downloads")} {Timing(lastDownloadMilliseconds)}"
                     + $"   Rate {Format(rateRemaining)}/{Format(rateLimit)} TSTU"
                     + $"   Throttles {counters.GetValueOrDefault("gittfs.responses.throttled")} · Retries {counters.GetValueOrDefault("gittfs.requests.retries")}");
             }

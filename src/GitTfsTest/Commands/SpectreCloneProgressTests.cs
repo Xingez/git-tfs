@@ -12,7 +12,7 @@ namespace GitTfs.Test.Commands
         [TestMethod]
         public void ActiveChangesetShowsElapsedSecondsAndNextFifteenWaitWithoutSpinners()
         {
-            using var output = new StringWriter();
+            using var output = new LockedStringWriter();
             var console = AnsiConsole.Create(new AnsiConsoleSettings
             {
                 Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
@@ -33,14 +33,23 @@ namespace GitTfs.Test.Commands
                     progress.DescribeChangeset(1, "ignored");
                     progress.StartChangeset(1, 2);
                     progress.ReportFiles(1, 1, 2);
-                    Thread.Sleep(1400);
-                    first = LastImportFrame(output.ToString());
+                    Assert.IsTrue(SpinWait.SpinUntil(() =>
+                    {
+                        var frame = LastImportFrame(output.ToString());
+                        if (!System.Text.RegularExpressions.Regex.IsMatch(frame, @"C1\b[^\r\n]*50%\s+[1-9]\d*s")
+                            || !System.Text.RegularExpressions.Regex.IsMatch(frame, @"\bC16\b[^\r\n]*0%\s+0s[\s\S]*Rate")) return false;
+                        first = frame;
+                        return true;
+                    }, TimeSpan.FromSeconds(3)), "The active timer and fifteen queued rows must be rendered.");
                     progress.CompleteChangeset(1, "abcdef1234");
                     progress.StartChangeset(2, 2);
                     Assert.IsTrue(SpinWait.SpinUntil(() =>
-                        System.Text.RegularExpressions.Regex.IsMatch(LastImportFrame(output.ToString()), @"\bC17\b"),
-                        TimeSpan.FromSeconds(3)), "The next queued changeset must enter the visible list.");
-                    second = LastImportFrame(output.ToString());
+                    {
+                        var frame = LastImportFrame(output.ToString());
+                        if (!System.Text.RegularExpressions.Regex.IsMatch(frame, @"\bC17\b[^\r\n]*0%\s+0s[\s\S]*Rate")) return false;
+                        second = frame;
+                        return true;
+                    }, TimeSpan.FromSeconds(3)), "The next queued changeset must enter the visible list.");
                     return 1;
                 });
             }
@@ -58,7 +67,18 @@ namespace GitTfs.Test.Commands
         private static string LastImportFrame(string output)
         {
             var text = System.Text.RegularExpressions.Regex.Replace(output, @"\x1B\[[0-?]*[ -/]*[@-~]", "");
-            return text[text.LastIndexOf("Changesets · Importing", StringComparison.Ordinal)..];
+            var start = text.LastIndexOf("Changesets · Importing", StringComparison.Ordinal);
+            return start < 0 ? string.Empty : text[start..];
+        }
+
+        private sealed class LockedStringWriter : StringWriter
+        {
+            private readonly object gate = new();
+            public override void Write(string value) { lock (gate) base.Write(value); }
+            public override void Write(char value) { lock (gate) base.Write(value); }
+            public override void Write(char[] buffer, int index, int count) { lock (gate) base.Write(buffer, index, count); }
+            public override void Write(ReadOnlySpan<char> value) { lock (gate) base.Write(value); }
+            public override string ToString() { lock (gate) return base.ToString(); }
         }
 
         [TestMethod]

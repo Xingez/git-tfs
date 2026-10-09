@@ -37,7 +37,7 @@ namespace GitTfs.Test.Commands
             });
             console.Profile.Width = 180;
             console.Write(metrics.RenderDisplay(live: false));
-            StringAssert.Contains(output.ToString(), "🌐 4 23ms   ⬇ 2 5ms");
+            StringAssert.Contains(output.ToString(), "Req 4 23ms   DL 2 5ms");
             Assert.IsFalse(output.ToString().Contains("Avg"));
             Assert.AreEqual(10d, metrics.Snapshot().Single(row => row.Name == "File downloads").AverageMilliseconds);
         }

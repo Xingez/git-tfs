@@ -60,7 +60,7 @@ including skipped changesets. The bar animates during scanning.
 Redirected output prints changeset IDs and percentage updates.
 Short phase labels distinguish scanning, importing, verification, and completion.
 Changesets reach 100% after their Git commit is written; partial failures show a cross.
-The compact footer shows HTTP attempts (🌐) and file download attempts (⬇), each
+The compact footer shows HTTP attempts (`Req`) and file download attempts (`DL`), each
 with its count and latest duration in milliseconds, plus rate budget, throttle and
 retry counts. Counts and the folder tree refresh once per second; retry backoff is
 excluded from request timings. The tree shows directories with their direct file
