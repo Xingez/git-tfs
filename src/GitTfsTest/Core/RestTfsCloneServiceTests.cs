@@ -65,11 +65,12 @@ namespace GitTfs.Test.Core
                 {
                     Assert.Contains("Clone complete", output);
                     Assert.Contains("TFS request:", output);
-                    Assert.False(output.Contains("TFVC changeset scan complete"));
+                    Assert.False(output.Contains("Scanning TFVC"));
                 }
                 else
                 {
-                    Assert.Contains("TFVC changeset scan complete", output);
+                    Assert.Contains("Scanning TFVC", output);
+                    Assert.Contains("100%", output);
                     Assert.Contains("C1", output);
                     Assert.Contains("C2", output);
                     Assert.False(output.Contains("info:"));

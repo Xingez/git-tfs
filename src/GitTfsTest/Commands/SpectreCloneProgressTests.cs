@@ -10,7 +10,7 @@ namespace GitTfs.Test.Commands
     public class SpectreCloneProgressTests
     {
         [TestMethod]
-        public void LiveDisplayRefreshesWhileHistoryRequestIsBlockedAndShowsChangesetComments()
+        public void LiveDisplayRefreshesWhileHistoryRequestIsBlockedAndShowsOnlyChangesetIds()
         {
             using var output = new StringWriter();
             var console = AnsiConsole.Create(new AnsiConsoleSettings
@@ -43,19 +43,70 @@ namespace GitTfs.Test.Commands
                         progress.ReportFiles(reference.ChangesetId, 1, 2);
                         Thread.Sleep(300);
                         progress.CompleteChangeset(reference.ChangesetId, "abcdef1234");
+                        progress.StartChangeset(43, 4);
+                        progress.ReportFiles(43, 1, 4);
+                        Thread.Sleep(350);
+                        progress.CompleteChangeset(43, "fedcba4321");
                     }
                     progress.ReportActivity("Verifying checksums");
-                    Thread.Sleep(150);
+                    Thread.Sleep(350);
                     return 0;
                 });
                 var frames = output.ToString();
-                Assert.IsTrue(frames.Split("Waiting for TFVC history page 1").Length > 3,
+                Assert.IsTrue(frames.Split("Scanning TFVC").Length > 3,
                     "The live display must refresh independently of the blocked request.");
-                StringAssert.Contains(frames, "1 found");
-                StringAssert.Contains(frames, "Release [blue] build");
-                StringAssert.Contains(frames, "1/2 files");
-                StringAssert.Contains(frames, "Verifying checksums");
-                StringAssert.Contains(frames, "1 changesets imported");
+                StringAssert.Contains(frames, "Scanning TFVC");
+                Assert.IsFalse(frames.Contains("page "), "Page details must not appear in the live view.");
+                Assert.IsFalse(frames.Contains(" found"), "Found counts must not appear in the live titles.");
+                StringAssert.Contains(frames, "C42");
+                Assert.IsFalse(frames.Contains("Release"), "Changeset comments must not appear in the live view.");
+                StringAssert.Contains(frames, "C43");
+                StringAssert.Contains(frames, "50%");
+                StringAssert.Contains(frames, "25%");
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(frames, @"C42[^\r\n]*100%"),
+                    "Completed changesets must remain visible at 100% while later changesets run.");
+                Assert.IsFalse(frames.Contains("files"), "Changeset rows must show only their ID and percentage.");
+                Assert.IsFalse(frames.Contains("Verifying checksums"));
+                Assert.IsFalse(frames.Contains("committed so far"));
+            }
+            finally { AnsiConsole.Console = originalConsole; }
+        }
+
+        [TestMethod]
+        public void StaticDisplayShowsChangesetIdsWithoutComments()
+        {
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.No,
+                Interactive = InteractionSupport.No,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            var originalConsole = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    const string comment = "Release [blue] build";
+                    progress.ReportScan(1, 1, 0, new RestChangesetReference { ChangesetId = 42, Comment = comment });
+                    progress.CompleteScan(1);
+                    progress.DescribeChangeset(42, comment);
+                    progress.StartChangeset(42, 2);
+                    progress.ReportFiles(42, 1, 2);
+                    progress.ReportActivity("0 committed so far");
+                    progress.CompleteChangeset(42, "abcdef1234");
+                    return 0;
+                });
+                var text = output.ToString();
+                StringAssert.Contains(text, "C42");
+                StringAssert.Contains(text, "0%");
+                StringAssert.Contains(text, "50%");
+                StringAssert.Contains(text, "100%");
+                Assert.IsFalse(text.Contains("abcdef1"));
+                Assert.IsFalse(text.Contains("committed so far"));
+                Assert.IsFalse(text.Contains("Release"), "Changeset comments must not appear in the static view.");
             }
             finally { AnsiConsole.Console = originalConsole; }
         }

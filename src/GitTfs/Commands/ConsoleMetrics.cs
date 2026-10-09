@@ -8,14 +8,18 @@ namespace GitTfs.Commands
     internal sealed class ConsoleMetrics : IDisposable
     {
         private readonly MeterListener listener;
+        private readonly TimeProvider clock;
         private readonly object gate = new();
+        private Table liveTable;
+        private long lastLiveRefresh;
         private readonly Dictionary<string, long> counters = new();
         private readonly Dictionary<string, (int Samples, double Milliseconds)> timings = new();
         private static readonly string[] RequestRows =
             ["History requests", "Changeset requests", "File downloads", "Metadata requests"];
 
-        public ConsoleMetrics()
+        public ConsoleMetrics(TimeProvider clock = null)
         {
+            this.clock = clock ?? TimeProvider.System;
             listener = new MeterListener
             {
                 InstrumentPublished = (instrument, receiver) =>
@@ -73,6 +77,20 @@ namespace GitTfs.Commands
                     ("Files deleted", "gittfs.files.deleted") })
                     rows.Add((label, counters.GetValueOrDefault(counter), null));
                 return rows;
+            }
+        }
+
+        public Table RenderLive()
+        {
+            lock (gate)
+            {
+                var now = clock.GetTimestamp();
+                if (liveTable == null || clock.GetElapsedTime(lastLiveRefresh, now) >= TimeSpan.FromSeconds(1))
+                {
+                    liveTable = Render();
+                    lastLiveRefresh = now;
+                }
+                return liveTable;
             }
         }
 

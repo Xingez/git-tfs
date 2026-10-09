@@ -44,6 +44,33 @@ namespace GitTfs.Test.Commands
             Assert.IsNotNull(next.Snapshot().Single(row => row.Name == "File downloads").AverageMilliseconds);
         }
 
+        [TestMethod]
+        public void LiveTableRefreshesOncePerSecondAndFinalTableIsAlwaysFresh()
+        {
+            var clock = new ManualTimeProvider();
+            using var metrics = new ConsoleMetrics(clock);
+            var initial = metrics.RenderLive();
+            using (GitTfsMetrics.MeasureRequest("History requests")) { }
+            clock.Advance(TimeSpan.FromMilliseconds(999));
+            Assert.AreSame(initial, metrics.RenderLive());
+            Assert.AreEqual(1L, metrics.Snapshot().Single(row => row.Name == "History requests").Count,
+                "Measurements must continue to be collected between table refreshes.");
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            var refreshed = metrics.RenderLive();
+            Assert.AreNotSame(initial, refreshed);
+            using (GitTfsMetrics.MeasureRequest("History requests")) { }
+            Assert.AreSame(refreshed, metrics.RenderLive());
+            Assert.AreNotSame(refreshed, metrics.Render(), "The final summary must bypass the live refresh interval.");
+        }
+
+        private sealed class ManualTimeProvider : TimeProvider
+        {
+            private long timestamp;
+            public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+            public override long GetTimestamp() => timestamp;
+            public void Advance(TimeSpan duration) => timestamp += duration.Ticks;
+        }
+
         private sealed class RetryHandler : HttpMessageHandler
         {
             private int requests;
