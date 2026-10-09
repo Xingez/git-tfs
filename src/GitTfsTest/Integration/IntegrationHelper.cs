@@ -128,7 +128,6 @@ namespace GitTfs.Test.Integration
                 scriptField = script;
             }
 
-            public string FakeCommiter;
             public FakeChangesetBuilder Changeset(int changesetId, string message, DateTime checkinDate)
             {
                 var changeset = new ScriptedChangeset
@@ -138,7 +137,6 @@ namespace GitTfs.Test.Integration
                     CheckinDate = checkinDate,
                     IsBranchChangeset = false,
                     IsMergeChangeset = false,
-                    Committer = FakeCommiter,
                 };
                 scriptField.Changesets.Add(changeset);
                 return new FakeChangesetBuilder(changeset);
@@ -153,7 +151,6 @@ namespace GitTfs.Test.Integration
                     CheckinDate = checkinDate,
                     IsBranchChangeset = true,
                     IsMergeChangeset = false,
-                    Committer = FakeCommiter,
                     BranchChangesetDatas = new BranchChangesetDatas
                     {
                         RootChangesetId = rootChangesetId,
@@ -174,7 +171,6 @@ namespace GitTfs.Test.Integration
                     CheckinDate = checkinDate,
                     IsBranchChangeset = false,
                     IsMergeChangeset = true,
-                    Committer = FakeCommiter,
                     MergeChangesetDatas = new MergeChangesetDatas
                     {
                         BeforeMergeChangesetId = lastChangesetId,
