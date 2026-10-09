@@ -139,10 +139,48 @@ namespace GitTfs.Test.Commands
                     progress.SkipChangeset(2);
                     progress.StartChangeset(3, 4);
                     progress.ReportFiles(3, 1, 4);
-                    return 0;
+                    return 1;
                 });
                 Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(output.ToString(), @"Overall[^\r\n]*56%"),
                     "Two finished changesets and one quarter of the next must show 56% of four changesets.");
+                StringAssert.Contains(output.ToString(), "Changesets · Failed");
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(output.ToString(), @"×[^\r\n]*Overall"),
+                    "A partial failed operation must not be shown with a completion checkmark.");
+            }
+            finally { AnsiConsole.Console = originalConsole; }
+        }
+
+        [TestMethod]
+        public void FileProgressWaitsForTheCommitAndVerificationHasAClearPhase()
+        {
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = 180;
+            var originalConsole = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.CompleteScan(1);
+                    progress.StartChangeset(42, 1);
+                    progress.ReportFiles(42, 1, 1);
+                    Thread.Sleep(350);
+                    progress.CompleteChangeset(42, "abcdef1234");
+                    progress.ReportActivity("Verifying latest TFVC file checksums");
+                    Thread.Sleep(350);
+                    return 0;
+                });
+                var text = output.ToString();
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(text, @"C42[^\r\n]*99%"));
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(text, @"C42[^\r\n]*100%"));
+                StringAssert.Contains(text, "Changesets · Verifying");
+                StringAssert.Contains(text, "Changesets · Complete");
             }
             finally { AnsiConsole.Console = originalConsole; }
         }

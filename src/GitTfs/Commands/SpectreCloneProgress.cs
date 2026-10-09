@@ -15,9 +15,9 @@ namespace GitTfs.Commands
                 console.Profile.Capabilities.Interactive = true;
             if (!console.Profile.Capabilities.Interactive)
             {
-                var reporter = new StaticReporter(console);
-                var result = action(reporter);
-                console.Write(metrics.Render());
+                var staticReporter = new StaticReporter(console);
+                var result = action(staticReporter);
+                console.Write(metrics.RenderDisplay(live: false));
                 return result;
             }
 
@@ -26,10 +26,7 @@ namespace GitTfs.Commands
                 .AutoClear(false)
                 .HideCompleted(false)
                 .Columns(
-                    new SpinnerColumn(console.Profile.Capabilities.Unicode ? Spinner.Known.Dots : Spinner.Known.Line)
-                    {
-                        Style = new Style(Color.Cyan), CompletedText = "✓"
-                    },
+                    new TaskStatusColumn(console.Profile.Capabilities.Unicode),
                     new TaskDescriptionColumn { Wrap = true },
                     new ProgressBarColumn
                     {
@@ -42,24 +39,50 @@ namespace GitTfs.Commands
                     new FilePercentageColumn());
             display.RefreshRate = TimeSpan.FromMilliseconds(250);
             var finished = false;
-            display.RenderHook = (progress, _) => Dashboard(console,
-                finished ? metrics.Render() : metrics.RenderLive(), progress);
+            Reporter reporter = null;
+            string lastPhase = null;
+            display.RenderHook = (progress, _) =>
+            {
+                var phase = reporter?.Phase ?? "Scanning";
+                var refresh = phase != lastPhase;
+                lastPhase = phase;
+                return Dashboard(console, metrics.RenderDisplay(live: !finished, refresh), progress, phase);
+            };
             var exitCode = display.Start(context =>
                 {
-                    var reporter = new Reporter(context);
-                    try { return action(reporter); }
-                    finally { finished = true; reporter.Stop(); }
+                    reporter = new Reporter(context);
+                    var succeeded = false;
+                    try
+                    {
+                        var result = action(reporter);
+                        succeeded = result == 0;
+                        return result;
+                    }
+                    finally { reporter.Stop(succeeded); finished = true; }
                 });
             return exitCode;
         }
 
-        internal static IRenderable Dashboard(IAnsiConsole console, IRenderable metrics, IRenderable progress)
+        internal static IRenderable Dashboard(IAnsiConsole console, IRenderable metrics, IRenderable progress, string phase = null)
         {
-            var changesets = new Table().RoundedBorder().Title("[bold blue]Changesets[/]")
+            var title = "Changesets" + (phase == null ? string.Empty : " · " + phase);
+            var changesets = new Table().RoundedBorder().Title("[bold blue]" + title + "[/]")
                 .HideHeaders().AddColumn("Progress").AddRow(progress);
             if (console.Profile.Width < 80)
                 return new Rows(metrics, changesets);
             return new Grid().AddColumn().AddColumn().AddRow(metrics, changesets);
+        }
+
+        private sealed class TaskStatusColumn(bool unicode) : ProgressColumn
+        {
+            private readonly SpinnerColumn spinner = new(unicode ? Spinner.Known.Dots : Spinner.Known.Line)
+            {
+                Style = new Style(Color.Cyan), CompletedText = unicode ? "✓" : "v"
+            };
+            public override IRenderable Render(RenderOptions options, ProgressTask task, TimeSpan deltaTime)
+                => task.IsFinished && task.Value < task.MaxValue
+                    ? new Text(unicode ? "×" : "x", new Style(Color.Red))
+                    : spinner.Render(options, task, deltaTime);
         }
 
         private sealed class FilePercentageColumn : ProgressColumn
@@ -86,7 +109,7 @@ namespace GitTfs.Commands
 
             public void ReportFiles(int changesetId, int processedFiles, int totalFiles)
             {
-                var percentage = totalFiles > 0 ? (int)Math.Clamp(100.0 * processedFiles / totalFiles, 0, 100) : 0;
+                var percentage = totalFiles > 0 ? (int)Math.Clamp(100.0 * processedFiles / totalFiles, 0, 99) : 0;
                 if (percentages.TryGetValue(changesetId, out var previous) && previous == percentage) return;
                 percentages[changesetId] = percentage;
                 console.MarkupLine("[blue]C{0}[/] · {1}%", changesetId, percentage);
@@ -108,6 +131,7 @@ namespace GitTfs.Commands
             private readonly Dictionary<int, ProgressTask> entries = new();
             private readonly Queue<ProgressTask> recent = new();
             private int completed;
+            public string Phase { get; private set; } = "Scanning";
 
             public Reporter(ProgressContext context)
             {
@@ -118,6 +142,7 @@ namespace GitTfs.Commands
 
             public void CompleteScan(int found)
             {
+                Phase = "Importing";
                 overall.MaxValue = Math.Max(found, 1);
                 overall.IsIndeterminate = false;
                 overall.Value = found == 0 ? 1 : completed;
@@ -125,6 +150,7 @@ namespace GitTfs.Commands
 
             public void StartChangeset(int changesetId, int totalFiles)
             {
+                Phase = "Importing";
                 var task = context.AddTask($"[bold blue]C{changesetId}[/]", maxValue: Math.Max(totalFiles, 1));
                 entries[changesetId] = task;
                 recent.Enqueue(task);
@@ -135,7 +161,7 @@ namespace GitTfs.Commands
             public void ReportFiles(int changesetId, int processedFiles, int totalFiles)
             {
                 if (!entries.TryGetValue(changesetId, out var task)) return;
-                task.Value = Math.Min(processedFiles, task.MaxValue);
+                task.Value = Math.Min(processedFiles, task.MaxValue * .99);
                 UpdateOverall();
             }
 
@@ -161,8 +187,17 @@ namespace GitTfs.Commands
                         completed + entries.Values.Sum(task => task.Percentage / 100));
             }
 
-            public void Stop()
+            public void ReportActivity(string description)
             {
+                if (description.StartsWith("Verifying", StringComparison.Ordinal)) Phase = "Verifying";
+                else if (description.StartsWith("Writing Git", StringComparison.Ordinal)) Phase = "Writing files";
+                else if (description.StartsWith("Running Git", StringComparison.Ordinal)) Phase = "Git cleanup";
+                else if (description.StartsWith("Merging and pushing", StringComparison.Ordinal)) Phase = "Syncing";
+            }
+
+            public void Stop(bool succeeded)
+            {
+                Phase = succeeded ? "Complete" : "Failed";
                 if (overall.IsIndeterminate)
                 {
                     overall.MaxValue = Math.Max(completed + entries.Count, 1);

@@ -56,10 +56,16 @@ Normal runs show metrics on the left and the latest 10 changeset IDs with percen
 progress on the right. History is counted before importing so the overall bar uses
 the complete total, including skipped changesets. The bar animates during scanning.
 Redirected output prints changeset IDs and percentage updates.
+Short phase labels distinguish scanning, importing, verification, and completion.
+Changesets reach 100% after their Git commit is written; partial failures show a cross.
 The live metrics table groups HTTP attempts into history, changeset, file download,
 and metadata requests, showing counts and average milliseconds once per second. Retries count as
 requests; retry backoff is excluded from request timings. Import and file counters
 are also shown, and a final table is printed when output is redirected.
+Retry and throttle counters, the next-attempt countdown, and the last server delay
+make API pauses visible. When supplied, `Retry-After` and `X-RateLimit` headers show
+the server's delay and remaining rate budget in TSTUs
+([Azure DevOps rate-limit documentation](https://learn.microsoft.com/en-us/azure/devops/integrate/concepts/rate-limits)).
 With `debug` set to `false`, console logging is disabled and output uses Spectre.
 Help, version information, and command errors remain visible.
 Use `--debug` to disable the progress display and print full diagnostic logs;

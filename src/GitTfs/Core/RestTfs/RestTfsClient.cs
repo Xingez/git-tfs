@@ -34,6 +34,7 @@ namespace GitTfs.Core.RestTfs
             PropertyNameCaseInsensitive = true,
         };
         private TimeSpan pendingServerDelayField;
+        private string pendingServerDelaySourceField;
 
         public RestTfsClient(string serverUrl, string repositoryPath, GitTfsSettings settings,
             ILogger<RestTfsClient> logger = null)
@@ -247,6 +248,7 @@ namespace GitTfs.Core.RestTfs
                         var rateLimit = AzureDevOpsRateLimit.FromValues(
                             name => headers.TryGetValue(name, out var value) ? value : null,
                             (int)response.StatusCode);
+                        var throttled = GitTfsMetrics.RecordResponse(rateLimit);
                         if (rateLimit.HasHeaders || response.StatusCode >= HttpStatusCode.BadRequest)
                             loggerField?.LogDebug("TFS response {StatusCode} for {RequestUrl}: {RateLimit}",
                                 (int)response.StatusCode, uri, rateLimit.ToLogString());
@@ -257,6 +259,7 @@ namespace GitTfs.Core.RestTfs
                             if (rateLimit.IsThrottled && serverDelay.HasValue)
                             {
                                 pendingServerDelayField = Max(pendingServerDelayField, serverDelay.Value);
+                                pendingServerDelaySourceField = delaySource;
                                 loggerField?.LogDebug("TFS server requested {Delay} before the next request (source: {DelaySource}).",
                                     FormatDuration(serverDelay.Value), delaySource);
                             }
@@ -283,7 +286,7 @@ namespace GitTfs.Core.RestTfs
                         requestMeasurement.Dispose();
                         WaitBeforeRetry(uri, attempt, serverDelayForRetry, DefaultRetryDelay,
                             delaySourceForRetry ?? "default retry interval",
-                            "HTTP " + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) + ": " + TrimBody(body));
+                            "HTTP " + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) + ": " + TrimBody(body), throttled);
                     }
                 }
             }
@@ -301,12 +304,14 @@ namespace GitTfs.Core.RestTfs
             loggerField?.LogDebug("Waiting {Delay} before TFS request: {RequestTarget}.",
                 FormatDuration(delay), logTarget);
             var waitTimer = Stopwatch.StartNew();
+            using var waitMeasurement = GitTfsMetrics.MeasureWait(delay, pendingServerDelaySourceField, throttled: true);
             Thread.Sleep(delay);
             loggerField?.LogDebug("TFS request wait completed in {Elapsed} (requested {Delay}).",
                 FormatDuration(waitTimer.Elapsed), FormatDuration(delay));
         }
 
-        private void WaitBeforeRetry(Uri uri, int attempt, TimeSpan? serverDelay, TimeSpan defaultDelay, string source, string reason)
+        private void WaitBeforeRetry(Uri uri, int attempt, TimeSpan? serverDelay, TimeSpan defaultDelay, string source, string reason,
+            bool throttled = false)
         {
             var delay = serverDelay ?? defaultDelay;
             if (delay < TimeSpan.Zero)
@@ -315,6 +320,7 @@ namespace GitTfs.Core.RestTfs
             loggerField?.LogWarning("Waiting {Delay} before TFS retry request {RetryAttempt}/{MaxAttempts} (source: {DelaySource}, url: {RequestUrl}). {Reason}",
                 FormatDuration(delay), attempt + 1, MaxRequestAttempts, source, uri, reason);
             var waitTimer = Stopwatch.StartNew();
+            using var waitMeasurement = GitTfsMetrics.MeasureWait(delay, source, throttled, attempt + 1, MaxRequestAttempts);
             Thread.Sleep(delay);
             loggerField?.LogDebug("TFS retry wait completed in {Elapsed} (requested {Delay}).",
                 FormatDuration(waitTimer.Elapsed), FormatDuration(delay));
