@@ -38,7 +38,7 @@ namespace GitTfs.Commands
                     gitRepositoryPath, parsedChangesetId, noFallbackField)
                 : SpectreCloneProgress.Run(progressReporter => cloneServiceField.RunChangeset(
                     settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath, parsedChangesetId,
-                    noFallbackField, progressReporter));
+                    noFallbackField, progressReporter), gitRepositoryPath);
         }
     }
 }

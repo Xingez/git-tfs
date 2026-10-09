@@ -11,7 +11,7 @@ namespace GitTfs.Commands
         private readonly MeterListener listener;
         private readonly TimeProvider clock;
         private readonly object gate = new();
-        private Table liveTable;
+        private IRenderable liveTable;
         private long lastLiveRefresh;
         private int? lastStatus;
         private double? rateRemaining, rateLimit, suggestedDelay, serverDelay;
@@ -22,6 +22,7 @@ namespace GitTfs.Commands
         private int retryAttempt, maxAttempts;
         private readonly Dictionary<string, long> counters = new();
         private readonly Dictionary<string, (int Samples, double Milliseconds)> timings = new();
+        private double? lastRequestMilliseconds, lastDownloadMilliseconds;
         private static readonly string[] RequestRows =
             ["History requests", "Changeset requests", "File downloads", "Metadata requests"];
 
@@ -53,6 +54,11 @@ namespace GitTfs.Commands
                 {
                     var previous = timings.GetValueOrDefault(name);
                     timings[name] = (previous.Samples + 1, previous.Milliseconds + milliseconds);
+                    if (instrument.Name == "gittfs.request.duration")
+                    {
+                        lastRequestMilliseconds = milliseconds;
+                        if (name == "File downloads") lastDownloadMilliseconds = milliseconds;
+                    }
                 }
             });
             listener.Start();
@@ -143,7 +149,7 @@ namespace GitTfs.Commands
             }
         }
 
-        public Table RenderLive()
+        public IRenderable RenderLive()
         {
             lock (gate)
             {
@@ -157,23 +163,15 @@ namespace GitTfs.Commands
             }
         }
 
-        public Table Render()
+        public IRenderable Render()
         {
-            var api = ApiSnapshot();
-            var table = new Table().RoundedBorder()
-                .AddColumn("Metric").AddColumn(new TableColumn("Count").RightAligned())
-                .AddColumn(new TableColumn("Avg ms").RightAligned());
-            foreach (var row in Snapshot())
+            lock (gate)
             {
-                table.AddRow(row.Name, row.Count.ToString("N0", CultureInfo.InvariantCulture),
-                    row.AverageMilliseconds?.ToString("N1", CultureInfo.InvariantCulture) ?? "—");
-                if (row.Name == "Throttles")
-                {
-                    table.AddRow("Rate limit (TSTU)", Format(api.RateLimit), "—");
-                    table.AddRow("Rate remaining (TSTU)", Format(api.RateRemaining), "—");
-                }
+                var requests = RequestRows.Sum(name => counters.GetValueOrDefault(name));
+                return new Text($"🌐 {requests} {Timing(lastRequestMilliseconds)}   ⬇ {counters.GetValueOrDefault("File downloads")} {Timing(lastDownloadMilliseconds)}"
+                    + $"   Rate {Format(rateRemaining)}/{Format(rateLimit)} TSTU"
+                    + $"   Throttles {counters.GetValueOrDefault("gittfs.responses.throttled")} · Retries {counters.GetValueOrDefault("gittfs.requests.retries")}");
             }
-            return table;
         }
 
         public IRenderable RenderDisplay(bool live, bool refresh = false)
@@ -188,9 +186,10 @@ namespace GitTfs.Commands
             var style = api.Waiting ? "yellow" : api.StatusCode >= 400 ? "red" : "green";
             var rows = new List<IRenderable>
             {
-                live ? RenderLive() : Render(),
-                new Markup($"[{style}]{state}[/]")
+                live ? RenderLive() : Render()
             };
+            if (api.Waiting || api.StatusCode >= 400)
+                rows.Add(new Markup($"[{style}]{state}[/]"));
             if (api.SuggestedDelaySeconds.HasValue)
                 rows.Add(new Text(api.DelaySource switch
                 {
@@ -204,6 +203,10 @@ namespace GitTfs.Commands
         }
 
         private static string Format(double? value) => value?.ToString("0.###", CultureInfo.InvariantCulture) ?? "—";
+
+        private static string Timing(double? milliseconds) => milliseconds.HasValue
+            ? milliseconds < 1 ? "<1ms" : milliseconds.Value.ToString("0", CultureInfo.InvariantCulture) + "ms"
+            : "—";
 
         public void Dispose() => listener.Dispose();
     }

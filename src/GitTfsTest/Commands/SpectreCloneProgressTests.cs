@@ -10,6 +10,58 @@ namespace GitTfs.Test.Commands
     public class SpectreCloneProgressTests
     {
         [TestMethod]
+        public void ActiveChangesetShowsElapsedSecondsAndNextNineWaitWithoutSpinners()
+        {
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = 180;
+            var original = AnsiConsole.Console;
+            string first = null, second = null;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    for (var id = 1; id <= 15; id++)
+                        progress.ReportScan(1, id, 0, new RestChangesetReference { ChangesetId = id });
+                    progress.CompleteScan(15);
+                    progress.DescribeChangeset(1, "ignored");
+                    progress.StartChangeset(1, 2);
+                    progress.ReportFiles(1, 1, 2);
+                    Thread.Sleep(1400);
+                    first = LastImportFrame(output.ToString());
+                    progress.CompleteChangeset(1, "abcdef1234");
+                    progress.StartChangeset(2, 2);
+                    Assert.IsTrue(SpinWait.SpinUntil(() =>
+                        System.Text.RegularExpressions.Regex.IsMatch(LastImportFrame(output.ToString()), @"\bC11\b"),
+                        TimeSpan.FromSeconds(3)), "The next queued changeset must enter the visible list.");
+                    second = LastImportFrame(output.ToString());
+                    return 1;
+                });
+            }
+            finally { AnsiConsole.Console = original; }
+            Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(first, @"C1\b[^\r\n]*50%\s+[1-9]\d*s"));
+            for (var id = 2; id <= 10; id++)
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(first, $@"│\s+C{id}\b[^\r\n]*0%\s+0s"),
+                    "Queued changesets must remain at zero without an active spinner.");
+            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(first, @"\bC11\b"));
+            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(second, @"\bC1\b"));
+            for (var id = 3; id <= 11; id++)
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(second, $@"│\s+C{id}\b[^\r\n]*0%\s+0s"));
+        }
+
+        private static string LastImportFrame(string output)
+        {
+            var text = System.Text.RegularExpressions.Regex.Replace(output, @"\x1B\[[0-?]*[ -/]*[@-~]", "");
+            return text[text.LastIndexOf("Changesets · Importing", StringComparison.Ordinal)..];
+        }
+
+        [TestMethod]
         public void LiveDisplayRefreshesWhileHistoryRequestIsBlockedAndShowsOnlyChangesetIds()
         {
             using var output = new StringWriter();
@@ -75,7 +127,7 @@ namespace GitTfs.Test.Commands
         [TestMethod]
         [DataRow(80)]
         [DataRow(180)]
-        public void DashboardKeepsMetricsOnTheLeftAndOnlyTenRecentChangesets(int width)
+        public void DashboardKeepsMetricsInTheFooterAndOnlyTenRecentChangesets(int width)
         {
             using var output = new StringWriter();
             var console = AnsiConsole.Create(new AnsiConsoleSettings
@@ -102,11 +154,9 @@ namespace GitTfs.Test.Commands
                     return 0;
                 });
                 var text = System.Text.RegularExpressions.Regex.Replace(output.ToString(), @"\x1B\[[0-?]*[ -/]*[@-~]", "");
-                var finalFrame = text[text.LastIndexOf("│ Metric", StringComparison.Ordinal)..];
-                var header = finalFrame.Split('\n')[0];
-                var overallRow = finalFrame.Split('\n').Single(line => line.Contains("Overall"));
-                Assert.IsTrue(overallRow.IndexOf("Overall", StringComparison.Ordinal) > header.IndexOf("Avg ms", StringComparison.Ordinal),
-                    "Metrics and changesets must appear side by side, with metrics on the left.");
+                var finalFrame = text[text.LastIndexOf("Changesets · Complete", StringComparison.Ordinal)..];
+                Assert.IsTrue(finalFrame.IndexOf("Rate", StringComparison.Ordinal) > finalFrame.IndexOf("C13", StringComparison.Ordinal),
+                    "Compact metrics belong below the changeset list.");
                 for (var id = 1; id <= 3; id++)
                     Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, $@"\bC{id}\b"));
                 for (var id = 4; id <= 13; id++)

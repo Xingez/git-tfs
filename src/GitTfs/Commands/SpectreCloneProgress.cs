@@ -6,10 +6,11 @@ namespace GitTfs.Commands
 
     internal static class SpectreCloneProgress
     {
-        public static int Run(Func<IChangesetProgressReporter, int> action)
+        public static int Run(Func<IChangesetProgressReporter, int> action, string workingDirectory = null)
         {
             var console = AnsiConsole.Console;
             using var metrics = new ConsoleMetrics();
+            var folder = workingDirectory == null ? null : new WorkingDirectoryTree(workingDirectory);
             // A real ANSI terminal can render live progress even when CI detection disabled interaction.
             if (console.Profile.Out.IsTerminal && console.Profile.Capabilities.Ansi)
                 console.Profile.Capabilities.Interactive = true;
@@ -30,13 +31,16 @@ namespace GitTfs.Commands
                     new TaskDescriptionColumn { Wrap = true },
                     new ProgressBarColumn
                     {
-                        Width = 14,
+                        Width = Math.Clamp((folder != null && console.Profile.Width >= 80
+                            ? console.Profile.Width - FolderWidth(console.Profile.Width) - 2
+                            : console.Profile.Width) - 28, 14, 60),
                         CompletedStyle = new Style(Color.Blue),
                         FinishedStyle = new Style(Color.Green),
                         RemainingStyle = new Style(Color.Grey),
                         IndeterminateStyle = new Style(Color.Cyan)
                     },
-                    new FilePercentageColumn());
+                    new FilePercentageColumn(),
+                    new SecondsColumn());
             display.RefreshRate = TimeSpan.FromMilliseconds(250);
             var finished = false;
             Reporter reporter = null;
@@ -46,7 +50,8 @@ namespace GitTfs.Commands
                 var phase = reporter?.Phase ?? "Scanning";
                 var refresh = phase != lastPhase;
                 lastPhase = phase;
-                return Dashboard(console, metrics.RenderDisplay(live: !finished, refresh), progress, phase);
+                return Dashboard(console, metrics.RenderDisplay(live: !finished, refresh), progress, phase,
+                    folder?.Render(refresh || finished));
             };
             var exitCode = display.Start(context =>
                 {
@@ -63,15 +68,21 @@ namespace GitTfs.Commands
             return exitCode;
         }
 
-        internal static IRenderable Dashboard(IAnsiConsole console, IRenderable metrics, IRenderable progress, string phase = null)
+        internal static IRenderable Dashboard(IAnsiConsole console, IRenderable metrics, IRenderable progress,
+            string phase = null, IRenderable folder = null)
         {
             var title = "Changesets" + (phase == null ? string.Empty : " · " + phase);
             var changesets = new Table().RoundedBorder().Title("[bold blue]" + title + "[/]")
-                .HideHeaders().AddColumn("Progress").AddRow(progress);
-            if (console.Profile.Width < 80)
-                return new Rows(metrics, changesets);
-            return new Grid().AddColumn().AddColumn().AddRow(metrics, changesets);
+                .Expand().HideHeaders().AddColumn("Progress").AddRow(progress);
+            IRenderable dashboard = folder == null ? changesets
+                : console.Profile.Width >= 80
+                    ? new Grid().AddColumn(new GridColumn().Width(console.Profile.Width - FolderWidth(console.Profile.Width) - 2))
+                        .AddColumn(new GridColumn().Width(FolderWidth(console.Profile.Width))).AddRow(changesets, folder)
+                    : new Rows(changesets, folder);
+            return new Rows(dashboard, metrics);
         }
+
+        private static int FolderWidth(int width) => Math.Clamp(width / 3, 24, 40);
 
         private sealed class TaskStatusColumn(bool unicode) : ProgressColumn
         {
@@ -80,9 +91,15 @@ namespace GitTfs.Commands
                 Style = new Style(Color.Cyan), CompletedText = unicode ? "✓" : "v"
             };
             public override IRenderable Render(RenderOptions options, ProgressTask task, TimeSpan deltaTime)
-                => task.IsFinished && task.Value < task.MaxValue
+                => task.StartTime == null ? new Text(" ") : task.IsFinished && task.Value < task.MaxValue
                     ? new Text(unicode ? "×" : "x", new Style(Color.Red))
                     : spinner.Render(options, task, deltaTime);
+        }
+
+        private sealed class SecondsColumn : ProgressColumn
+        {
+            public override IRenderable Render(RenderOptions options, ProgressTask task, TimeSpan deltaTime)
+                => new Text($"{Math.Floor(task.ElapsedTime?.TotalSeconds ?? 0):0}s", new Style(Color.Grey));
         }
 
         private sealed class FilePercentageColumn : ProgressColumn
@@ -130,6 +147,7 @@ namespace GitTfs.Commands
             private readonly ProgressTask overall;
             private readonly Dictionary<int, ProgressTask> entries = new();
             private readonly Queue<ProgressTask> recent = new();
+            private readonly Queue<int> upcoming = new();
             private int completed;
             public string Phase { get; private set; } = "Scanning";
 
@@ -148,14 +166,41 @@ namespace GitTfs.Commands
                 overall.Value = found == 0 ? 1 : completed;
             }
 
+            public void ReportScan(int page, int found, int cursor, RestChangesetReference latest = null)
+            {
+                if (latest == null) return;
+                upcoming.Enqueue(latest.ChangesetId);
+                FillUpcoming();
+            }
+
+            private ProgressTask AddChangeset(int changesetId)
+            {
+                var task = context.AddTask($"[bold blue]C{changesetId}[/]", autoStart: false, maxValue: 1);
+                entries[changesetId] = task;
+                recent.Enqueue(task);
+                if (recent.Count > 10) recent.Dequeue().HideWhenCompleted = true;
+                return task;
+            }
+
+            private void FillUpcoming()
+            {
+                while (upcoming.Count > 0 && (recent.Count < 10 || recent.Peek().IsFinished))
+                    AddChangeset(upcoming.Dequeue());
+            }
+
+            public void DescribeChangeset(int changesetId, string comment)
+            {
+                Phase = "Importing";
+                if (!entries.TryGetValue(changesetId, out var task)) task = AddChangeset(changesetId);
+                task.StartTask();
+            }
+
             public void StartChangeset(int changesetId, int totalFiles)
             {
                 Phase = "Importing";
-                var task = context.AddTask($"[bold blue]C{changesetId}[/]", maxValue: Math.Max(totalFiles, 1));
-                entries[changesetId] = task;
-                recent.Enqueue(task);
-                if (recent.Count > 10)
-                    recent.Dequeue().HideWhenCompleted = true;
+                if (!entries.TryGetValue(changesetId, out var task)) task = AddChangeset(changesetId);
+                task.MaxValue = Math.Max(totalFiles, 1);
+                task.StartTask();
             }
 
             public void ReportFiles(int changesetId, int processedFiles, int totalFiles)
@@ -172,6 +217,7 @@ namespace GitTfs.Commands
                 task.StopTask();
                 completed++;
                 UpdateOverall();
+                FillUpcoming();
             }
 
             public void SkipChangeset(int changesetId)

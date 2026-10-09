@@ -62,7 +62,7 @@ namespace GitTfs.Commands
                     gitRepositoryPath, noFallbackField, targetCloneUrl, targetBranch)
                 : SpectreCloneProgress.Run(progressReporter => restCloneServiceField.Run(
                     settingsField.TargetServer, tfsRepositoryPath, gitRepositoryPath, noFallbackField,
-                    targetCloneUrl, targetBranch, progressReporter));
+                    targetCloneUrl, targetBranch, progressReporter), gitRepositoryPath);
             Environment.CurrentDirectory = Path.GetFullPath(gitRepositoryPath);
             return result;
         }

@@ -4,7 +4,7 @@ namespace GitTfs.Test.Commands
     using System.Globalization;
     using System.Net;
     using System.Net.Http;
-    using System.Text.RegularExpressions;
+    using System.Diagnostics.Metrics;
     using GitTfs.Commands;
     using GitTfs.Core;
     using GitTfs.Core.RestTfs;
@@ -14,6 +14,34 @@ namespace GitTfs.Test.Commands
     [TestClass]
     public class ConsoleMetricsTests
     {
+        [TestMethod]
+        public void FooterShowsCountsAndLastRequestTimesInsteadOfAverages()
+        {
+            using var metrics = new ConsoleMetrics();
+            using var meter = new Meter(GitTfsMetrics.MeterName);
+            var requests = meter.CreateCounter<long>("gittfs.requests");
+            var duration = meter.CreateHistogram<double>("gittfs.request.duration", "ms");
+            var history = new KeyValuePair<string, object>("operation", "History requests");
+            var download = new KeyValuePair<string, object>("operation", "File downloads");
+            requests.Add(2, history);
+            requests.Add(2, download);
+            duration.Record(10, history);
+            duration.Record(15, download);
+            duration.Record(5, download);
+            duration.Record(23, history);
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.No, Out = new AnsiConsoleOutput(output),
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false }
+            });
+            console.Profile.Width = 180;
+            console.Write(metrics.RenderDisplay(live: false));
+            StringAssert.Contains(output.ToString(), "🌐 4 23ms   ⬇ 2 5ms");
+            Assert.IsFalse(output.ToString().Contains("Avg"));
+            Assert.AreEqual(10d, metrics.Snapshot().Single(row => row.Name == "File downloads").AverageMilliseconds);
+        }
+
         [TestMethod]
         public void RequestCountIncludesRetriesButAverageDurationExcludesBackoff()
         {
@@ -69,9 +97,8 @@ namespace GitTfs.Test.Commands
                     console.Profile.Width = 180;
                     console.Write(metrics.RenderDisplay(live: false));
                     StringAssert.Contains(output.ToString(), "API throttled · attempt 2/3 · 2s");
-                    StringAssert.Matches(output.ToString(), new Regex(@"Rate limit \(TSTU\)\s*│\s*200\s*│\s*—"));
-                    StringAssert.Matches(output.ToString(), new Regex(@"Rate remaining \(TSTU\)\s*│\s*0\s*│\s*—"));
-                    Assert.IsFalse(output.ToString().Contains("Rate budget:"), "Rate limits belong in the metrics table.");
+                    StringAssert.Contains(output.ToString(), "Rate 0/200 TSTU");
+                    StringAssert.Contains(output.ToString(), "Throttles 1 · Retries 1");
                     StringAssert.Contains(output.ToString(), "Last Retry-After: 3s");
                     StringAssert.Contains(output.ToString(), "Server delay: 0.125s");
                 }
@@ -177,11 +204,10 @@ namespace GitTfs.Test.Commands
             });
             console.Profile.Width = 180;
             console.Write(initial);
-            StringAssert.Matches(output.ToString(), new Regex(@"Rate remaining \(TSTU\)\s*│\s*—\s*│\s*—"));
+            StringAssert.Contains(output.ToString(), "Rate —/— TSTU");
             output.GetStringBuilder().Clear();
             console.Write(refreshed);
-            StringAssert.Matches(output.ToString(), new Regex(@"Rate limit \(TSTU\)\s*│\s*200\s*│\s*—"));
-            StringAssert.Matches(output.ToString(), new Regex(@"Rate remaining \(TSTU\)\s*│\s*150\.5\s*│\s*—"));
+            StringAssert.Contains(output.ToString(), "Rate 150.5/200 TSTU");
             using (GitTfsMetrics.MeasureRequest("History requests")) { }
             Assert.AreSame(refreshed, metrics.RenderLive());
             Assert.AreNotSame(refreshed, metrics.Render(), "The final summary must bypass the live refresh interval.");
