@@ -57,9 +57,10 @@ live tree of the output folder on the right (stacked in narrow terminals). The a
 changeset and the next seven follow the last eight completed changesets. Queued
 changesets stay at 0% without spinners; the list grows to 16 rows as completions accumulate.
 History is counted before importing so the overall bar uses the complete total,
-including skipped changesets. On resume, Overall includes the unique TFVC changesets
-already imported into this Git history, plus the remaining scan; the last eight imported
-changesets appear as completed rows. The bar animates during scanning.
+including skipped changesets. On resume, Overall includes previously completed
+changesets, including skips, plus the remaining scan; the last eight completed
+changesets appear as finished rows. Progress is saved under `.git`; older clones
+reconstruct the completed prefix from TFVC history once. The bar animates during scanning.
 Redirected output prints changeset IDs and percentage updates.
 Short phase labels distinguish scanning, importing, verification, and completion.
 Changesets reach 100% after their Git commit is written; partial failures show a cross.

@@ -154,7 +154,7 @@ namespace GitTfs.Commands
             private readonly Dictionary<int, ProgressTask> entries = new();
             private readonly Queue<ProgressTask> completedTasks = new();
             private readonly Queue<int> upcoming = new();
-            private int completed;
+            private readonly HashSet<int> completed = new();
             public string Phase { get; private set; } = "Scanning";
 
             public Reporter(ProgressContext context, WorkingDirectoryTree folder)
@@ -168,14 +168,14 @@ namespace GitTfs.Commands
             public void CompleteScan(int found)
             {
                 Phase = "Importing";
-                overall.MaxValue = Math.Max(completed + found, 1);
+                overall.MaxValue = Math.Max(completed.Count + found, 1);
                 overall.IsIndeterminate = false;
-                overall.Value = completed + found == 0 ? 1 : completed;
+                overall.Value = completed.Count + found == 0 ? 1 : completed.Count;
             }
 
             public void ReportResume(IReadOnlyList<int> completedChangesets)
             {
-                completed = completedChangesets.Count;
+                completed.UnionWith(completedChangesets);
                 foreach (var id in completedChangesets.TakeLast(VisibleCompletedChangesets))
                 {
                     var task = AddChangeset(id);
@@ -189,7 +189,7 @@ namespace GitTfs.Commands
 
             public void ReportScan(int page, int found, int cursor, RestChangesetReference latest = null)
             {
-                if (latest == null) return;
+                if (latest == null || completed.Contains(latest.ChangesetId)) return;
                 upcoming.Enqueue(latest.ChangesetId);
                 FillUpcoming();
             }
@@ -209,6 +209,7 @@ namespace GitTfs.Commands
 
             public void DescribeChangeset(int changesetId, string comment)
             {
+                if (completed.Contains(changesetId)) return;
                 Phase = "Importing";
                 if (!entries.TryGetValue(changesetId, out var task)) task = AddChangeset(changesetId);
                 task.StartTask();
@@ -216,6 +217,7 @@ namespace GitTfs.Commands
 
             public void StartChangeset(int changesetId, int totalFiles)
             {
+                if (completed.Contains(changesetId)) return;
                 Phase = "Importing";
                 if (!entries.TryGetValue(changesetId, out var task)) task = AddChangeset(changesetId);
                 task.MaxValue = Math.Max(totalFiles, 1);
@@ -239,7 +241,7 @@ namespace GitTfs.Commands
                 completedTasks.Enqueue(task);
                 if (completedTasks.Count > VisibleCompletedChangesets)
                     completedTasks.Dequeue().HideWhenCompleted = true;
-                completed++;
+                completed.Add(changesetId);
                 UpdateOverall();
                 FillUpcoming();
             }
@@ -254,7 +256,7 @@ namespace GitTfs.Commands
             {
                 if (!overall.IsIndeterminate)
                     overall.Value = Math.Min(overall.MaxValue,
-                        completed + entries.Values.Sum(task => task.Percentage / 100));
+                        completed.Count + entries.Values.Sum(task => task.Percentage / 100));
             }
 
             public void ReportActivity(string description)
@@ -267,10 +269,11 @@ namespace GitTfs.Commands
 
             public void Stop(bool succeeded)
             {
+                var scanning = Phase == "Scanning";
                 Phase = succeeded ? "Complete" : "Failed";
-                if (overall.IsIndeterminate)
+                if (overall.IsIndeterminate && !scanning)
                 {
-                    overall.MaxValue = Math.Max(completed + entries.Count, 1);
+                    overall.MaxValue = Math.Max(completed.Count + entries.Count, 1);
                     overall.IsIndeterminate = false;
                     UpdateOverall();
                 }

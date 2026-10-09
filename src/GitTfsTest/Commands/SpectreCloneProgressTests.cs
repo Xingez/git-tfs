@@ -405,6 +405,87 @@ namespace GitTfs.Test.Commands
         }
 
         [TestMethod]
+        public void ResumedOverallDoesNotCountRepeatedSkippedChangesetsTwice()
+        {
+            using var output = new LockedStringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = 120;
+            var original = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.ReportResume(new[] { 1, 2, 3 });
+                    for (var id = 4; id <= 5; id++)
+                        progress.ReportScan(1, id - 3, 2, new RestChangesetReference { ChangesetId = id });
+                    progress.CompleteScan(2);
+                    CheckPercentage(60);
+                    progress.DescribeChangeset(3, "repeated skip");
+                    progress.SkipChangeset(3);
+                    var repeated = CheckPercentage(60);
+                    Assert.AreEqual(1, System.Text.RegularExpressions.Regex.Matches(repeated, @"\bC3\b").Count);
+                    progress.StartChangeset(4, 2);
+                    progress.ReportFiles(4, 1, 2);
+                    CheckPercentage(70);
+                    progress.CompleteChangeset(4, "abcdef1234");
+                    CheckPercentage(80);
+                    progress.SkipChangeset(5);
+                    return 0;
+                });
+                var text = System.Text.RegularExpressions.Regex.Replace(output.ToString(), @"\x1B\[[0-?]*[ -/]*[@-~]", "");
+                var final = text[text.LastIndexOf("Changesets · Complete", StringComparison.Ordinal)..];
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(final, @"Overall[^\r\n]*100%"));
+            }
+            finally { AnsiConsole.Console = original; }
+
+            string CheckPercentage(int percentage)
+            {
+                string frame = null;
+                Assert.IsTrue(SpinWait.SpinUntil(() =>
+                {
+                    frame = LastImportFrame(output.ToString());
+                    return System.Text.RegularExpressions.Regex.IsMatch(frame, $@"Overall[^\r\n]*{percentage}%")
+                        && frame.Contains("Rate");
+                }, TimeSpan.FromSeconds(3)), "Restored skips must count exactly once, including partial current progress.");
+                return frame;
+            }
+        }
+
+        [TestMethod]
+        public void InterruptedResumeScanDoesNotInventACompletedPercentage()
+        {
+            using var output = new LockedStringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            var original = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.ReportResume(new[] { 1, 2 });
+                    progress.ReportScan(1, 0, 2);
+                    return 1;
+                });
+                var text = System.Text.RegularExpressions.Regex.Replace(output.ToString(), @"\x1B\[[0-?]*[ -/]*[@-~]", "");
+                var final = text[text.LastIndexOf("Changesets · Failed", StringComparison.Ordinal)..];
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(final, @"Overall[^\r\n]*\.\.\."));
+                Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(final, @"Overall[^\r\n]*100%"));
+            }
+            finally { AnsiConsole.Console = original; }
+        }
+
+        [TestMethod]
         public void ResumedOverallWithNoRemainingChangesetsIsComplete()
         {
             using var output = new StringWriter();

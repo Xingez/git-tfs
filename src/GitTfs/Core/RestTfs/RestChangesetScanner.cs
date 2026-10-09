@@ -5,7 +5,7 @@ namespace GitTfs.Core.RestTfs
     internal sealed class RestChangesetScanner(IRestTfsClient client, ILogger logger)
     {
         public IEnumerable<RestChangesetReference> Scan(string repositoryPath, int lastChangesetId, int batchSize,
-            IChangesetProgressReporter progress = null)
+            IChangesetProgressReporter progress = null, ISet<int> completedChangesets = null)
         {
             var cursor = lastChangesetId;
             var lastSeen = lastChangesetId;
@@ -34,7 +34,11 @@ namespace GitTfs.Core.RestTfs
                     if (reference.ChangesetId <= lastSeen)
                         continue;
                     lastSeen = reference.ChangesetId;
-                    progress?.ReportScan(pages, ++found, cursor, reference);
+                    if (completedChangesets?.Contains(reference.ChangesetId) != true)
+                    {
+                        found++;
+                        progress?.ReportScan(pages, found, cursor, reference);
+                    }
                     yield return reference;
                 }
 

@@ -104,12 +104,72 @@ namespace GitTfs.Test.Core
             public IReadOnlyList<int> Resumed { get; private set; } = Array.Empty<int>();
             public List<int> Completed { get; } = new();
             public List<int> Skipped { get; } = new();
+            public int? InterruptAt { get; init; }
             public void ReportResume(IReadOnlyList<int> completedChangesets) => Resumed = completedChangesets;
             public void CompleteScan(int found) => Total = Resumed.Count + found;
-            public void StartChangeset(int changesetId, int totalFiles) => Assert.True(Total > 0);
+            public void StartChangeset(int changesetId, int totalFiles)
+            {
+                Assert.True(Total > 0);
+                if (changesetId == InterruptAt) throw new InvalidOperationException("Interrupted test import");
+            }
             public void ReportFiles(int changesetId, int processedFiles, int totalFiles) { }
             public void CompleteChangeset(int changesetId, string commitSha) => Completed.Add(changesetId);
             public void SkipChangeset(int changesetId) => Skipped.Add(changesetId);
+        }
+
+        [TestMethod]
+        [DataRow("saved")]
+        [DataRow("missing")]
+        [DataRow("corrupt")]
+        public void ResumingInterruptedImportPreservesSkippedChangesetsInTheCompletedPrefix(string journalState)
+        {
+            using var server = new FakeTfvcServer
+            {
+                InclusiveChangesetHistory = true, HistoryLength = 5, ImportLaterChangesets = true
+            };
+            var output = Path.Combine(Path.GetTempPath(), "git-tfs-resume-skips-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var service = new RestTfsCloneService(Options.Create(new GitTfsSettings { BatchSize = 1 }), new AuthorsFile());
+                var interrupted = new DashboardRecorder { InterruptAt = 5 };
+                Assert.Throws<InvalidOperationException>(() => service.Run(server.ServerUrl, "$/Project/Branch", output,
+                    progressReporter: interrupted));
+                Assert.Equal(5, interrupted.Total);
+                Assert.Equal(new[] { 1, 2, 4 }, interrupted.Completed.ToArray());
+                Assert.Equal(new[] { 3 }, interrupted.Skipped.ToArray());
+                var journalPath = Path.Combine(output, ".git", "git-tfs-progress.log");
+                if (journalState == "missing") File.Delete(journalPath);
+                if (journalState == "corrupt") File.AppendAllText(journalPath, "incomplete record");
+                var resumed = new DashboardRecorder();
+                service.Run(server.ServerUrl, "$/Project/Branch", output, progressReporter: resumed);
+                Assert.Equal(new[] { 1, 2, 3, 4 }, resumed.Resumed.ToArray());
+                Assert.Equal(5, resumed.Total);
+                Assert.Equal(new[] { 5 }, resumed.Completed.ToArray());
+            }
+            finally { DeleteDirectory(output); }
+        }
+
+        [TestMethod]
+        public void ResumingAfterTrailingSkipDoesNotCountTheRepeatedSkipTwice()
+        {
+            using var server = new FakeTfvcServer
+            {
+                InclusiveChangesetHistory = true, HistoryLength = 5, ImportLaterChangesets = true
+            };
+            var output = Path.Combine(Path.GetTempPath(), "git-tfs-resume-trailing-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var service = new RestTfsCloneService(Options.Create(new GitTfsSettings { BatchSize = 1 }), new AuthorsFile());
+                Assert.Throws<InvalidOperationException>(() => service.Run(server.ServerUrl, "$/Project/Branch", output,
+                    progressReporter: new DashboardRecorder { InterruptAt = 4 }));
+                var resumed = new DashboardRecorder();
+                service.Run(server.ServerUrl, "$/Project/Branch", output, progressReporter: resumed);
+                Assert.Equal(new[] { 1, 2, 3 }, resumed.Resumed.ToArray());
+                Assert.Equal(5, resumed.Total);
+                Assert.Equal(new[] { 4, 5 }, resumed.Completed.ToArray());
+                Assert.Equal(new[] { 3 }, resumed.Skipped.ToArray());
+            }
+            finally { DeleteDirectory(output); }
         }
 
         [TestMethod]
@@ -140,7 +200,7 @@ namespace GitTfs.Test.Core
         }
 
         [TestMethod]
-        public void ResumedDashboardCountsUniqueSourceChangesetsRatherThanCommitCountOrChangesetId()
+        public void LegacyResumeReconstructsCompletedSourceHistoryRegardlessOfGitCommitCount()
         {
             using var server = new FakeTfvcServer { InclusiveChangesetHistory = true };
             var output = Path.Combine(Path.GetTempPath(), "git-tfs-resume-markers-" + Guid.NewGuid().ToString("N"));
@@ -157,14 +217,14 @@ namespace GitTfs.Test.Core
                     Commit parent = null;
                     foreach (var message in new[]
                     {
-                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C10",
-                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C20",
-                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C20",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C1",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C1",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C1",
                         $"git-tfs-id: [{server.ServerUrl}]$/Project/Other;C30",
                         "git-tfs-id: [https://other.example/collection]$/Project/Branch;C40",
                         $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C999",
                         "ordinary Git commit",
-                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C50"
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C2"
                     })
                         parent = repository.ObjectDatabase.CreateCommit(signature, signature, message, tree,
                             parent == null ? Array.Empty<Commit>() : new[] { parent }, false);
@@ -173,10 +233,10 @@ namespace GitTfs.Test.Core
                 var progress = new DashboardRecorder();
                 var service = new RestTfsCloneService(Options.Create(new GitTfsSettings()), new AuthorsFile());
                 service.Run(server.ServerUrl, "$/Project/Branch", output, progressReporter: progress);
-                Assert.Equal(new[] { 10, 20, 50 }, progress.Resumed.ToArray());
+                Assert.Equal(new[] { 1, 2 }, progress.Resumed.ToArray());
                 Assert.Equal(3, progress.Total);
                 Assert.Empty(progress.Completed);
-                Assert.Empty(progress.Skipped);
+                Assert.Equal(new[] { 3 }, progress.Skipped.ToArray());
             }
             finally { DeleteDirectory(output); }
         }
@@ -533,6 +593,8 @@ namespace GitTfs.Test.Core
             public bool ReturnMismatchedLatestHash { get; set; }
             public bool ReturnMissingMergeTargetAndDeleteAFile { get; set; }
             public bool InclusiveChangesetHistory { get; set; }
+            public int HistoryLength { get; set; } = 3;
+            public bool ImportLaterChangesets { get; set; }
             public ConcurrentQueue<int> ChangesetCursors { get; } = new ConcurrentQueue<int>();
             public ConcurrentQueue<string> FileDownloadQueries { get; } = new ConcurrentQueue<string>();
             public ConcurrentQueue<string> ChangesetItemPaths { get; } = new ConcurrentQueue<string>();
@@ -613,10 +675,10 @@ namespace GitTfs.Test.Core
                     {
                         var cursor = string.IsNullOrEmpty(fromId) ? 0 : int.Parse(fromId);
                         server.ChangesetCursors.Enqueue(cursor);
-                        if (cursor > 3)
+                        if (cursor > server.HistoryLength)
                             return Json("{\"typeKey\":\"ChangesetNotFoundException\"}", "404 Not Found");
                         var top = int.Parse(GetQueryValue(uri, "$top"));
-                        var references = Enumerable.Range(1, 3).Where(id => id >= cursor).Take(top)
+                        var references = Enumerable.Range(1, server.HistoryLength).Where(id => id >= cursor).Take(top)
                             .Select(id => new { changesetId = id });
                         return Json(System.Text.Json.JsonSerializer.Serialize(new { value = references }));
                     }
@@ -648,6 +710,10 @@ namespace GitTfs.Test.Core
                     return Json("{\"count\":1,\"value\":["
                         + "{\"changesetId\":1,\"createdDate\":\"2020-01-01T00:00:00Z\",\"comment\":\"first\",\"author\":{\"displayName\":\"Test User\",\"uniqueName\":\"test@example.com\"}}]}");
                 }
+
+                if (server.ImportLaterChangesets && path.Contains("/tfvc/changesets/", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(path[(path.LastIndexOf('/') + 1)..], out var importedId) && importedId > 3)
+                    return Json(ChangeSet(importedId, "later", "edit"));
 
                 if (path.EndsWith("/Project/_apis/tfvc/changesets/1", StringComparison.OrdinalIgnoreCase))
                     return Json(ChangeSet(1, "first", "add"));
