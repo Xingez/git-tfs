@@ -7,49 +7,59 @@ namespace GitTfs.Test.Commands
     using GitTfs;
     using GitTfs.Test;
     using GitTfs.Util;
-    using System.Diagnostics;
-    using System.Globalization;
+    using Spectre.Console;
     [TestClass]
     public class HelpTest : BaseTest
     {
         private readonly MoqAutoMocker<Help> mocks;
+        private IAnsiConsole originalConsole;
+        private StringWriter output;
 
         public HelpTest()
         {
             mocks = new MoqAutoMocker<Help>();
         }
 
-        public MemoryTraceListener GetTestLogger()
+        [TestInitialize]
+        public void CaptureConsole()
         {
-            var memoryListener = new MemoryTraceListener();
-            Trace.Listeners.Clear();
-            Trace.Listeners.Add(memoryListener);
+            originalConsole = AnsiConsole.Console;
+            output = new StringWriter();
+            AnsiConsole.Console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.No,
+                Out = new AnsiConsoleOutput(output)
+            });
+            AnsiConsole.Profile.Width = 200;
+        }
 
-            return memoryListener;
+        [TestCleanup]
+        public void RestoreConsole()
+        {
+            AnsiConsole.Console = originalConsole;
+            output.Dispose();
         }
 
         [TestMethod]
         public void ShouldWriteGeneralHelp()
         {
-            var memoryTarget = GetTestLogger();
-
             mocks.RegisterCommand("test", new TestCommand());
             mocks.ClassUnderTest.Run();
 
-            Assert.Equal("Usage: git-tfs [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]", memoryTarget.Logs[0]);
-            Assert.Contains("test", memoryTarget.Logs[1]);
-            Assert.Equal(" (use 'git-tfs --help' for more information)", memoryTarget.Logs[2]);
-            Assert.Contains("Find more help in our online help : https://github.com/git-tfs/git-tfs", memoryTarget.Logs[3]);
+            var lines = output.ToString().Split(Environment.NewLine);
+            Assert.Equal("Usage: git-tfs [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]", lines[0]);
+            Assert.Contains("test", lines[1]);
+            Assert.Equal(" (use 'git-tfs --help' for more information)", lines[2]);
+            Assert.Contains("Find more help in our online help : https://github.com/git-tfs/git-tfs", output.ToString());
         }
 
         [TestMethod]
         public void ShouldWriteCommandHelp()
         {
-            var memoryTarget = GetTestLogger();
             mocks.RegisterCommand("test", new TestCommand());
             mocks.ClassUnderTest.Run(new[] { "test" });
 
-            memoryTarget.Logs[0].Equals("Usage: git-tfs test [options]");
+            Assert.Contains("Usage: git-tfs test [options]", output.ToString());
         }
 
         public class TestCommand : GitTfsCommand
@@ -63,22 +73,5 @@ namespace GitTfs.Test.Commands
             public int Run(IList<string> args) => throw new System.NotImplementedException();
         }
 
-        public sealed class MemoryTraceListener : TraceListener
-        {
-            public List<string> Logs { get; } = new List<string>();
-
-            public override void Write(string message) => Logs.Add(message);
-
-            public override void WriteLine(string message) => Logs.Add(message);
-
-            public override void TraceEvent(TraceEventCache eventCache, string source,
-                TraceEventType eventType, int id, string message) => Logs.Add(message);
-
-            public override void TraceEvent(TraceEventCache eventCache, string source,
-                TraceEventType eventType, int id, string format, params object[] args)
-                => Logs.Add(args == null || args.Length == 0
-                    ? format
-                    : string.Format(CultureInfo.CurrentCulture, format, args));
-        }
     }
 }

@@ -9,6 +9,20 @@ namespace GitTfs.Commands
     {
         public static int Run(Func<IChangesetProgressReporter, int> action)
         {
+            var console = AnsiConsole.Console;
+            if (!console.Profile.Capabilities.Interactive)
+            {
+                console.WriteLine("Scanning TFVC changesets...");
+                try
+                {
+                    return action(new StaticReporter(console));
+                }
+                finally
+                {
+                    console.WriteLine("TFVC changeset scan complete");
+                }
+            }
+
             return AnsiConsole.Progress()
                 .AutoClear(false)
                 .Columns(
@@ -32,6 +46,28 @@ namespace GitTfs.Commands
                         reporter.CompleteScan();
                     }
                 });
+        }
+
+        private sealed class StaticReporter(IAnsiConsole console) : IChangesetProgressReporter
+        {
+            private readonly Dictionary<int, int> fileCounts = new();
+
+            public void StartChangeset(int changesetId, int totalFiles)
+                => fileCounts[changesetId] = totalFiles;
+
+            public void ReportFiles(int changesetId, int processedFiles, int totalFiles)
+            {
+            }
+
+            public void CompleteChangeset(int changesetId, string commitSha)
+            {
+                var shortSha = string.IsNullOrWhiteSpace(commitSha)
+                    ? string.Empty : commitSha[..Math.Min(7, commitSha.Length)];
+                fileCounts.TryGetValue(changesetId, out var totalFiles);
+                console.MarkupLine("[green]C{0}[/] {1} ({2} files; 100%)",
+                    changesetId, Markup.Escape(shortSha), totalFiles);
+                fileCounts.Remove(changesetId);
+            }
         }
 
         private sealed class Reporter : IChangesetProgressReporter

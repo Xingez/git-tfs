@@ -7,6 +7,7 @@ namespace GitTfs
     using GitTfs.Commands;
     using GitTfs.Core;
     using GitTfs.Util;
+    using Spectre.Console;
     public class GitTfsApplication
     {
         private readonly IGitTfsVersionProvider gitTfsVersionProviderField;
@@ -40,7 +41,6 @@ namespace GitTfs
             globalsField.CommandLineRun = "git tfs " + string.Join(" ", args);
             var command = ExtractCommand(args);
             var unparsedArgs = ParseOptions(command, args);
-            UpdateLoggerOnDebugging();
             Trace.WriteLine("Command run:" + globalsField.CommandLineRun);
             if (RequiresValidGitRepository(command)) AssertValidGitRepository();
             bool willCreateRepository = command is Clone;
@@ -53,12 +53,6 @@ namespace GitTfs
             return exitCode;
         }
 
-        private void UpdateLoggerOnDebugging()
-        {
-            if (globalsField.DebugOutput)
-                Program.EnableDebugLogging();
-        }
-
         public int Main(GitTfsCommand command, IList<string> unparsedArgs)
         {
             Trace.WriteLine(gitTfsVersionProviderField.GetVersionString());
@@ -68,8 +62,8 @@ namespace GitTfs
             }
             if (globalsField.ShowVersion)
             {
-                Trace.TraceInformation(gitTfsVersionProviderField.GetVersionString());
-                Trace.TraceInformation(GitTfsConstants.MessageForceVersion);
+                AnsiConsole.WriteLine(gitTfsVersionProviderField.GetVersionString());
+                AnsiConsole.WriteLine(GitTfsConstants.MessageForceVersion);
                 return GitTfsExitCodes.OK;
             }
             try

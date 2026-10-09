@@ -11,10 +11,9 @@ namespace GitTfs
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Logging.Console;
     using Microsoft.Extensions.Options;
+    using Spectre.Console;
     public class Program
     {
-        private static LogLevel consoleMinimumLevelField = LogLevel.Information;
-
         [STAThread]
         public static void Main(string[] args)
         {
@@ -42,14 +41,17 @@ namespace GitTfs
             {
                 Trace.WriteLine(gitTfsException);
                 Trace.TraceError(gitTfsException.Message);
+                AnsiConsole.WriteLine(gitTfsException.Message);
                 if (gitTfsException.InnerException != null)
                     ReportException(gitTfsException.InnerException);
                 if (!gitTfsException.RecommendedSolutions.IsEmpty())
                 {
                     Trace.TraceError("You may be able to resolve this problem.");
+                    AnsiConsole.WriteLine("You may be able to resolve this problem.");
                     foreach (var solution in gitTfsException.RecommendedSolutions)
                     {
                         Trace.TraceError("- " + solution);
+                        AnsiConsole.WriteLine("- " + solution);
                     }
                 }
             }
@@ -72,6 +74,7 @@ namespace GitTfs
                     Trace.TraceError("error running command: " + gitCommandException.Process.StartInfo.FileName + " " + gitCommandException.Process.StartInfo.Arguments);
 
                 Trace.TraceError(e.Message);
+                AnsiConsole.WriteLine(e.Message);
                 e = e.InnerException;
             }
         }
@@ -79,12 +82,12 @@ namespace GitTfs
         private static ServiceProvider Initialize()
         {
             var settings = GitTfsSettings.Load();
-            settings.ApplyProxySettings();
+            var globals = new Globals { DebugOutput = settings.Debug };
             var tfsPlugin = LoadTfsPlugin();
             var services = new ServiceCollection();
             var catalog = new ServiceCatalog(GetAvailableCommands());
 
-            services.AddLogging(ConfigureLogging);
+            services.AddLogging(logging => ConfigureLogging(logging, globals));
             services.AddSingleton(catalog);
             services.AddGitTfsServices(catalog,
                 new[] { typeof(Program).Assembly }
@@ -92,6 +95,7 @@ namespace GitTfs
                     .Distinct()
                     .ToArray());
             services.AddTransient<IGitHelpers, GitHelpers>();
+            services.AddSingleton(globals);
             services.AddSingleton<IOptions<GitTfsSettings>>(Options.Create(settings));
             services.AddHttpClient(RestTfsClient.HttpClientName,
                     (provider, client) => RestTfsClient.ConfigureHttpClient(
@@ -104,6 +108,7 @@ namespace GitTfs
             Trace.Listeners.Clear();
             Trace.Listeners.Add(new MicrosoftLoggingTraceListener(
                 serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("GitTfs.Trace")));
+            settings.ApplyProxySettings();
             return serviceProvider;
         }
 
@@ -130,11 +135,11 @@ namespace GitTfs
             public override bool IsViable() => true;
         }
 
-        private static void ConfigureLogging(ILoggingBuilder logging)
+        private static void ConfigureLogging(ILoggingBuilder logging, Globals globals)
         {
             logging.ClearProviders();
             logging.SetMinimumLevel(LogLevel.Debug);
-            logging.AddFilter((_, level) => level >= consoleMinimumLevelField);
+            logging.AddFilter((_, level) => globals.DebugOutput && level >= LogLevel.Debug);
             logging.AddSimpleConsole(options =>
             {
                 options.SingleLine = true;
@@ -143,8 +148,6 @@ namespace GitTfs
                 options.ColorBehavior = LoggerColorBehavior.Enabled;
             });
         }
-
-        internal static void EnableDebugLogging() => consoleMinimumLevelField = LogLevel.Debug;
 
     }
 }

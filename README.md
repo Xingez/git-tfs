@@ -53,6 +53,8 @@ clone for focused troubleshooting.
    ```
 
 Normal runs show a colored Spectre progress row for each imported changeset.
+With `debug` set to `false`, console logging is disabled and output uses Spectre.
+Help, version information, and command errors remain visible.
 Use `--debug` to disable the progress display and print full diagnostic logs;
 the same behavior can be enabled with `"debug": true` in `appsettings.json`.
 

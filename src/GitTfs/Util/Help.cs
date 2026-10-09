@@ -5,7 +5,7 @@ namespace GitTfs.Commands
     using System.ComponentModel;
     using GitTfs.Util;
     using GitTfs.Core;
-    using System.Diagnostics;
+    using Spectre.Console;
     [Pluggable("help")]
     [Description("help [command-name]")]
     public class Help : GitTfsCommand
@@ -38,7 +38,7 @@ namespace GitTfs.Commands
                 }
                 else
                 {
-                    Trace.TraceInformation("Invalid argument: " + arg);
+                    AnsiConsole.WriteLine("Invalid argument: " + arg);
                 }
             }
             return Run();
@@ -49,7 +49,7 @@ namespace GitTfs.Commands
         /// </summary>
         public int Run()
         {
-            Trace.TraceInformation("Usage: git-tfs [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]");
+            AnsiConsole.WriteLine("Usage: git-tfs [options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]");
             foreach (var pair in GetCommandMap())
             {
                 var command = "    " + pair.Key;
@@ -58,10 +58,10 @@ namespace GitTfs.Commands
                 {
                     command += " (" + string.Join(", ", pair.Value) + ")";
                 }
-                Trace.TraceInformation(command);
+                AnsiConsole.WriteLine(command);
             }
-            Trace.TraceInformation(" (use 'git-tfs --help' for more information)");
-            Trace.TraceInformation("\nFind more help in our online help : https://github.com/git-tfs/git-tfs");
+            AnsiConsole.WriteLine(" (use 'git-tfs --help' for more information)");
+            AnsiConsole.WriteLine("\nFind more help in our online help : https://github.com/git-tfs/git-tfs");
             return GitTfsExitCodes.Help;
         }
 
@@ -73,12 +73,12 @@ namespace GitTfs.Commands
             if (command is Help)
                 return Run();
 
-            Trace.TraceInformation("Usage: git-tfs " + GetCommandUsage(command));
+            AnsiConsole.WriteLine("Usage: git-tfs " + GetCommandUsage(command));
             var writer = new StringWriter();
             command.GetAllOptions(servicesField).WriteOptionDescriptions(writer);
-            Trace.TraceInformation(writer.ToString());
+            AnsiConsole.WriteLine(writer.ToString());
 
-            Trace.TraceInformation("\nFind more help in our online help : https://github.com/git-tfs/git-tfs/blob/master/doc/commands/" + GetCommandName(command) + ".md");
+            AnsiConsole.WriteLine("\nFind more help in our online help : https://github.com/git-tfs/git-tfs/blob/master/doc/commands/" + GetCommandName(command) + ".md");
 
             return GitTfsExitCodes.Help;
         }

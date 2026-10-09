@@ -3,6 +3,7 @@ namespace GitTfs.Test.Core
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using Assert = GitTfs.Test.TestAssert;
     using System.Collections.Concurrent;
+    using System.Diagnostics;
     using GitTfs.Core;
     using GitTfs.Core.RestTfs;
     using GitTfs.Util;
@@ -12,10 +13,73 @@ namespace GitTfs.Test.Core
     using System.Net.Sockets;
     using System.Security.Cryptography;
     using System.Text;
+    using System.Text.Json;
 
     [TestClass]
     public class RestTfsCloneServiceTests
     {
+        [TestMethod]
+        [DataRow(false, false)]
+        [DataRow(true, false)]
+        [DataRow(false, true)]
+        public async Task ConsoleUsesSpectreUnlessDebugIsEnabled(bool configuredDebug, bool commandLineDebug)
+        {
+            using var server = new FakeTfvcServer();
+            var directory = Path.Combine(Path.GetTempPath(), "git-tfs-console-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            try
+            {
+                var settingsPath = Path.Combine(directory, "appsettings.json");
+                File.WriteAllText(settingsPath, JsonSerializer.Serialize(new GitTfsSettings
+                {
+                    TargetServer = server.ServerUrl,
+                    Debug = configuredDebug,
+                    BatchSize = 1
+                }));
+                var start = new ProcessStartInfo("dotnet")
+                {
+                    WorkingDirectory = directory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false
+                };
+                start.ArgumentList.Add(typeof(Program).Assembly.Location);
+                if (commandLineDebug)
+                    start.ArgumentList.Add("--debug");
+                start.ArgumentList.Add("--no-fallback");
+                start.ArgumentList.Add("$/Project/Branch");
+                start.ArgumentList.Add(Path.Combine(directory, "clone"));
+                start.Environment["GIT_TFS_APPSETTINGS"] = settingsPath;
+                start.Environment["GIT_TFS_DEBUG"] = configuredDebug.ToString();
+                start.Environment["GIT_TFS_TARGET_SERVER"] = server.ServerUrl;
+                start.Environment.Remove("GIT_TFS_CLIENT");
+                using var process = Process.Start(start);
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                try { await process.WaitForExitAsync(timeout.Token); }
+                catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
+                var output = await outputTask + await errorTask;
+                Assert.Equal(GitTfsExitCodes.OK, process.ExitCode);
+                if (configuredDebug || commandLineDebug)
+                {
+                    Assert.Contains("Clone complete", output);
+                    Assert.Contains("TFS request:", output);
+                    Assert.False(output.Contains("TFVC changeset scan complete"));
+                }
+                else
+                {
+                    Assert.Contains("TFVC changeset scan complete", output);
+                    Assert.Contains("C1", output);
+                    Assert.Contains("C2", output);
+                    Assert.False(output.Contains("info:"));
+                    Assert.False(output.Contains("dbug:"));
+                    Assert.False(output.Contains("Clone complete"));
+                }
+            }
+            finally { DeleteDirectory(directory); }
+        }
+
         [TestMethod]
         public void ReleasesPackFilesBeforeRunningMaintenanceOnResume()
         {
