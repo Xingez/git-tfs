@@ -17,6 +17,8 @@ namespace GitTfs.Test.Commands
             {
                 Ansi = AnsiSupport.Yes,
                 Interactive = InteractionSupport.Yes,
+                // CI enrichers override Interactive; this test explicitly simulates a live terminal.
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
                 Out = new AnsiConsoleOutput(output)
             });
             console.Profile.Width = 180;
