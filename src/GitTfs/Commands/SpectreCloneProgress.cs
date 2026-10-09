@@ -6,6 +6,8 @@ namespace GitTfs.Commands
 
     internal static class SpectreCloneProgress
     {
+        private const int VisibleChangesets = 16;
+
         public static int Run(Func<IChangesetProgressReporter, int> action, string workingDirectory = null)
         {
             var console = AnsiConsole.Console;
@@ -178,13 +180,13 @@ namespace GitTfs.Commands
                 var task = context.AddTask($"[bold blue]C{changesetId}[/]", autoStart: false, maxValue: 1);
                 entries[changesetId] = task;
                 recent.Enqueue(task);
-                if (recent.Count > 10) recent.Dequeue().HideWhenCompleted = true;
+                if (recent.Count > VisibleChangesets) recent.Dequeue().HideWhenCompleted = true;
                 return task;
             }
 
             private void FillUpcoming()
             {
-                while (upcoming.Count > 0 && (recent.Count < 10 || recent.Peek().IsFinished))
+                while (upcoming.Count > 0 && (recent.Count < VisibleChangesets || recent.Peek().IsFinished))
                     AddChangeset(upcoming.Dequeue());
             }
 

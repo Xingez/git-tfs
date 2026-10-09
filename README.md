@@ -54,7 +54,7 @@ clone for focused troubleshooting.
 
 Normal runs show one changeset list with progress bars and elapsed seconds, plus a
 live tree of the output folder on the right (stacked in narrow terminals). The active
-changeset and the next nine are visible; queued changesets stay at 0% without spinners.
+changeset and the next fifteen are visible; queued changesets stay at 0% without spinners.
 History is counted before importing so the overall bar uses the complete total,
 including skipped changesets. The bar animates during scanning.
 Redirected output prints changeset IDs and percentage updates.
