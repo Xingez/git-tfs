@@ -10,6 +10,53 @@ namespace GitTfs.Test.Commands
     public class SpectreCloneProgressTests
     {
         [TestMethod]
+        public void LiveTreeFollowsTheLatestDownload()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "git-tfs-live-tree-" + Guid.NewGuid().ToString("N"));
+            using var output = new LockedStringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = 120;
+            console.Profile.Height = 40;
+            var original = AnsiConsole.Console;
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, "src", "Core"));
+                File.WriteAllText(Path.Combine(root, "src", "Core", "first.cs"), "first");
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.CompleteScan(1);
+                    progress.StartChangeset(1, 2);
+                    progress.ReportDownloadedFile("src/Core/first.cs");
+                    Assert.IsTrue(SpinWait.SpinUntil(() =>
+                    {
+                        var frame = LastImportFrame(output.ToString());
+                        return frame.Contains("> first.cs") && frame.Contains("Latest · 5 B") && frame.Contains("Rate");
+                    }, TimeSpan.FromSeconds(3)), "The live tree must show the successful download.");
+                    File.WriteAllText(Path.Combine(root, "second.cs"), "second");
+                    progress.ReportDownloadedFile("second.cs");
+                    Assert.IsTrue(SpinWait.SpinUntil(() =>
+                    {
+                        var frame = LastImportFrame(output.ToString());
+                        return frame.Contains("> second.cs") && !frame.Contains("first.cs") && frame.Contains("Rate");
+                    }, TimeSpan.FromSeconds(3)), "The next download must replace the highlight.");
+                    progress.CompleteChangeset(1, "abcdef1234");
+                    return 0;
+                }, root);
+            }
+            finally
+            {
+                AnsiConsole.Console = original;
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        [TestMethod]
         public void ActiveChangesetShowsElapsedSecondsAndNextFifteenWaitWithoutSpinners()
         {
             using var output = new LockedStringWriter();

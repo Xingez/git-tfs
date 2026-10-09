@@ -18,6 +18,7 @@ namespace GitTfs.Test.Core
         private Mock<IRestTfsClient> client;
         private RestTfsChangesetImporter importer;
         private IDictionary<string, string> paths;
+        private IChangesetProgressReporter progressReporter;
 
         [TestInitialize]
         public void Initialize()
@@ -37,6 +38,35 @@ namespace GitTfs.Test.Core
             foreach (var file in Directory.EnumerateFiles(output, "*", SearchOption.AllDirectories))
                 File.SetAttributes(file, FileAttributes.Normal);
             Directory.Delete(output, true);
+        }
+
+        [TestMethod]
+        public void ReportsDownloadsAfterWritingFilesAndDoesNotReportReuseOrDeletes()
+        {
+            var reporter = new Mock<IChangesetProgressReporter>();
+            progressReporter = reporter.Object;
+            reporter.Setup(r => r.ReportDownloadedFile("folder/new.txt"))
+                .Callback(() => Assert.Equal("content", File.ReadAllText(Path.Combine(output, "folder", "new.txt"))));
+            Import(1, FileChange("add", Root + "/folder/new.txt", "content"));
+            reporter.Verify(r => r.ReportDownloadedFile("folder/new.txt"), Times.Once);
+            reporter.Invocations.Clear();
+            var reused = FileChange("edit", Root + "/folder/new.txt", "content");
+            reused.Item.HashValue = Convert.ToBase64String(System.Security.Cryptography.MD5.HashData(Encoding.UTF8.GetBytes("content")));
+            Import(2, reused);
+            Import(3, new RestChange { ChangeType = "delete", Item = new RestItem { Path = Root + "/folder/new.txt" } });
+            reporter.Verify(r => r.ReportDownloadedFile(It.IsAny<string>()), Times.Never);
+        }
+
+        [TestMethod]
+        public void FailedDownloadsDoNotUpdateTheLatestFile()
+        {
+            var reporter = new Mock<IChangesetProgressReporter>();
+            progressReporter = reporter.Object;
+            var change = FileChange("add", Root + "/failed.txt", "content");
+            client.Setup(c => c.DownloadFile(change.Item.Path, 1, "Changeset", null))
+                .Throws(new RestTfsException("server error", 500, new Uri("https://tfs.example/items")));
+            Assert.Throws<RestTfsException>(() => Import(1, change));
+            reporter.Verify(r => r.ReportDownloadedFile(It.IsAny<string>()), Times.Never);
         }
 
         [TestMethod]
@@ -204,7 +234,7 @@ namespace GitTfs.Test.Core
                 Changes = changes.ToList()
             });
             return importer.Import(client.Object, repository, new RestChangesetReference { ChangesetId = id },
-                "https://tfs.example/collection", Root, output, paths, repository.Head.Tip, noFallback: true);
+                "https://tfs.example/collection", Root, output, paths, repository.Head.Tip, noFallback: true, progressReporter);
         }
 
         private static string ReadBlob(Commit commit, string path)

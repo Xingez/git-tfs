@@ -212,6 +212,7 @@ namespace GitTfs.Core.RestTfs
                 if (!reusedLocalFile)
                 {
                     WriteWorkingFile(outputPath, relativePath, content);
+                    progressReporter?.ReportDownloadedFile(relativePath);
                     downloaded++;
                     summary.FilesDownloaded++;
                     summary.BytesDownloaded += content.LongLength;

@@ -76,6 +76,66 @@ namespace GitTfs.Test.Commands
         }
 
         [TestMethod]
+        public void LatestDownloadExpandsItsPathAndReplacesThePreviousHighlightImmediately()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "git-tfs-tree-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var leaf = Path.Combine(root, "src", "Core", "Import");
+                Directory.CreateDirectory(leaf);
+                File.WriteAllBytes(Path.Combine(leaf, "[latest].cs"), new byte[23]);
+                File.WriteAllBytes(Path.Combine(leaf, "hidden.cs"), new byte[100]);
+                var view = new WorkingDirectoryTree(root, new ManualTimeProvider());
+                var initial = view.Render();
+                StringAssert.Contains(Render(initial), "src/Core/Import");
+                view.ReportDownloadedFile("src/Core/Import/[latest].cs");
+                var expanded = Render(view.Render());
+                Assert.IsFalse(expanded.Contains("src/Core/Import"));
+                StringAssert.Contains(expanded, "> [latest].cs");
+                StringAssert.Contains(expanded, "Latest · 23 B");
+                StringAssert.Contains(expanded, "2 files · 123 B");
+                Assert.IsFalse(expanded.Contains("hidden.cs"));
+
+                File.WriteAllBytes(Path.Combine(root, "root.txt"), new byte[3]);
+                view.ReportDownloadedFile("root.txt");
+                var next = Render(view.Render());
+                StringAssert.Contains(next, "> root.txt");
+                StringAssert.Contains(next, "src/Core/Import");
+                Assert.IsFalse(next.Contains("[latest].cs"));
+                File.Delete(Path.Combine(root, "root.txt"));
+                Assert.IsFalse(Render(view.Render(refresh: true)).Contains("root.txt"));
+                foreach (var invalid in new[] { "../outside.txt", ".git/config", Path.Combine(root, "absolute.txt") })
+                    view.ReportDownloadedFile(invalid);
+                Assert.IsFalse(Render(view.Render(refresh: true)).Contains("outside.txt"));
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        [TestMethod]
+        public void LatestDownloadTakesPriorityOverOtherFoldersAndFitsTheNodeLimit()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "git-tfs-tree-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, "z-source", "Core", "Import"));
+                for (var i = 0; i < 100; i++) Directory.CreateDirectory(Path.Combine(root, $"dir-{i:D3}"));
+                File.WriteAllBytes(Path.Combine(root, "z-source", "Core", "Import", "latest.cs"), new byte[1024]);
+                var view = new WorkingDirectoryTree(root);
+                view.ReportDownloadedFile("z-source/Core/Import/latest.cs");
+                var text = Render(view.Render(maxNodes: 2));
+                StringAssert.Contains(text, "z-source/Core");
+                StringAssert.Contains(text, "Import");
+                StringAssert.Contains(text, "> latest.cs");
+                StringAssert.Contains(text, "Latest · 1 KB");
+                Assert.IsFalse(text.Contains("dir-"));
+                var narrow = Render(view.Render(maxNodes: 20, maxDepth: 1));
+                StringAssert.Contains(narrow, "z-source/Core/Import");
+                StringAssert.Contains(narrow, "> latest.cs");
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        [TestMethod]
         public void TreeWaitsForNewFolderAndBoundsLargeDirectories()
         {
             var root = Path.Combine(Path.GetTempPath(), "git-tfs-tree-" + Guid.NewGuid().ToString("N"));

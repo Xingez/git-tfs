@@ -53,11 +53,12 @@ namespace GitTfs.Commands
                 var refresh = phase != lastPhase;
                 lastPhase = phase;
                 return Dashboard(console, metrics.RenderDisplay(live: !finished, refresh), progress, phase,
-                    folder?.Render(refresh || finished, maxNodes: Math.Clamp((console.Profile.Height - 8) / 2, 1, 20)));
+                    folder?.Render(refresh || finished, maxNodes: Math.Clamp((console.Profile.Height - 10) / 2, 1, 20),
+                        maxDepth: Math.Max(1, ((console.Profile.Width >= 80 ? FolderWidth(console.Profile.Width) : console.Profile.Width) - 16) / 4)));
             };
             var exitCode = display.Start(context =>
                 {
-                    reporter = new Reporter(context);
+                    reporter = new Reporter(context, folder);
                     var succeeded = false;
                     try
                     {
@@ -146,6 +147,7 @@ namespace GitTfs.Commands
         private sealed class Reporter : IChangesetProgressReporter
         {
             private readonly ProgressContext context;
+            private readonly WorkingDirectoryTree folder;
             private readonly ProgressTask overall;
             private readonly Dictionary<int, ProgressTask> entries = new();
             private readonly Queue<ProgressTask> recent = new();
@@ -153,9 +155,10 @@ namespace GitTfs.Commands
             private int completed;
             public string Phase { get; private set; } = "Scanning";
 
-            public Reporter(ProgressContext context)
+            public Reporter(ProgressContext context, WorkingDirectoryTree folder)
             {
                 this.context = context;
+                this.folder = folder;
                 overall = context.AddTask("[cyan]Overall[/]", maxValue: 1);
                 overall.IsIndeterminate = true;
             }
@@ -211,6 +214,8 @@ namespace GitTfs.Commands
                 task.Value = Math.Min(processedFiles, task.MaxValue * .99);
                 UpdateOverall();
             }
+
+            public void ReportDownloadedFile(string relativePath) => folder?.ReportDownloadedFile(relativePath);
 
             public void CompleteChangeset(int changesetId, string commitSha)
             {

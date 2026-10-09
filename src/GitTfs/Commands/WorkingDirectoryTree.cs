@@ -11,31 +11,51 @@ namespace GitTfs.Commands
         {
             IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint
         };
-        private readonly string root = Path.GetFullPath(path);
+        private readonly string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         private readonly TimeProvider clock = clock ?? TimeProvider.System;
         private IRenderable cached;
         private long refreshed;
         private int cachedNodeLimit;
+        private int cachedDepthLimit;
+        private string latestDownload;
+        private string cachedDownload;
 
-        public IRenderable Render(bool refresh = false, int maxNodes = MaxNodes)
+        public void ReportDownloadedFile(string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath) || Path.IsPathRooted(relativePath)) return;
+            var parts = relativePath.Replace('\\', '/').Split('/');
+            if (parts.Any(part => part is ".." or "." or "" || part.Equals(".git", StringComparison.OrdinalIgnoreCase))) return;
+            Volatile.Write(ref latestDownload, Path.Combine(root, Path.Combine(parts)));
+        }
+
+        public IRenderable Render(bool refresh = false, int maxNodes = MaxNodes, int maxDepth = MaxNodes)
         {
             maxNodes = Math.Clamp(maxNodes, 1, MaxNodes);
-            if (!refresh && cached != null && cachedNodeLimit == maxNodes && clock.GetElapsedTime(refreshed) < TimeSpan.FromSeconds(1))
+            maxDepth = Math.Clamp(maxDepth, 1, MaxNodes);
+            var download = Volatile.Read(ref latestDownload);
+            if (!refresh && cached != null && cachedDownload == download && cachedNodeLimit == maxNodes
+                && cachedDepthLimit == maxDepth && clock.GetElapsedTime(refreshed) < TimeSpan.FromSeconds(1))
                 return cached;
 
             var name = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar));
             var tree = new Tree(new Text(string.Empty));
             var remaining = maxNodes;
             var exists = Directory.Exists(root);
+            var activeFile = VisibleDownload(download);
             if (exists)
-                AddChildren(tree.AddNode, root, ref remaining);
+                AddChildren(tree.AddNode, root, activeFile, ref remaining, maxDepth);
             else
                 tree.AddNode(new Text("Waiting for folder", new Style(Color.Grey)));
-            IRenderable contents = exists ? new Rows(FileSummary(root), new TreeContents(tree)) : new TreeContents(tree);
+            IRenderable contents = !exists ? new TreeContents(tree)
+                : activeFile != null && Path.GetDirectoryName(activeFile) == root
+                    ? new Rows(FileSummary(root), LatestFile(activeFile), new TreeContents(tree))
+                    : new Rows(FileSummary(root), new TreeContents(tree));
             cached = new Panel(contents).RoundedBorder()
                 .Header(Markup.Escape(string.IsNullOrEmpty(name) ? root : name), Justify.Center);
             refreshed = clock.GetTimestamp();
             cachedNodeLimit = maxNodes;
+            cachedDepthLimit = maxDepth;
+            cachedDownload = download;
             return cached;
         }
 
@@ -48,23 +68,46 @@ namespace GitTfs.Commands
                 => ((IRenderable)tree).Render(options, maxWidth).SkipWhile(segment => !segment.IsLineBreak).Skip(1);
         }
 
-        private static void AddChildren(Func<IRenderable, TreeNode> addNode, string directory, ref int remaining)
+        private static IRenderable LatestFile(string path)
         {
             try
             {
+                return new Rows(new Text("> " + Path.GetFileName(path), new Style(Color.Green, decoration: Decoration.Bold)).Ellipsis(),
+                    new Text("Latest · " + Size(new FileInfo(path).Length), new Style(Color.Green)).Ellipsis());
+            }
+            catch (IOException) { return new Text("Updating…", new Style(Color.Grey)); }
+            catch (UnauthorizedAccessException) { return new Text("Unavailable", new Style(Color.Grey)); }
+        }
+
+        private static void AddChildren(Func<IRenderable, TreeNode> addNode, string directory, string activeFile, ref int remaining, int depth)
+        {
+            try
+            {
+                var activeChild = ActiveChild(directory, activeFile);
                 var entries = Subdirectories(directory)
-                    .Take(remaining + 1).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase);
+                    .Where(entry => !string.Equals(entry, activeChild, StringComparison.OrdinalIgnoreCase))
+                    .Take(remaining + 1).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase).AsEnumerable();
+                // Keep the downloaded file visible even when its folder is beyond the ordinary row limit.
+                if (activeChild != null && (File.GetAttributes(activeChild) & FileAttributes.ReparsePoint) == 0)
+                    entries = new[] { activeChild }.Concat(entries);
                 foreach (var entry in entries)
                 {
-                    if (remaining == 0)
+                    if (remaining == 0 || depth == 0)
                     {
                         addNode(new Text("… more", new Style(Color.Grey)));
                         break;
                     }
+                    var focused = string.Equals(entry, activeChild, StringComparison.OrdinalIgnoreCase);
+                    var (folder, label) = CompactFolder(entry, focused ? activeFile : null, Math.Min(remaining, depth));
                     remaining--;
-                    var (folder, label) = CompactFolder(entry);
-                    var node = addNode(new Rows(new Text(label, new Style(Color.Cyan)).Ellipsis(), FileSummary(folder)));
-                    AddChildren(node.AddNode, folder, ref remaining);
+                    var rows = new List<IRenderable>
+                    {
+                        new Text(label, new Style(Color.Cyan, decoration: focused ? Decoration.Bold : Decoration.None)).Ellipsis(),
+                        FileSummary(folder)
+                    };
+                    if (focused && Path.GetDirectoryName(activeFile) == folder) rows.Add(LatestFile(activeFile));
+                    var node = addNode(new Rows(rows));
+                    AddChildren(node.AddNode, folder, focused ? activeFile : null, ref remaining, depth - 1);
                 }
             }
             catch (IOException) { addNode(new Text("Updating…", new Style(Color.Grey))); }
@@ -75,9 +118,42 @@ namespace GitTfs.Commands
             => Directory.EnumerateDirectories(directory, "*", Entries)
                 .Where(entry => !string.Equals(Path.GetFileName(entry), ".git", StringComparison.OrdinalIgnoreCase));
 
-        private static (string Folder, string Label) CompactFolder(string directory)
+        private static string ActiveChild(string directory, string activeFile)
+        {
+            if (activeFile == null) return null;
+            var relative = Path.GetRelativePath(directory, activeFile);
+            var parts = relative.Split(Path.DirectorySeparatorChar);
+            return parts.Length > 1 ? Path.Combine(directory, parts[0]) : null;
+        }
+
+        private string VisibleDownload(string download)
+        {
+            if (!File.Exists(download)) return null;
+            try
+            {
+                for (var directory = Path.GetDirectoryName(download); directory != root; directory = Path.GetDirectoryName(directory))
+                    if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) return null;
+                return (File.GetAttributes(download) & FileAttributes.ReparsePoint) == 0 ? download : null;
+            }
+            catch (IOException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
+        }
+
+        private static (string Folder, string Label) CompactFolder(string directory, string activeFile, int remaining)
         {
             var label = Path.GetFileName(directory);
+            if (activeFile != null)
+            {
+                var ancestors = Path.GetRelativePath(directory, Path.GetDirectoryName(activeFile))
+                    .Split(Path.DirectorySeparatorChar).Where(part => part != ".").ToArray();
+                // Compress only the excess depth so the latest file still fits in short terminals.
+                foreach (var part in ancestors.Take(Math.Max(0, ancestors.Length + 1 - remaining)))
+                {
+                    directory = Path.Combine(directory, part);
+                    label += "/" + part;
+                }
+                return (directory, label);
+            }
             while (!Directory.EnumerateFiles(directory, "*", Entries)
                 .Any(file => !string.Equals(Path.GetFileName(file), ".git", StringComparison.OrdinalIgnoreCase)))
             {
