@@ -351,6 +351,85 @@ namespace GitTfs.Test.Commands
         }
 
         [TestMethod]
+        public void ResumedOverallIncludesEarlierChangesetsAndKeepsRecentCompletedRows()
+        {
+            using var output = new LockedStringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = 180;
+            var original = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.ReportResume(Enumerable.Range(1, 13).Select(id => id * 10).ToArray());
+                    foreach (var id in new[] { 140, 150, 160 })
+                        progress.ReportScan(1, 1, 130, new RestChangesetReference { ChangesetId = id });
+                    progress.CompleteScan(3);
+                    CheckPercentage(81);
+                    progress.StartChangeset(140, 2);
+                    progress.ReportFiles(140, 1, 2);
+                    var frame = CheckPercentage(84);
+                    for (var id = 60; id <= 130; id += 10)
+                        Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(frame, $@"\bC{id}\b[^\r\n]*100%"));
+                    Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(frame, @"\bC50\b"));
+                    progress.CompleteChangeset(140, "abcdef1234");
+                    progress.SkipChangeset(150);
+                    progress.StartChangeset(160, 4);
+                    progress.ReportFiles(160, 1, 4);
+                    CheckPercentage(95);
+                    progress.CompleteChangeset(160, "fedcba4321");
+                    return 0;
+                });
+                StringAssert.Contains(output.ToString(), "Changesets · Complete");
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(output.ToString(), @"Overall[^\r\n]*100%"));
+            }
+            finally { AnsiConsole.Console = original; }
+
+            string CheckPercentage(int percentage)
+            {
+                string frame = null;
+                Assert.IsTrue(SpinWait.SpinUntil(() =>
+                {
+                    frame = LastImportFrame(output.ToString());
+                    return System.Text.RegularExpressions.Regex.IsMatch(frame, $@"Overall[^\r\n]*{percentage}%")
+                        && frame.Contains("Rate");
+                }, TimeSpan.FromSeconds(3)), "Overall must include the completed baseline and partial current changeset.");
+                return frame;
+            }
+        }
+
+        [TestMethod]
+        public void ResumedOverallWithNoRemainingChangesetsIsComplete()
+        {
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            var original = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.ReportResume(new[] { 10, 70 });
+                    progress.CompleteScan(0);
+                    return 0;
+                });
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(output.ToString(), @"Overall[^\r\n]*100%"));
+            }
+            finally { AnsiConsole.Console = original; }
+        }
+
+        [TestMethod]
         public void OverallPercentageIncludesSkippedChangesetsAndPartialFileProgress()
         {
             using var output = new StringWriter();

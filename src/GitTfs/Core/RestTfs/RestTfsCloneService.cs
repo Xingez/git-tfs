@@ -81,6 +81,9 @@ namespace GitTfs.Core.RestTfs
                     if (parent != null && lastChangesetId <= 0)
                         throw new GitTfsException("The existing repository does not contain a git-tfs changeset marker and cannot be resumed safely.");
 
+                    if (parent != null && progressReporter != null)
+                        progressReporter.ReportResume(FindImportedChangesets(repository, targetServer, repositoryPath, lastChangesetId));
+
                     var pathMap = parent == null
                         ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         : GetTreePathMap(parent.Tree);
@@ -475,6 +478,21 @@ namespace GitTfs.Core.RestTfs
                 return 0;
             var match = GitTfsConstants.TfsCommitInfoRegex.Match(commit.Message ?? string.Empty);
             return match.Success && int.TryParse(match.Groups["changeset"].Value, out var id) ? id : 0;
+        }
+
+        private static int[] FindImportedChangesets(Repository repository, string targetServer, string repositoryPath, int lastChangesetId)
+        {
+            var ids = new SortedSet<int>();
+            foreach (var commit in repository.Commits)
+            {
+                var match = GitTfsConstants.TfsCommitInfoRegex.Match(commit.Message ?? string.Empty);
+                if (match.Success
+                    && string.Equals(match.Groups["url"].Value.TrimEnd('/'), targetServer, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(match.Groups["repository"].Value.TrimEnd('/'), repositoryPath, StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(match.Groups["changeset"].Value, out var id) && id <= lastChangesetId)
+                    ids.Add(id);
+            }
+            return ids.ToArray();
         }
 
         private static Dictionary<string, string> GetTreePathMap(Tree tree)

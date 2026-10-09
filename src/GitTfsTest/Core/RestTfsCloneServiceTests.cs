@@ -101,13 +101,84 @@ namespace GitTfs.Test.Core
         private sealed class DashboardRecorder : IChangesetProgressReporter
         {
             public int Total { get; private set; }
+            public IReadOnlyList<int> Resumed { get; private set; } = Array.Empty<int>();
             public List<int> Completed { get; } = new();
             public List<int> Skipped { get; } = new();
-            public void CompleteScan(int found) => Total = found;
+            public void ReportResume(IReadOnlyList<int> completedChangesets) => Resumed = completedChangesets;
+            public void CompleteScan(int found) => Total = Resumed.Count + found;
             public void StartChangeset(int changesetId, int totalFiles) => Assert.True(Total > 0);
             public void ReportFiles(int changesetId, int processedFiles, int totalFiles) { }
             public void CompleteChangeset(int changesetId, string commitSha) => Completed.Add(changesetId);
             public void SkipChangeset(int changesetId) => Skipped.Add(changesetId);
+        }
+
+        [TestMethod]
+        public void ResumedDashboardCountsExistingCommitsWithoutRescanningTheirTfvcHistory()
+        {
+            using var server = new FakeTfvcServer { InclusiveChangesetHistory = true };
+            var output = Path.Combine(Path.GetTempPath(), "git-tfs-resume-progress-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var service = new RestTfsCloneService(Options.Create(new GitTfsSettings { BatchSize = 1 }), new AuthorsFile());
+                service.Run(server.ServerUrl, "$/Project/Branch", output);
+                using (var repository = new Repository(output))
+                {
+                    var first = repository.Commits.Single(commit => commit.Message.Contains(";C1"));
+                    repository.Refs.UpdateTarget(repository.Head.CanonicalName, first.Sha);
+                }
+                server.ChangesetCursors.Clear();
+                var progress = new DashboardRecorder();
+                service.Run(server.ServerUrl, "$/Project/Branch", output, progressReporter: progress);
+                Assert.Equal(new[] { 1 }, progress.Resumed.ToArray());
+                Assert.Equal(3, progress.Total);
+                Assert.Equal(new[] { 2 }, progress.Completed.ToArray());
+                Assert.Equal(new[] { 3 }, progress.Skipped.ToArray());
+                Assert.True(server.ChangesetCursors.All(cursor => cursor >= 1));
+                Assert.Equal(2, server.FileDownloadCount);
+            }
+            finally { DeleteDirectory(output); }
+        }
+
+        [TestMethod]
+        public void ResumedDashboardCountsUniqueSourceChangesetsRatherThanCommitCountOrChangesetId()
+        {
+            using var server = new FakeTfvcServer { InclusiveChangesetHistory = true };
+            var output = Path.Combine(Path.GetTempPath(), "git-tfs-resume-markers-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Repository.Init(output);
+                using (var repository = new Repository(output))
+                {
+                    var signature = new Signature("Test", "test@example.com", DateTimeOffset.UtcNow);
+                    var blob = repository.ObjectDatabase.CreateBlob(new MemoryStream(Encoding.UTF8.GetBytes("two")));
+                    var definition = new TreeDefinition();
+                    definition.Add("a.txt", blob, LibGit2Sharp.Mode.NonExecutableFile);
+                    var tree = repository.ObjectDatabase.CreateTree(definition);
+                    Commit parent = null;
+                    foreach (var message in new[]
+                    {
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C10",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C20",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C20",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Other;C30",
+                        "git-tfs-id: [https://other.example/collection]$/Project/Branch;C40",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C999",
+                        "ordinary Git commit",
+                        $"git-tfs-id: [{server.ServerUrl}]$/Project/Branch;C50"
+                    })
+                        parent = repository.ObjectDatabase.CreateCommit(signature, signature, message, tree,
+                            parent == null ? Array.Empty<Commit>() : new[] { parent }, false);
+                    repository.Refs.Add(repository.Head.CanonicalName, parent.Id);
+                }
+                var progress = new DashboardRecorder();
+                var service = new RestTfsCloneService(Options.Create(new GitTfsSettings()), new AuthorsFile());
+                service.Run(server.ServerUrl, "$/Project/Branch", output, progressReporter: progress);
+                Assert.Equal(new[] { 10, 20, 50 }, progress.Resumed.ToArray());
+                Assert.Equal(3, progress.Total);
+                Assert.Empty(progress.Completed);
+                Assert.Empty(progress.Skipped);
+            }
+            finally { DeleteDirectory(output); }
         }
 
         [TestMethod]

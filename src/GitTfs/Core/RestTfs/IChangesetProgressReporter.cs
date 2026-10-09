@@ -6,6 +6,8 @@ namespace GitTfs.Core.RestTfs
 
         void CompleteScan(int found) { }
 
+        void ReportResume(IReadOnlyList<int> completedChangesets) { }
+
         void DescribeChangeset(int changesetId, string comment) { }
 
         void ReportActivity(string description) { }

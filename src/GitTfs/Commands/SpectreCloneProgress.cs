@@ -168,9 +168,23 @@ namespace GitTfs.Commands
             public void CompleteScan(int found)
             {
                 Phase = "Importing";
-                overall.MaxValue = Math.Max(found, 1);
+                overall.MaxValue = Math.Max(completed + found, 1);
                 overall.IsIndeterminate = false;
-                overall.Value = found == 0 ? 1 : completed;
+                overall.Value = completed + found == 0 ? 1 : completed;
+            }
+
+            public void ReportResume(IReadOnlyList<int> completedChangesets)
+            {
+                completed = completedChangesets.Count;
+                foreach (var id in completedChangesets.TakeLast(VisibleCompletedChangesets))
+                {
+                    var task = AddChangeset(id);
+                    task.StartTask();
+                    task.Value = task.MaxValue;
+                    task.StopTask();
+                    entries.Remove(id);
+                    completedTasks.Enqueue(task);
+                }
             }
 
             public void ReportScan(int page, int found, int cursor, RestChangesetReference latest = null)
