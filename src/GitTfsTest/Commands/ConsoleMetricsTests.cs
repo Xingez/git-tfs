@@ -4,6 +4,7 @@ namespace GitTfs.Test.Commands
     using System.Globalization;
     using System.Net;
     using System.Net.Http;
+    using System.Text.RegularExpressions;
     using GitTfs.Commands;
     using GitTfs.Core;
     using GitTfs.Core.RestTfs;
@@ -68,7 +69,9 @@ namespace GitTfs.Test.Commands
                     console.Profile.Width = 180;
                     console.Write(metrics.RenderDisplay(live: false));
                     StringAssert.Contains(output.ToString(), "API throttled · attempt 2/3 · 2s");
-                    StringAssert.Contains(output.ToString(), "Rate budget: 0 / 200 TSTU");
+                    StringAssert.Matches(output.ToString(), new Regex(@"Rate limit \(TSTU\)\s*│\s*200\s*│\s*—"));
+                    StringAssert.Matches(output.ToString(), new Regex(@"Rate remaining \(TSTU\)\s*│\s*0\s*│\s*—"));
+                    Assert.IsFalse(output.ToString().Contains("Rate budget:"), "Rate limits belong in the metrics table.");
                     StringAssert.Contains(output.ToString(), "Last Retry-After: 3s");
                     StringAssert.Contains(output.ToString(), "Server delay: 0.125s");
                 }
@@ -152,6 +155,12 @@ namespace GitTfs.Test.Commands
             var clock = new ManualTimeProvider();
             using var metrics = new ConsoleMetrics(clock);
             var initial = metrics.RenderLive();
+            GitTfsMetrics.RecordResponse(AzureDevOpsRateLimit.FromValues(name => name switch
+            {
+                "X-RateLimit-Limit" => "200",
+                "X-RateLimit-Remaining" => "150.5",
+                _ => null
+            }, 200));
             using (GitTfsMetrics.MeasureRequest("History requests")) { }
             clock.Advance(TimeSpan.FromMilliseconds(999));
             Assert.AreSame(initial, metrics.RenderLive());
@@ -160,6 +169,19 @@ namespace GitTfs.Test.Commands
             clock.Advance(TimeSpan.FromMilliseconds(1));
             var refreshed = metrics.RenderLive();
             Assert.AreNotSame(initial, refreshed);
+            using var output = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.No, Out = new AnsiConsoleOutput(output),
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false }
+            });
+            console.Profile.Width = 180;
+            console.Write(initial);
+            StringAssert.Matches(output.ToString(), new Regex(@"Rate remaining \(TSTU\)\s*│\s*—\s*│\s*—"));
+            output.GetStringBuilder().Clear();
+            console.Write(refreshed);
+            StringAssert.Matches(output.ToString(), new Regex(@"Rate limit \(TSTU\)\s*│\s*200\s*│\s*—"));
+            StringAssert.Matches(output.ToString(), new Regex(@"Rate remaining \(TSTU\)\s*│\s*150\.5\s*│\s*—"));
             using (GitTfsMetrics.MeasureRequest("History requests")) { }
             Assert.AreSame(refreshed, metrics.RenderLive());
             Assert.AreNotSame(refreshed, metrics.Render(), "The final summary must bypass the live refresh interval.");

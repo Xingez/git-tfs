@@ -159,12 +159,20 @@ namespace GitTfs.Commands
 
         public Table Render()
         {
+            var api = ApiSnapshot();
             var table = new Table().RoundedBorder().Title("[bold cyan]Live metrics[/]")
                 .AddColumn("Metric").AddColumn(new TableColumn("Count").RightAligned())
                 .AddColumn(new TableColumn("Avg ms").RightAligned());
             foreach (var row in Snapshot())
+            {
                 table.AddRow(row.Name, row.Count.ToString("N0", CultureInfo.InvariantCulture),
                     row.AverageMilliseconds?.ToString("N1", CultureInfo.InvariantCulture) ?? "—");
+                if (row.Name == "Throttles")
+                {
+                    table.AddRow("Rate limit (TSTU)", Format(api.RateLimit), "—");
+                    table.AddRow("Rate remaining (TSTU)", Format(api.RateRemaining), "—");
+                }
+            }
             return table;
         }
 
@@ -181,10 +189,7 @@ namespace GitTfs.Commands
             var rows = new List<IRenderable>
             {
                 live ? RenderLive() : Render(),
-                new Markup($"[{style}]{state}[/]"),
-                new Text(api.RateRemaining.HasValue || api.RateLimit.HasValue
-                    ? $"Rate budget: {Format(api.RateRemaining)} / {Format(api.RateLimit)} TSTU"
-                    : "Rate budget: not reported")
+                new Markup($"[{style}]{state}[/]")
             };
             if (api.SuggestedDelaySeconds.HasValue)
                 rows.Add(new Text(api.DelaySource switch
