@@ -1,16 +1,16 @@
 
 namespace GitTfs
 {
-    using global::System.Diagnostics;
-    using global::System.Reflection;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.Changes.Git;
-    using global::GitTfs.Core.RestTfs;
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Util;
-    using global::Microsoft.Extensions.DependencyInjection;
-    using global::Microsoft.Extensions.Logging;
-    using global::Microsoft.Extensions.Logging.Console;
+    using System.Diagnostics;
+    using System.Reflection;
+    using GitTfs.Core;
+    using GitTfs.Core.RestTfs;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Util;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Console;
+    using Microsoft.Extensions.Options;
     public class Program
     {
         private static LogLevel consoleMinimumLevelField = LogLevel.Information;
@@ -32,7 +32,7 @@ namespace GitTfs
         public static int MainCore(string[] args)
         {
             using var services = Initialize();
-            return services.GetRequiredService<GitTfs>().Run(new List<string>(args));
+            return services.GetRequiredService<GitTfsApplication>().Run(new List<string>(args));
         }
 
         private static void ReportException(Exception e)
@@ -92,13 +92,12 @@ namespace GitTfs
                     .Distinct()
                     .ToArray());
             services.AddTransient<IGitHelpers, GitHelpers>();
-            services.AddSingleton(settings);
+            services.AddSingleton<IOptions<GitTfsSettings>>(Options.Create(settings));
             services.AddHttpClient(RestTfsClient.HttpClientName,
                     (provider, client) => RestTfsClient.ConfigureHttpClient(
-                        client, provider.GetRequiredService<GitTfsSettings>()))
+                        client, provider.GetRequiredService<IOptions<GitTfsSettings>>().Value))
                 .ConfigurePrimaryHttpMessageHandler(provider =>
-                    RestTfsClient.CreateHttpMessageHandler(provider.GetRequiredService<GitTfsSettings>()));
-            AddGitChangeTypes(catalog);
+                    RestTfsClient.CreateHttpMessageHandler(provider.GetRequiredService<IOptions<GitTfsSettings>>().Value));
             tfsPlugin.ConfigureServices(services);
 
             var serviceProvider = services.BuildServiceProvider();
@@ -147,17 +146,5 @@ namespace GitTfs
 
         internal static void EnableDebugLogging() => consoleMinimumLevelField = LogLevel.Debug;
 
-        public static void AddGitChangeTypes(ServiceCatalog catalog)
-        {
-            // See git-diff-tree(1).
-            catalog.AddChangedFile(GitChangeInfo.ChangeType.ADD, typeof(Add));
-            catalog.AddChangedFile(GitChangeInfo.ChangeType.COPY, typeof(Copy));
-            catalog.AddChangedFile(GitChangeInfo.ChangeType.MODIFY, typeof(Modify));
-            //catalog.AddChangedFile(GitChangeInfo.ChangeType.TYPECHANGE, typeof(TypeChange));
-            catalog.AddChangedFile(GitChangeInfo.ChangeType.DELETE, typeof(Delete));
-            catalog.AddChangedFile(GitChangeInfo.ChangeType.RENAMEEDIT, typeof(RenameEdit));
-            //catalog.AddChangedFile(GitChangeInfo.ChangeType.UNMERGED, typeof(Unmerged));
-            //catalog.AddChangedFile(GitChangeInfo.ChangeType.UNKNOWN, typeof(Unknown));
-        }
     }
 }

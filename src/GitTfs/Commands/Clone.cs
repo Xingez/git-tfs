@@ -1,10 +1,11 @@
 namespace GitTfs.Commands
 {
-    using global::System.ComponentModel;
-    using global::GitTfs;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.RestTfs;
-    using global::GitTfs.Util;
+    using System.ComponentModel;
+    using GitTfs;
+    using GitTfs.Core;
+    using GitTfs.Core.RestTfs;
+    using GitTfs.Util;
+    using Microsoft.Extensions.Options;
 
     [Description("[options] <tfs-subfolder> <output-path> [target-git-url] [target-branch]\n  Clone is the default workflow. The target server and clone defaults are read from appsettings.json.\n  target-branch defaults to main.\n  ex : git tfs $/ProjectName/ProjectBranch .\n")]
     public class Clone : GitTfsCommand
@@ -15,9 +16,9 @@ namespace GitTfs.Commands
         private readonly IRestTfsCloneService restCloneServiceField;
         private bool noFallbackField;
 
-        public Clone(GitTfsSettings settings, Globals globals, IRestTfsCloneService restCloneService)
+        public Clone(IOptions<GitTfsSettings> settings, Globals globals, IRestTfsCloneService restCloneService)
         {
-            settingsField = settings;
+            settingsField = settings.Value;
             globalsField = globals;
             restCloneServiceField = restCloneService;
         }

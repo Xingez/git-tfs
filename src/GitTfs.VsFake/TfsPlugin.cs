@@ -1,9 +1,9 @@
 
 namespace GitTfs
 {
-    using global::GitTfs.Core;
-    using global::GitTfs.VsFake;
-    using global::Microsoft.Extensions.DependencyInjection;
+    using GitTfs.Core;
+    using GitTfs.VsFake;
+    using Microsoft.Extensions.DependencyInjection;
     internal class TfsPlugin : Core.TfsInterop.TfsPlugin
     {
         public override void ConfigureServices(IServiceCollection services)

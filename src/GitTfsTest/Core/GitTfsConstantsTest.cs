@@ -2,7 +2,7 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
+    using Assert = GitTfs.Test.TestAssert;
     [TestClass]
     public class GitTfsConstantsTest : BaseTest
     {

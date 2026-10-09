@@ -1,8 +1,8 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::GitTfs.Commands;
-    public class RemoteInfo
+    using GitTfs.Commands;
+    public sealed record RemoteInfo
     {
         public string Id { get; set; }
         public string Url { get; set; }

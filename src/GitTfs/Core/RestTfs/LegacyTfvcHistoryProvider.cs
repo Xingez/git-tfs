@@ -1,9 +1,10 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::GitTfs.Core;
-    using global::GitTfs.Util;
-    using global::System.Diagnostics;
-    using global::System.Text.Json;
+    using GitTfs.Core;
+    using GitTfs.Util;
+    using System.Diagnostics;
+    using System.Text.Json;
+    using Microsoft.Extensions.Options;
 
     /// <summary>
     /// Uses the legacy TFVC client object model for exact historical file
@@ -25,9 +26,9 @@ namespace GitTfs.Core.RestTfs
         private Task<string> helperErrorTaskField;
         private string helperServerField;
 
-        public LegacyTfvcHistoryProvider(GitTfsSettings settings)
+        public LegacyTfvcHistoryProvider(IOptions<GitTfsSettings> settings)
         {
-            settingsField = settings;
+            settingsField = settings.Value;
         }
 
         public bool IsAvailable => File.Exists(GetHelperPath());
@@ -72,8 +73,6 @@ namespace GitTfs.Core.RestTfs
             if (!File.Exists(helperPath))
                 throw new GitTfsException("The legacy TFVC helper is not available.");
 
-            request.Username = settingsField.Username;
-            request.Password = settingsField.Password;
             request.Pat = GetPat();
 
             lock (helperSyncField)
@@ -236,8 +235,6 @@ namespace GitTfs.Core.RestTfs
             public string ItemPath { get; set; }
             public int ChangesetId { get; set; }
             public int DeletionId { get; set; }
-            public string Username { get; set; }
-            public string Password { get; set; }
             public string Pat { get; set; }
         }
 

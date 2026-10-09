@@ -2,10 +2,10 @@
 namespace GitTfs.Test.Util
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::System.Text;
-    using global::GitTfs.Util;
-    using global::GitTfs.Core;
+    using Assert = GitTfs.Test.TestAssert;
+    using System.Text;
+    using GitTfs.Util;
+    using GitTfs.Core;
     [TestClass]
     public class AuthorsFileUnitTest : BaseTest
     {

@@ -1,11 +1,11 @@
 
 namespace GitTfs.Core
 {
-    using global::System.Diagnostics;
-    using global::System.Globalization;
-    using global::System.Net;
-    using global::System.Text.Json;
-    using global::System.Text.Json.Serialization;
+    using System.Diagnostics;
+    using System.Globalization;
+    using System.Net;
+    using System.Text.Json;
+    using System.Text.Json.Serialization;
     /// <summary>
     /// Settings that apply to the local git-tfs executable.
     /// </summary>
@@ -15,10 +15,6 @@ namespace GitTfs.Core
 
         [JsonPropertyName("api-version")]
         public string ApiVersion { get; set; } = "7.1";
-
-        public string Username { get; set; }
-
-        public string Password { get; set; }
 
         public string Pat { get; set; }
 
@@ -96,8 +92,6 @@ namespace GitTfs.Core
         {
             TargetServer = GetEnvironmentSetting("GIT_TFS_TARGET_SERVER") ?? TargetServer;
             ApiVersion = GetEnvironmentSetting("GIT_TFS_API_VERSION") ?? ApiVersion;
-            Username = GetEnvironmentSetting("GIT_TFS_USERNAME") ?? Username;
-            Password = GetEnvironmentSetting("GIT_TFS_PASSWORD") ?? Password;
             Pat = GetEnvironmentSetting("GIT_TFS_PAT") ?? Pat;
             Proxy = GetEnvironmentSetting("GIT_TFS_PROXY") ?? Proxy;
             HttpCaptureDirectory = GetEnvironmentSetting("GIT_TFS_HTTP_CAPTURE") ?? HttpCaptureDirectory;

@@ -1,7 +1,7 @@
 
 namespace GitTfs.Core.BranchVisitors
 {
-    using global::GitTfs.Core.TfsInterop;
+    using GitTfs.Core.TfsInterop;
     public class BranchTreeContainsPathVisitor : IBranchTreeVisitor
     {
         private readonly string searchPathField;

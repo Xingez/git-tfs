@@ -1,9 +1,9 @@
 
 namespace GitTfs.Util;
-using global::System.Collections.ObjectModel;
-using global::System.ComponentModel;
-using global::System.Text;
-using global::System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Text;
+using System.Text.RegularExpressions;
 
 public enum OptionValueType
 {

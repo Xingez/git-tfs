@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::LibGit2Sharp;
+    using LibGit2Sharp;
     public interface IGitTreeModifier
     {
         void Add(string path, string file, LibGit2Sharp.Mode mode);

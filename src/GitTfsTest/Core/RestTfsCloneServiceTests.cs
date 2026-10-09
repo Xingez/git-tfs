@@ -1,16 +1,17 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::System.Collections.Concurrent;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.RestTfs;
-    using global::GitTfs.Util;
-    using global::LibGit2Sharp;
-    using global::System.Net;
-    using global::System.Net.Sockets;
-    using global::System.Security.Cryptography;
-    using global::System.Text;
+    using Assert = GitTfs.Test.TestAssert;
+    using System.Collections.Concurrent;
+    using GitTfs.Core;
+    using GitTfs.Core.RestTfs;
+    using GitTfs.Util;
+    using LibGit2Sharp;
+    using Microsoft.Extensions.Options;
+    using System.Net;
+    using System.Net.Sockets;
+    using System.Security.Cryptography;
+    using System.Text;
 
     [TestClass]
     public class RestTfsCloneServiceTests
@@ -23,7 +24,7 @@ namespace GitTfs.Test.Core
             var logger = new MaintenanceLogger();
             try
             {
-                var service = new RestTfsCloneService(new GitTfsSettings { BatchSize = 1 },
+                var service = new RestTfsCloneService(Options.Create(new GitTfsSettings { BatchSize = 1 }),
                     new AuthorsFile(), logger: logger, gitHelpers: new GitHelpers(null));
                 service.Run(server.ServerUrl, "$/Project/Branch", output);
                 Assert.True(Directory.GetFiles(Path.Combine(output, ".git", "objects", "pack"), "*.pack").Length > 0);
@@ -61,7 +62,7 @@ namespace GitTfs.Test.Core
             try
             {
                 var settings = new GitTfsSettings { BatchSize = batchSize, Proxy = "none" };
-                var service = new RestTfsCloneService(settings, new AuthorsFile());
+                var service = new RestTfsCloneService(Options.Create(settings), new AuthorsFile());
                 Assert.Equal(GitTfsExitCodes.OK, service.Run(server.ServerUrl, "$/Project/Branch", output, noFallback: true));
                 Assert.True(server.ChangesetCursors.Count <= 5, "Inclusive history should need at most one repeated boundary page.");
                 using (var repository = new Repository(output))
@@ -90,7 +91,7 @@ namespace GitTfs.Test.Core
                         BatchSize = 1,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile(), gitHelpers: new GitHelpers(null));
+                    var service = new RestTfsCloneService(Options.Create(settings), new AuthorsFile(), gitHelpers: new GitHelpers(null));
 
                     var result = service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
 
@@ -130,7 +131,7 @@ namespace GitTfs.Test.Core
                         BatchSize = 1,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile(), gitHelpers: new GitHelpers(null));
+                    var service = new RestTfsCloneService(Options.Create(settings), new AuthorsFile(), gitHelpers: new GitHelpers(null));
 
                     service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
                     Assert.Equal(2, server.FileDownloadCount);
@@ -177,7 +178,7 @@ namespace GitTfs.Test.Core
                         BatchSize = 1,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                    var service = new RestTfsCloneService(Options.Create(settings), new AuthorsFile(),
                         gitHelpers: new GitHelpers(null));
 
                     var result = service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
@@ -218,7 +219,7 @@ namespace GitTfs.Test.Core
                         BatchSize = 1,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                    var service = new RestTfsCloneService(Options.Create(settings), new AuthorsFile(),
                         gitHelpers: new GitHelpers(null));
 
                     service.Run(server.ServerUrl, "$/Project/Branch", outputPath);
@@ -254,7 +255,7 @@ namespace GitTfs.Test.Core
                         BatchSize = 1,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                    var service = new RestTfsCloneService(Options.Create(settings), new AuthorsFile(),
                         gitHelpers: new GitHelpers(null));
 
                     var exception = Assert.Throws<GitTfsException>(() =>
@@ -284,7 +285,7 @@ namespace GitTfs.Test.Core
                         BatchSize = 1,
                         Proxy = "none",
                     };
-                    var service = new RestTfsCloneService(settings, new AuthorsFile(),
+                    var service = new RestTfsCloneService(Options.Create(settings), new AuthorsFile(),
                         gitHelpers: new GitHelpers(null));
 
                     var result = service.Run(server.ServerUrl, "$/Project/Branch", outputPath,

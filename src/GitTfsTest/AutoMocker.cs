@@ -1,10 +1,10 @@
 
 namespace GitTfs.Test
 {
-    using global::GitTfs;
-    using global::GitTfs.Util;
-    using global::Microsoft.Extensions.DependencyInjection;
-    using global::Moq;
+    using GitTfs;
+    using GitTfs.Util;
+    using Microsoft.Extensions.DependencyInjection;
+    using Moq;
     /// <summary>
     /// Small Moq-backed constructor injector used by unit tests. It keeps the
     /// tests independent of the application's runtime container.

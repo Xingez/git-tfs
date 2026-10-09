@@ -1,9 +1,9 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::System.Diagnostics;
+    using System.Diagnostics;
 
-    using global::LibGit2Sharp;
+    using LibGit2Sharp;
     public class GitCommit
     {
         private readonly Commit commitField;

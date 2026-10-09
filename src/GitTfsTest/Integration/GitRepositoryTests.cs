@@ -2,9 +2,9 @@
 namespace GitTfs.Test.Integration
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
     [TestClass]
     public class GitRepositoryTests : BaseTest, IDisposable
     {

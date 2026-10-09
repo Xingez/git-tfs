@@ -1,6 +1,6 @@
 ﻿namespace GitTfs.Core
 {
-    public class TfsChangesetInfo
+    public sealed record TfsChangesetInfo
     {
         public IGitTfsRemote Remote { get; set; }
         public int ChangesetId { get; set; }

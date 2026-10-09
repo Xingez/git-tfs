@@ -1,8 +1,8 @@
 ﻿
 namespace GitTfs.Extensions
 {
-    using global::System.Collections;
-    using global::System.Text.RegularExpressions;
+    using System.Collections;
+    using System.Text.RegularExpressions;
     public static class InspectExtensions
     {
         public static string Inspect(this object obj) => Inspect(obj, d => d.Inspect(), e => e.Inspect(), o => InspectWithProperties(o));

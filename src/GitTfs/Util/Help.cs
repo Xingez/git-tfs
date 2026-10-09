@@ -2,10 +2,10 @@
 namespace GitTfs.Commands
 {
     using Microsoft.Extensions.DependencyInjection;
-    using global::System.ComponentModel;
-    using global::GitTfs.Util;
-    using global::GitTfs.Core;
-    using global::System.Diagnostics;
+    using System.ComponentModel;
+    using GitTfs.Util;
+    using GitTfs.Core;
+    using System.Diagnostics;
     [Pluggable("help")]
     [Description("help [command-name]")]
     public class Help : GitTfsCommand

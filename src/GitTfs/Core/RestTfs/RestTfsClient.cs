@@ -1,14 +1,14 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::GitTfs.Core;
-    using global::System.Diagnostics;
-    using global::System.Globalization;
-    using global::System.Net;
-    using global::System.Net.Http;
-    using global::System.Net.Http.Headers;
-    using global::System.Text;
-    using global::System.Text.Json;
-    using global::Microsoft.Extensions.Logging;
+    using GitTfs.Core;
+    using System.Diagnostics;
+    using System.Globalization;
+    using System.Net;
+    using System.Net.Http;
+    using System.Net.Http.Headers;
+    using System.Text;
+    using System.Text.Json;
+    using Microsoft.Extensions.Logging;
 
     /// <summary>
     /// Small, transport-level TFVC REST client used by the REST clone pipeline.
@@ -330,9 +330,9 @@ namespace GitTfs.Core.RestTfs
             if (string.IsNullOrWhiteSpace(repositoryPath) || !repositoryPath.StartsWith("$/", StringComparison.Ordinal))
                 throw new GitTfsException("The TFS repository path must start with '$/'.");
 
-            var path = repositoryPath.Substring(2).Trim('/');
+            var path = repositoryPath.AsSpan(2).Trim('/');
             var separator = path.IndexOf('/');
-            var project = separator < 0 ? path : path.Substring(0, separator);
+            var project = (separator < 0 ? path : path[..separator]).ToString();
             if (string.IsNullOrWhiteSpace(project))
                 throw new GitTfsException("The TFS repository path must include a team project.");
             return project;
@@ -357,11 +357,6 @@ namespace GitTfs.Core.RestTfs
             if (!string.IsNullOrWhiteSpace(pat))
             {
                 handler.UseDefaultCredentials = false;
-            }
-            else if (!string.IsNullOrWhiteSpace(settings.Username))
-            {
-                handler.UseDefaultCredentials = false;
-                handler.Credentials = BuildCredential(settings.Username, settings.Password);
             }
             else
             {
@@ -389,14 +384,6 @@ namespace GitTfs.Core.RestTfs
                 var token = Convert.ToBase64String(Encoding.UTF8.GetBytes(":" + pat));
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
             }
-        }
-
-        private static NetworkCredential BuildCredential(string username, string password)
-        {
-            var separator = username.IndexOf('\\');
-            if (separator > 0)
-                return new NetworkCredential(username.Substring(separator + 1), password, username.Substring(0, separator));
-            return new NetworkCredential(username, password);
         }
 
         private static IReadOnlyDictionary<string, string> ReadHeaders(HttpResponseMessage response)
@@ -445,20 +432,41 @@ namespace GitTfs.Core.RestTfs
         private string GetRelativeFilePath(string path)
         {
             var normalizedPath = NormalizeServerPath(path);
-            var repositoryPrefix = repositoryPathField + "/";
-            return normalizedPath.StartsWith(repositoryPrefix, StringComparison.OrdinalIgnoreCase)
-                ? normalizedPath.Substring(repositoryPrefix.Length)
-                : normalizedPath;
+            var normalizedPathSpan = normalizedPath.AsSpan();
+            var repositoryPathSpan = repositoryPathField.AsSpan();
+            return normalizedPathSpan.StartsWith(repositoryPathSpan, StringComparison.OrdinalIgnoreCase)
+                && normalizedPathSpan.Length > repositoryPathSpan.Length
+                && normalizedPathSpan[repositoryPathSpan.Length] == '/'
+                    ? normalizedPathSpan[(repositoryPathSpan.Length + 1)..].ToString()
+                    : normalizedPath;
         }
 
-        private static string NormalizeServerPath(string path) => (path ?? string.Empty).Replace('\\', '/').TrimEnd('/');
+        private static string NormalizeServerPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return string.Empty;
+
+            var pathSpan = path.AsSpan();
+            var length = pathSpan.Length;
+            while (length > 0 && (pathSpan[length - 1] == '/' || pathSpan[length - 1] == '\\'))
+                length--;
+
+            var normalizedSpan = pathSpan[..length];
+            if (length == path.Length && normalizedSpan.IndexOf('\\') < 0)
+                return path;
+
+            return normalizedSpan.ToString().Replace('\\', '/');
+        }
 
         private static string TrimBody(string body)
         {
             if (string.IsNullOrWhiteSpace(body))
                 return "No response body.";
-            var trimmed = body.Trim();
-            return trimmed.Length <= 500 ? trimmed : trimmed.Substring(0, 500) + "...";
+            var trimmed = body.AsSpan().Trim();
+            if (trimmed.Length <= 500)
+                return trimmed.Length == body.Length ? body : trimmed.ToString();
+
+            return string.Concat(trimmed[..500], "...".AsSpan());
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Core
 {
-    public class TfsLabel
+    public sealed record TfsLabel
     {
         public int Id { get; set; }
         public int ChangesetId { get; set; }

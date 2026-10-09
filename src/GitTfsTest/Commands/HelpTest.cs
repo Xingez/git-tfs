@@ -2,13 +2,13 @@
 namespace GitTfs.Test.Commands
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Commands;
-    using global::GitTfs;
-    using global::GitTfs.Test;
-    using global::GitTfs.Util;
-    using global::System.Diagnostics;
-    using global::System.Globalization;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Commands;
+    using GitTfs;
+    using GitTfs.Test;
+    using GitTfs.Util;
+    using System.Diagnostics;
+    using System.Globalization;
     [TestClass]
     public class HelpTest : BaseTest
     {

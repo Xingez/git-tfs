@@ -1,7 +1,7 @@
 
 namespace GitTfs
 {
-    using global::GitTfs.Util;
+    using GitTfs.Util;
     // Like Globals, but for values that can be set in the git config
     // or overridden by some other means, like from the command line.
     public class ConfigProperties

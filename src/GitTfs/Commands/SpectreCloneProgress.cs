@@ -1,9 +1,9 @@
 namespace GitTfs.Commands
 {
-    using global::System;
-    using global::System.Collections.Generic;
-    using global::GitTfs.Core.RestTfs;
-    using global::Spectre.Console;
+    using System;
+    using System.Collections.Generic;
+    using GitTfs.Core.RestTfs;
+    using Spectre.Console;
 
     internal static class SpectreCloneProgress
     {
@@ -20,17 +20,38 @@ namespace GitTfs.Commands
                         RemainingStyle = new Style(Color.Grey),
                     },
                     new PercentageColumn())
-                .Start(context => action(new Reporter(context)));
+                .Start(context =>
+                {
+                    var reporter = new Reporter(context);
+                    try
+                    {
+                        return action(reporter);
+                    }
+                    finally
+                    {
+                        reporter.CompleteScan();
+                    }
+                });
         }
 
         private sealed class Reporter : IChangesetProgressReporter
         {
             private readonly ProgressContext contextField;
             private readonly Dictionary<int, ProgressEntry> entriesField = new();
+            private readonly ProgressTask scanTaskField;
 
             public Reporter(ProgressContext context)
             {
                 contextField = context;
+                scanTaskField = context.AddTask("Scanning TFVC changesets", maxValue: 1);
+                scanTaskField.IsIndeterminate = true;
+            }
+
+            public void CompleteScan()
+            {
+                scanTaskField.IsIndeterminate = false;
+                scanTaskField.Value = scanTaskField.MaxValue;
+                scanTaskField.Description = "TFVC changeset scan complete";
             }
 
             public void StartChangeset(int changesetId, int totalFiles)

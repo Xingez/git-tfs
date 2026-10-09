@@ -1,8 +1,8 @@
 
 namespace GitTfs.Core
 {
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Commands;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Commands;
     internal class DerivedGitTfsRemote : IGitTfsRemote
     {
         private readonly string tfsUrlField;
@@ -138,18 +138,6 @@ namespace GitTfs.Core
 
         public void QuickFetch(int changesetId, bool ignoreRestricted, bool printRestrictionHint) => throw DerivedRemoteException;
 
-        public void Unshelve(string a, string b, string c, Action<Exception> h, bool force) => throw DerivedRemoteException;
-
-        public void Shelve(string shelvesetName, string treeish, TfsChangesetInfo parentChangeset, CheckinOptions options, bool evaluateCheckinPolicies) => throw DerivedRemoteException;
-
-        public bool HasShelveset(string shelvesetName) => throw DerivedRemoteException;
-
-        public int CheckinTool(string head, TfsChangesetInfo parentChangeset) => throw DerivedRemoteException;
-
-        public int Checkin(string treeish, TfsChangesetInfo parentChangeset, CheckinOptions options, string sourceTfsPath = null) => throw DerivedRemoteException;
-
-        public int Checkin(string head, string parent, TfsChangesetInfo parentChangeset, CheckinOptions options, string sourceTfsPath = null) => throw DerivedRemoteException;
-
         public void CleanupWorkspace() => throw DerivedRemoteException;
 
         public void CleanupWorkspaceDirectory() => throw DerivedRemoteException;
@@ -161,8 +149,6 @@ namespace GitTfs.Core
         public void EnsureTfsAuthenticated() => throw DerivedRemoteException;
 
         public bool MatchesUrlAndRepositoryPath(string tfsUrl, string tfsRepositoryPath) => throw DerivedRemoteException;
-
-        public void DeleteShelveset(string shelvesetName) => throw DerivedRemoteException;
 
         public RemoteInfo RemoteInfo => throw DerivedRemoteException;
 

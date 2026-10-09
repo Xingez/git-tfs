@@ -1,11 +1,11 @@
 
 namespace GitTfs.VsCommon
 {
-    using global::System.Collections;
+    using System.Collections;
 
-    using global::GitTfs.Core.TfsInterop;
+    using GitTfs.Core.TfsInterop;
 
-    using global::GitTfs.Util;
+    using GitTfs.Util;
     public class TfsApiBridge
     {
         private readonly IServiceProvider servicesField;

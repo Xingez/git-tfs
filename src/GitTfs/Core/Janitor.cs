@@ -1,9 +1,9 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::GitTfs.Util;
+    using GitTfs.Util;
 
-    using global::System.Diagnostics;
+    using System.Diagnostics;
     [SingletonService]
     public class Janitor : IDisposable
     {

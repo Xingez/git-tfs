@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Core
 {
-    public class TfsWorkitem : ITfsWorkitem
+    public sealed record TfsWorkitem : ITfsWorkitem
     {
         public int Id { get; set; }
         public string Title { get; set; }

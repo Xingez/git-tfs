@@ -1,8 +1,8 @@
 
 namespace GitTfs.Core
 {
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Commands;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Commands;
     public interface IFetchResult : IRenameResult
     {
         bool IsSuccess { get; set; }
@@ -62,23 +62,12 @@ namespace GitTfs.Core
         IFetchResult Fetch(bool stopOnFailMergeCommit = false, int lastChangesetIdToFetch = -1, IRenameResult renameResult = null);
         IFetchResult FetchWithMerge(int mergeChangesetId, bool stopOnFailMergeCommit = false, IRenameResult renameResult = null, params string[] parentCommitsHashes);
         void QuickFetch(int changesetId, bool ignoreRestricted, bool printRestrictionHint = true);
-        void Unshelve(string shelvesetOwner, string shelvesetName, string destinationBranch, Action<Exception> ignorableErrorHandler, bool force);
-        void Shelve(string shelvesetName, string treeish, TfsChangesetInfo parentChangeset, CheckinOptions options, bool evaluateCheckinPolicies);
-        bool HasShelveset(string shelvesetName);
-        int CheckinTool(string head, TfsChangesetInfo parentChangeset);
-        int Checkin(string treeish, TfsChangesetInfo parentChangeset, CheckinOptions options, string sourceTfsPath = null);
-
-        /// <summary>
-        /// Checks in to TFS set of changes from git repository between given commits (parent..head) onto given TFS changeset. Returns ID of the new changeset.
-        /// </summary>
-        int Checkin(string head, string parent, TfsChangesetInfo parentChangeset, CheckinOptions options, string sourceTfsPath = null);
         void CleanupWorkspace();
         void CleanupWorkspaceDirectory();
         ITfsChangeset GetChangeset(int changesetId);
         void UpdateTfsHead(string commitHash, int changesetId);
         void EnsureTfsAuthenticated();
         bool MatchesUrlAndRepositoryPath(string tfsUrl, string tfsRepositoryPath);
-        void DeleteShelveset(string shelvesetName);
     }
 
     public static class IGitTfsRemoteExt

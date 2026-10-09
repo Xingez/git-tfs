@@ -1,16 +1,17 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::GitTfs.Core;
-    using global::GitTfs.Util;
-    using global::LibGit2Sharp;
-    using global::Microsoft.Extensions.Logging;
-    using global::System;
-    using global::System.Collections.Generic;
-    using global::System.IO;
-    using global::System.Linq;
-    using global::System.Globalization;
-    using global::System.Security.Cryptography;
-    using global::System.Text;
+    using System.Buffers;
+    using GitTfs.Core;
+    using GitTfs.Util;
+    using LibGit2Sharp;
+    using Microsoft.Extensions.Logging;
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Globalization;
+    using System.Security.Cryptography;
+    using System.Text;
 
     public sealed class RestTfsChangesetImporter : IRestTfsChangesetImporter
     {
@@ -305,7 +306,7 @@ namespace GitTfs.Core.RestTfs
             var files = EnumerateFiles(repository.ObjectDatabase.CreateTree(treeDefinition))
                 .Where(file => IsSameOrChildPath(file.Path, relativePath))
                 .ToArray();
-            foreach (var file in files)
+            foreach (ref readonly var file in files.AsSpan())
             {
                 treeDefinition.Remove(file.Path);
                 DeleteWorkingFile(outputPath, file.Path);
@@ -327,27 +328,31 @@ namespace GitTfs.Core.RestTfs
                 .Where(file => sourcePrefix == null
                     || file.Path.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
-            foreach (var file in files)
+            foreach (ref readonly var file in files.AsSpan())
             {
                 treeDefinition.Remove(file.Path);
                 DeleteWorkingFile(outputPath, file.Path);
             }
             RemovePathMappings(pathMap, sourcePath);
 
-            foreach (var file in files)
+            var copyBuffer = ArrayPool<byte>.Shared.Rent(81920);
+            try
             {
-                var suffix = sourcePrefix == null ? file.Path : file.Path.Substring(sourcePrefix.Length);
-                var movedPath = string.IsNullOrEmpty(targetPath) ? suffix : targetPath.TrimEnd('/') + "/" + suffix;
-                treeDefinition.Remove(movedPath);
-                treeDefinition.Add(movedPath, (Blob)file.Entry.Target, file.Entry.Mode);
-                pathMap[movedPath] = movedPath;
-
-                using (var input = ((Blob)file.Entry.Target).GetContentStream())
-                using (var content = new MemoryStream())
+                foreach (ref readonly var file in files.AsSpan())
                 {
-                    input.CopyTo(content);
-                    WriteWorkingFile(outputPath, movedPath, content.ToArray());
+                    var suffix = sourcePrefix == null ? file.Path : file.Path.Substring(sourcePrefix.Length);
+                    var movedPath = string.IsNullOrEmpty(targetPath) ? suffix : targetPath.TrimEnd('/') + "/" + suffix;
+                    treeDefinition.Remove(movedPath);
+                    treeDefinition.Add(movedPath, (Blob)file.Entry.Target, file.Entry.Mode);
+                    pathMap[movedPath] = movedPath;
+
+                    using var input = ((Blob)file.Entry.Target).GetContentStream();
+                    WriteWorkingFile(outputPath, movedPath, input, copyBuffer);
                 }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(copyBuffer);
             }
         }
 
@@ -363,10 +368,20 @@ namespace GitTfs.Core.RestTfs
         }
 
         private static bool IsSameOrChildPath(string path, string parentPath)
-            => string.IsNullOrEmpty(parentPath)
-                ? !string.IsNullOrEmpty(path)
-                : string.Equals(path, parentPath, StringComparison.OrdinalIgnoreCase)
-                    || path.StartsWith(parentPath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
+        {
+            if (string.IsNullOrEmpty(parentPath))
+                return !string.IsNullOrEmpty(path);
+
+            var pathSpan = path.AsSpan();
+            var parentPathSpan = parentPath.AsSpan();
+            if (pathSpan.Equals(parentPathSpan, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var parentSpan = parentPath.AsSpan().TrimEnd('/');
+            return pathSpan.Length > parentSpan.Length
+                && pathSpan.StartsWith(parentSpan, StringComparison.OrdinalIgnoreCase)
+                && pathSpan[parentSpan.Length] == '/';
+        }
 
         private static void RemovePath(TreeDefinition treeDefinition, IDictionary<string, string> pathMap,
             string relativePath, string outputPath)
@@ -442,12 +457,20 @@ namespace GitTfs.Core.RestTfs
         }
 
         private static bool IsWithinRepository(string serverPath, string repositoryPath)
-            => !string.IsNullOrWhiteSpace(serverPath)
-                && (string.Equals(serverPath, repositoryPath, StringComparison.OrdinalIgnoreCase)
-                    || serverPath.StartsWith(repositoryPath + "/", StringComparison.OrdinalIgnoreCase));
+        {
+            if (string.IsNullOrWhiteSpace(serverPath))
+                return false;
+
+            var serverPathSpan = serverPath.AsSpan();
+            var repositoryPathSpan = repositoryPath.AsSpan();
+            return serverPathSpan.Equals(repositoryPathSpan, StringComparison.OrdinalIgnoreCase)
+                || serverPathSpan.Length > repositoryPathSpan.Length
+                    && serverPathSpan.StartsWith(repositoryPathSpan, StringComparison.OrdinalIgnoreCase)
+                    && serverPathSpan[repositoryPathSpan.Length] == '/';
+        }
 
         private static string ToRelativeGitPath(string serverPath, string repositoryPath)
-            => serverPath.Substring(repositoryPath.Length).Trim('/').Replace('\\', '/');
+            => serverPath.AsSpan(repositoryPath.Length).Trim('/').ToString().Replace('\\', '/');
 
         private static bool IsDelete(RestChange change)
             => new TfvcChange(change).IsDelete;
@@ -463,6 +486,18 @@ namespace GitTfs.Core.RestTfs
             var filePath = GetWorkingFilePath(outputPath, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
             File.WriteAllBytes(filePath, content);
+        }
+
+        private static void WriteWorkingFile(string outputPath, string relativePath, Stream content, byte[] buffer)
+        {
+            var filePath = GetWorkingFilePath(outputPath, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+            using var output = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None,
+                buffer.Length, FileOptions.SequentialScan);
+
+            int bytesRead;
+            while ((bytesRead = content.Read(buffer.AsSpan())) > 0)
+                output.Write(buffer.AsSpan(0, bytesRead));
         }
 
         private static void DeleteWorkingFile(string outputPath, string relativePath)

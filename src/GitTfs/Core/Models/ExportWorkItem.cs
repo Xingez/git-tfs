@@ -1,8 +1,8 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::System.Diagnostics.Contracts;
-    public class ExportWorkItem : IExportWorkItem
+    using System.Diagnostics.Contracts;
+    public sealed record ExportWorkItem : IExportWorkItem
     {
         public ExportWorkItem(ITfsWorkitem wi = null)
         {

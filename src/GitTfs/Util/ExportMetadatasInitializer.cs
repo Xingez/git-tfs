@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Util
 {
-    using global::GitTfs.Core;
+    using GitTfs.Core;
     /// <summary>
     /// An object that can help initialize a repository or a remote for exporting
     /// TFS metadata

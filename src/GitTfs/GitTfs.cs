@@ -1,12 +1,13 @@
 
 namespace GitTfs
 {
-    using global::System.Diagnostics;
-    using global::Microsoft.Extensions.DependencyInjection;
-    using global::GitTfs.Commands;
-    using global::GitTfs.Core;
-    using global::GitTfs.Util;
-    public class GitTfs
+    using System.Diagnostics;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Options;
+    using GitTfs.Commands;
+    using GitTfs.Core;
+    using GitTfs.Util;
+    public class GitTfsApplication
     {
         private readonly IGitTfsVersionProvider gitTfsVersionProviderField;
         private readonly GitTfsCommandFactory commandFactoryField;
@@ -18,9 +19,9 @@ namespace GitTfs
         private readonly AuthorsFile authorsFileHelperField;
         private readonly GitTfsSettings settingsField;
 
-        public GitTfs(GitTfsCommandFactory commandFactory, IHelpHelper help, IServiceProvider services,
+        public GitTfsApplication(GitTfsCommandFactory commandFactory, IHelpHelper help, IServiceProvider services,
             IGitTfsVersionProvider gitTfsVersionProvider, GitTfsCommandRunner runner, Globals globals, Bootstrapper bootstrapper,
-            AuthorsFile authorsFileHelper, GitTfsSettings settings)
+            AuthorsFile authorsFileHelper, IOptions<GitTfsSettings> settings)
         {
             commandFactoryField = commandFactory;
             helpField = help;
@@ -30,7 +31,7 @@ namespace GitTfs
             globalsField = globals;
             bootstrapperField = bootstrapper;
             authorsFileHelperField = authorsFileHelper;
-            settingsField = settings;
+            settingsField = settings.Value;
         }
 
         public int Run(IList<string> args)

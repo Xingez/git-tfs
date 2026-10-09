@@ -1,7 +1,7 @@
 namespace GitTfs
 {
-    using global::System.Diagnostics;
-    using global::Microsoft.Extensions.Logging;
+    using System.Diagnostics;
+    using Microsoft.Extensions.Logging;
 
     /// <summary>
     /// Keeps legacy Trace-based command messages on the Microsoft logging pipeline.

@@ -2,8 +2,8 @@
 namespace GitTfs.Test.Util
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Util;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Util;
     [TestClass]
     public class BouncerTest : BaseTest
     {

@@ -2,13 +2,13 @@
 namespace GitTfs.Test.Integration
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::System.Text;
-    using global::System.Text.Json;
-    using global::LibGit2Sharp;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.VsFake;
+    using Assert = GitTfs.Test.TestAssert;
+    using System.Text;
+    using System.Text.Json;
+    using LibGit2Sharp;
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.VsFake;
     internal class IntegrationHelper : IDisposable
     {
         #region manage the work directory

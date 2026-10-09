@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::LibGit2Sharp;
+    using LibGit2Sharp;
     public class RemoteConfigConverter
     {
         public IEnumerable<RemoteInfo> Load(IEnumerable<ConfigurationEntry<string>> config)

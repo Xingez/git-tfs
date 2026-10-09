@@ -1,9 +1,8 @@
 
 namespace GitTfs
 {
-    using global::System.Text.RegularExpressions;
+    using System.Text.RegularExpressions;
 
-    using global::GitTfs.Core.TfsInterop;
     public static class GitTfsConstants
     {
         public static readonly Regex Sha1 = new Regex("[a-f\\d]{40}", RegexOptions.IgnoreCase);
@@ -24,20 +23,6 @@ namespace GitTfs
                           "(?<repository>\\$.+)?;" +
                           "C(?<changeset>\\d+)" +
                           "\\s*$", RegexOptions.Multiline | RegexOptions.Compiled);
-        // e.g. git-tfs-work-item: 24 associate
-        public static readonly Regex TfsWorkItemRegex =
-                new Regex(GitTfsPrefix + "-work-item:" + @"\s*(?<item_id>\d+)(\s*(?<action>associate|resolve))?");
-
-        // e.g. #24
-        public static readonly Regex TfsWorkItemAssociateRegex = new Regex(@"#(?<item_id>\d+)");
-
-        // e.g. git-tfs-code-reviewer: John Smith
-        public static readonly Regex TfsReviewerRegex =
-                new Regex(GitTfsPrefix + @"-(?<type>code|security|performance)-reviewer:\s*(?<reviewer>.+)");
-
-        // e.g. git-tfs-force: override reason
-        public static readonly Regex TfsForceRegex =
-                new Regex(GitTfsPolicyOverrideCommentPrefix + @"\s*(?<reason>.+)\s*$");
 
         /// <summary>
         /// Applied to a remote ID to determine if it is a subtree
@@ -58,8 +43,6 @@ namespace GitTfs
         //Git-Tfs config keys
         public const string ExportMetadatasConfigKey = GitTfsPrefix + ".export-metadatas";
         public const string WorkspaceConfigKey = GitTfsPrefix + ".workspace-dir";
-
-        public const string WorkItemAssociateRegexConfigKey = GitTfsPrefix + ".work-item-regex";
 
         public const string IgnoreBranches = GitTfsPrefix + ".ignore-branches";
 

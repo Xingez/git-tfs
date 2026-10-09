@@ -2,9 +2,9 @@
 namespace GitTfs.Test.Integration
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core;
-    using global::GitTfs.Util;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core;
+    using GitTfs.Util;
     [TestClass]
     public class ConfigPropertyLoaderTests : BaseTest, IDisposable
     {

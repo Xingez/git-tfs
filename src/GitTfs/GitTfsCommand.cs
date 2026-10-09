@@ -1,6 +1,6 @@
 namespace GitTfs
 {
-    using global::GitTfs.Util;
+    using GitTfs.Util;
     public interface GitTfsCommand
     {
         OptionSet OptionSet { get; }

@@ -3,10 +3,10 @@
 namespace GitTfs.Test.Core.TfsInterop
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core.TfsInterop;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core.TfsInterop;
 
-    using global::Moq;
+    using Moq;
     [TestClass]
     public class BranchExtensionsTest : BaseTest
     {

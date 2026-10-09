@@ -1,9 +1,9 @@
 
 namespace GitTfs.Core.TfsInterop
 {
-    using global::System.Diagnostics;
-    using global::System.Reflection;
-    using global::Microsoft.Extensions.DependencyInjection;
+    using System.Diagnostics;
+    using System.Reflection;
+    using Microsoft.Extensions.DependencyInjection;
     public abstract class TfsPlugin
     {
         public static TfsPlugin Find()

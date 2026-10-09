@@ -1,7 +1,7 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::System.Collections.Generic;
-    using global::LibGit2Sharp;
+    using System.Collections.Generic;
+    using LibGit2Sharp;
 
     public interface IRestTfsChangesetImporter
     {

@@ -1,6 +1,6 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::GitTfs.Core;
+    using GitTfs.Core;
 
     public sealed class RestTfsException : GitTfsException
     {

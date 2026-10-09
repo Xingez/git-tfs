@@ -2,9 +2,9 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::System.Collections.Specialized;
-    using global::GitTfs.Core;
+    using Assert = GitTfs.Test.TestAssert;
+    using System.Collections.Specialized;
+    using GitTfs.Core;
     [TestClass]
     public class AzureDevOpsRateLimitTests : BaseTest
     {

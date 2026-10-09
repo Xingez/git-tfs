@@ -7,8 +7,6 @@ namespace GitTfs.LegacyHistory
         public string ItemPath { get; set; }
         public int ChangesetId { get; set; }
         public int DeletionId { get; set; }
-        public string Username { get; set; }
-        public string Password { get; set; }
         public string Pat { get; set; }
     }
 }

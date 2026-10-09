@@ -1,9 +1,9 @@
 ﻿
 namespace GitTfs.Util
 {
-    using global::System.Text.RegularExpressions;
-    using global::GitTfs.Core;
-    using global::System.Diagnostics;
+    using System.Text.RegularExpressions;
+    using GitTfs.Core;
+    using System.Diagnostics;
     public class Author
     {
         public Author(string tfsUserId, string name, string email)

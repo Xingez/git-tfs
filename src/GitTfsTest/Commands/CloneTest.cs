@@ -2,8 +2,8 @@
 namespace GitTfs.Test.Commands
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Commands;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Commands;
     [TestClass]
     public class CloneTest : BaseTest
     {

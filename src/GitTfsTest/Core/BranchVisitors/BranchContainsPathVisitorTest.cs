@@ -2,10 +2,10 @@
 namespace GitTfs.Test.Core.BranchVisitors
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core.BranchVisitors;
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.VsFake;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core.BranchVisitors;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.VsFake;
     [TestClass]
     public class BranchContainsPathVisitorTest : BaseTest
     {

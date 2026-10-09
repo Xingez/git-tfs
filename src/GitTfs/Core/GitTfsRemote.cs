@@ -1,13 +1,13 @@
 
 namespace GitTfs.Core
 {
-    using global::System.Diagnostics;
-    using global::System.Text;
-    using global::System.Text.RegularExpressions;
+    using System.Diagnostics;
+    using System.Text;
+    using System.Text.RegularExpressions;
 
-    using global::GitTfs.Commands;
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Util;
+    using GitTfs.Commands;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Util;
     public class GitTfsRemote : IGitTfsRemote
     {
         private static readonly Regex isInDotGit = new Regex("(?:^|/)\\.git(?:/|$)", RegexOptions.Compiled);
@@ -297,9 +297,8 @@ namespace GitTfs.Core
                     tfsPath = p.Prefix + "/" + tfsPath;
             }
 
-            while (tfsPath.StartsWith("/"))
-                tfsPath = tfsPath.Substring(1);
-            return tfsPath;
+            var trimmedPath = tfsPath.AsSpan().TrimStart('/');
+            return trimmedPath.Length == tfsPath.Length ? tfsPath : trimmedPath.ToString();
         }
 
         public class FetchResult : IFetchResult
@@ -825,88 +824,6 @@ namespace GitTfs.Core
             return builder.ToString();
         }
 
-        public void Unshelve(string shelvesetOwner, string shelvesetName, string destinationBranch, Action<Exception> ignorableErrorHandler, bool force)
-        {
-            var destinationRef = GitRepository.ShortToLocalName(destinationBranch);
-            if (Repository.HasRef(destinationRef))
-                throw new GitTfsException("ERROR: Destination branch (" + destinationBranch + ") already exists!");
-
-            var shelvesetChangeset = Tfs.GetShelvesetData(this, shelvesetOwner, shelvesetName);
-
-            var parentId = shelvesetChangeset.BaseChangesetId;
-            var ch = GetTfsChangesetById(parentId);
-            string rootCommit;
-            if (ch == null)
-            {
-                if (!force)
-                    throw new GitTfsException("ERROR: Parent changeset C" + parentId + " not found.", new[]
-                            {
-                                "Try fetching the latest changes from TFS",
-                                "Try applying the shelveset on the currently checkouted commit using the '--force' option"
-                            }
-                        );
-                Trace.TraceInformation("warning: Parent changeset C" + parentId + " not found."
-                                 + " Trying to apply the shelveset on the current commit...");
-                rootCommit = Repository.GetCurrentCommit();
-            }
-            else
-            {
-                rootCommit = ch.GitCommit;
-            }
-
-            var log = Apply(rootCommit, shelvesetChangeset, ignorableErrorHandler);
-            var commit = Commit(log);
-            Repository.UpdateRef(destinationRef, commit, "Shelveset " + shelvesetName + " from " + shelvesetOwner);
-        }
-
-        public void Shelve(string shelvesetName, string head, TfsChangesetInfo parentChangeset, CheckinOptions options, bool evaluateCheckinPolicies) => WithWorkspace(parentChangeset, workspace => Shelve(shelvesetName, head, parentChangeset, options, evaluateCheckinPolicies, workspace));
-
-        public bool HasShelveset(string shelvesetName) => Tfs.HasShelveset(shelvesetName);
-
-        private void Shelve(string shelvesetName, string head, TfsChangesetInfo parentChangeset, CheckinOptions options, bool evaluateCheckinPolicies, ITfsWorkspace workspace)
-        {
-            PendChangesToWorkspace(head, parentChangeset.GitCommit, workspace);
-            workspace.Shelve(shelvesetName, evaluateCheckinPolicies, options, () => Repository.GetCommitMessage(head, parentChangeset.GitCommit));
-        }
-
-        public int CheckinTool(string head, TfsChangesetInfo parentChangeset)
-        {
-            var changeset = 0;
-            WithWorkspace(parentChangeset, workspace => changeset = CheckinTool(head, parentChangeset, workspace));
-            return changeset;
-        }
-
-        private int CheckinTool(string head, TfsChangesetInfo parentChangeset, ITfsWorkspace workspace)
-        {
-            PendChangesToWorkspace(head, parentChangeset.GitCommit, workspace);
-            return workspace.CheckinTool(() => Repository.GetCommitMessage(head, parentChangeset.GitCommit));
-        }
-
-        private void PendChangesToWorkspace(string head, string parent, ITfsWorkspaceModifier workspace)
-        {
-            using (var tidyWorkspace = new DirectoryTidier(workspace, () => GetLatestChangeset().GetFullTree()))
-            {
-                foreach (var change in Repository.GetChangedFiles(parent, head))
-                {
-                    change.Apply(tidyWorkspace);
-                }
-            }
-        }
-
-        public int Checkin(string head, TfsChangesetInfo parentChangeset, CheckinOptions options, string sourceTfsPath = null)
-        {
-            var changeset = 0;
-            WithWorkspace(parentChangeset, workspace => changeset = Checkin(head, parentChangeset.GitCommit, workspace, options, sourceTfsPath));
-            return changeset;
-        }
-
-        public int Checkin(string head, string parent, TfsChangesetInfo parentChangeset, CheckinOptions options, string sourceTfsPath = null)
-        {
-            var changeset = 0;
-            WithWorkspace(parentChangeset, workspace => changeset = Checkin(head, parent, workspace, options, sourceTfsPath));
-            return changeset;
-        }
-
         private void WithWorkspace(TfsChangesetInfo parentChangeset, Action<ITfsWorkspace> action)
         {
             //are there any subtrees?
@@ -921,14 +838,6 @@ namespace GitTfs.Core
             }
         }
 
-        private int Checkin(string head, string parent, ITfsWorkspace workspace, CheckinOptions options, string sourceTfsPath)
-        {
-            PendChangesToWorkspace(head, parent, workspace);
-            if (!string.IsNullOrWhiteSpace(sourceTfsPath))
-                workspace.Merge(sourceTfsPath, TfsRepositoryPath);
-            return workspace.Checkin(options, () => Repository.GetCommitMessage(head, parent));
-        }
-
         public bool MatchesUrlAndRepositoryPath(string tfsUrl, string tfsRepositoryPath)
         {
             if (!MatchesTfsUrl(tfsUrl))
@@ -939,8 +848,6 @@ namespace GitTfs.Core
 
             return TfsRepositoryPath.Equals(tfsRepositoryPath, StringComparison.OrdinalIgnoreCase);
         }
-
-        public void DeleteShelveset(string shelvesetName) => WithWorkspace(null, workspace => workspace.DeleteShelveset(shelvesetName));
 
         private bool MatchesTfsUrl(string tfsUrl) => TfsUrl.Equals(tfsUrl, StringComparison.OrdinalIgnoreCase) || Aliases.Contains(tfsUrl, StringComparison.OrdinalIgnoreCase);
 

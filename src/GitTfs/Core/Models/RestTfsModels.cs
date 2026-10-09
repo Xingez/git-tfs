@@ -1,8 +1,8 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::System.Text.Json.Serialization;
+    using System.Text.Json.Serialization;
 
-    public sealed class RestPage<T>
+    public sealed record RestPage<T>
     {
         [JsonPropertyName("count")]
         public int Count { get; set; }
@@ -11,7 +11,7 @@ namespace GitTfs.Core.RestTfs
         public List<T> Value { get; set; } = new List<T>();
     }
 
-    public sealed class RestChangesetReference
+    public sealed record RestChangesetReference
     {
         public int ChangesetId { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
@@ -19,7 +19,7 @@ namespace GitTfs.Core.RestTfs
         public RestIdentity Author { get; set; }
     }
 
-    public sealed class RestChangeset
+    public sealed record RestChangeset
     {
         public int ChangesetId { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
@@ -30,7 +30,7 @@ namespace GitTfs.Core.RestTfs
         public bool HasMoreChanges { get; set; }
     }
 
-    public sealed class RestChange
+    public sealed record RestChange
     {
         public string ChangeType { get; set; }
         public RestItem Item { get; set; }
@@ -39,7 +39,7 @@ namespace GitTfs.Core.RestTfs
         public List<RestMergeSource> MergeSources { get; set; } = new List<RestMergeSource>();
     }
 
-    public sealed class RestMergeSource
+    public sealed record RestMergeSource
     {
         public bool IsRename { get; set; }
         public string ServerItem { get; set; }
@@ -47,7 +47,7 @@ namespace GitTfs.Core.RestTfs
         public int VersionTo { get; set; }
     }
 
-    public sealed class RestItem
+    public sealed record RestItem
     {
         public int Version { get; set; }
         public DateTimeOffset ChangeDate { get; set; }
@@ -59,24 +59,12 @@ namespace GitTfs.Core.RestTfs
         public string Url { get; set; }
     }
 
-    public sealed class RestIdentity
+    public sealed record RestIdentity
     {
         public string DisplayName { get; set; }
         public string UniqueName { get; set; }
         public string Id { get; set; }
     }
 
-    public sealed class RestResponse<T>
-    {
-        public RestResponse(T value, IReadOnlyDictionary<string, string> headers, int statusCode)
-        {
-            Value = value;
-            Headers = headers;
-            StatusCode = statusCode;
-        }
-
-        public T Value { get; }
-        public IReadOnlyDictionary<string, string> Headers { get; }
-        public int StatusCode { get; }
-    }
+    public sealed record RestResponse<T>(T Value, IReadOnlyDictionary<string, string> Headers, int StatusCode);
 }

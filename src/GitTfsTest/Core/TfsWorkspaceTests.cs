@@ -1,220 +1,62 @@
-
 namespace GitTfs.Test.Core
 {
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Commands;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
-    using global::System.Diagnostics;
-    using global::Moq;
+    using Moq;
+
     [TestClass]
-    public class TfsWorkspaceTests : BaseTest, IDisposable
+    public class TfsWorkspaceTests
     {
-        private TfsWorkspace tfsWorkspace;
-        private Mock<IWorkspace> workspace;
-        CheckinOptions checkinOptions = new CheckinOptions();
-
-        public TfsWorkspaceTests()
-        {
-            workspace = new Mock<IWorkspace>();
-            string localDirectory = string.Empty;
-            TfsChangesetInfo contextVersion = new Mock<TfsChangesetInfo>().Object;
-            var remoteMock = new Mock<IGitTfsRemote>();
-            remoteMock.SetupAllProperties();
-            remoteMock.SetupGet(x => x.Repository).Returns(new Mock<IGitRepository>().Object);
-            IGitTfsRemote remote = remoteMock.Object;
-            ITfsHelper tfsHelper = new Mock<ITfsHelper>().Object;
-            CheckinPolicyEvaluator policyEvaluator = new CheckinPolicyEvaluator();
-
-            tfsWorkspace = new TfsWorkspace(workspace.Object, localDirectory, contextVersion, remote, checkinOptions,
-                tfsHelper, policyEvaluator);
-        }
-
-
         [TestMethod]
-        public void Nothing_to_checkin()
+        public void Get_fetches_the_requested_changeset()
         {
-            workspace.Setup(w => w.GetPendingChanges()).Returns((IPendingChange[]) null);
+            var workspace = new Mock<IWorkspace>();
+            var sut = CreateWorkspace(workspace.Object);
 
-            var ex = Assert.Throws<GitTfsException>(() =>
-            {
-                var result = tfsWorkspace.Checkin(checkinOptions);
-            });
+            sut.Get(42);
 
-            Assert.Equal("Nothing to checkin!", ex.Message);
+            workspace.Verify(item => item.GetSpecificVersion(42), Times.Once);
         }
 
         [TestMethod]
-        public void Checkin_failed()
+        public void Get_changes_uses_sequential_downloads()
         {
-            IPendingChange pendingChange = new Mock<IPendingChange>().Object;
-            IPendingChange[] allPendingChanges = new IPendingChange[] { pendingChange };
-            workspace.Setup(w => w.GetPendingChanges()).Returns(allPendingChanges);
+            var workspace = new Mock<IWorkspace>();
+            var changes = new[] { new Mock<IChange>().Object };
+            var sut = CreateWorkspace(workspace.Object);
 
-            ICheckinEvaluationResult checkinEvaluationResult =
-                new StubbedCheckinEvaluationResult();
+            sut.Get(42, changes);
 
-            workspace.Setup(w => w.EvaluateCheckin(
-                                    It.IsAny<TfsCheckinEvaluationOptions>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>()))
-                    .Returns(checkinEvaluationResult);
-
-            workspace.Setup(w => w.Checkin(
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>(),
-                                    It.IsAny<TfsPolicyOverrideInfo>(),
-                                    It.IsAny<bool>()))
-                      .Returns(0);
-
-            var ex = Assert.Throws<GitTfsException>(() =>
-            {
-                var result = tfsWorkspace.Checkin(checkinOptions);
-            });
-
-            Assert.Equal("Checkin failed!", ex.Message);
+            workspace.Verify(item => item.GetSpecificVersion(42, changes, true), Times.Once);
         }
 
         [TestMethod]
-        public void Policy_failed()
+        public void Get_empty_changes_does_not_request_a_download()
         {
-            var logger = new StringWriter();
-            Trace.Listeners.Add(new TextWriterTraceListener(logger));
+            var workspace = new Mock<IWorkspace>();
+            var sut = CreateWorkspace(workspace.Object);
 
-            IPendingChange pendingChange = new Mock<IPendingChange>().Object;
-            IPendingChange[] allPendingChanges = new IPendingChange[] { pendingChange };
-            workspace.Setup(w => w.GetPendingChanges()).Returns(allPendingChanges);
+            sut.Get(42, Enumerable.Empty<IChange>());
 
-            ICheckinEvaluationResult checkinEvaluationResult =
-                new StubbedCheckinEvaluationResult()
-                        .WithPoilicyFailure("No work items associated.");
-
-            workspace.Setup(w => w.EvaluateCheckin(
-                                    It.IsAny<TfsCheckinEvaluationOptions>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>()))
-                    .Returns(checkinEvaluationResult);
-
-            workspace.Setup(w => w.Checkin(
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>(),
-                                    It.IsAny<TfsPolicyOverrideInfo>(),
-                                    It.IsAny<bool>()))
-                      .Returns(0);
-
-            var ex = Assert.Throws<GitTfsException>(() =>
-            {
-                var result = tfsWorkspace.Checkin(checkinOptions);
-            });
-
-            Assert.Equal("No changes checked in.", ex.Message);
-            Assert.Contains("[ERROR] Policy: No work items associated.", logger.ToString());
+            workspace.Verify(item => item.GetSpecificVersion(
+                It.IsAny<int>(), It.IsAny<IEnumerable<IChange>>(), It.IsAny<bool>()), Times.Never);
         }
 
         [TestMethod]
-        public void Policy_failed_and_Force_without_an_OverrideReason()
+        public void Get_local_path_is_relative_to_the_workspace_directory()
         {
-            var logger = new StringWriter();
-            Trace.Listeners.Add(new TextWriterTraceListener(logger));
+            var sut = CreateWorkspace(Mock.Of<IWorkspace>(), "workspace");
 
-            IPendingChange pendingChange = new Mock<IPendingChange>().Object;
-            IPendingChange[] allPendingChanges = new IPendingChange[] { pendingChange };
-            workspace.Setup(w => w.GetPendingChanges()).Returns(allPendingChanges);
-
-            ICheckinEvaluationResult checkinEvaluationResult =
-                new StubbedCheckinEvaluationResult()
-                        .WithPoilicyFailure("No work items associated.");
-
-            checkinOptions.Force = true;
-
-            workspace.Setup(w => w.EvaluateCheckin(
-                                    It.IsAny<TfsCheckinEvaluationOptions>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>()))
-                    .Returns(checkinEvaluationResult);
-
-            workspace.Setup(w => w.Checkin(
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>(),
-                                    It.IsAny<TfsPolicyOverrideInfo>(),
-                                    It.IsAny<bool>()))
-                      .Returns(0);
-
-            var ex = Assert.Throws<GitTfsException>(() =>
-            {
-                var result = tfsWorkspace.Checkin(checkinOptions);
-            });
-
-            Assert.Equal("A reason must be supplied (-f REASON) to override the policy violations.", ex.Message);
-            Assert.Contains("[ERROR] Policy: No work items associated.", logger.ToString());
+            Assert.AreEqual(Path.Combine("workspace", "src", "file.cs"), sut.GetLocalPath(Path.Combine("src", "file.cs")));
         }
 
-        [TestMethod]
-        public void Policy_failed_and_Force_with_an_OverrideReason()
+        private static TfsWorkspace CreateWorkspace(IWorkspace workspace, string localDirectory = "workspace")
         {
-            var logger = new StringWriter();
-            Trace.Listeners.Add(new TextWriterTraceListener(logger));
-
-            IPendingChange pendingChange = new Mock<IPendingChange>().Object;
-            IPendingChange[] allPendingChanges = new IPendingChange[] { pendingChange };
-            workspace.Setup(w => w.GetPendingChanges()).Returns(allPendingChanges);
-
-            ICheckinEvaluationResult checkinEvaluationResult =
-                new StubbedCheckinEvaluationResult()
-                        .WithPoilicyFailure("No work items associated.");
-
-            checkinOptions.Force = true;
-            checkinOptions.OverrideReason = "no work items";
-
-            workspace.Setup(w => w.EvaluateCheckin(
-                                    It.IsAny<TfsCheckinEvaluationOptions>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>()))
-                    .Returns(checkinEvaluationResult);
-
-            workspace.Setup(w => w.Checkin(
-                                    It.IsAny<IPendingChange[]>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<string>(),
-                                    It.IsAny<ICheckinNote>(),
-                                    It.IsAny<IEnumerable<IWorkItemCheckinInfo>>(),
-                                    It.IsAny<TfsPolicyOverrideInfo>(),
-                                    It.IsAny<bool>())).Returns(1);
-
-            var result = tfsWorkspace.Checkin(checkinOptions);
-
-            Assert.Contains("[OVERRIDDEN] Policy: No work items associated.", logger.ToString());
-        }
-
-        public void Dispose()
-        {
-            Trace.Listeners.Clear(); ;
+            var repository = new Mock<IGitRepository>();
+            var remote = new Mock<IGitTfsRemote>();
+            remote.SetupGet(item => item.Repository).Returns(repository.Object);
+            return new TfsWorkspace(workspace, localDirectory, remote.Object);
         }
     }
 }

@@ -1,7 +1,7 @@
 namespace GitTfs.Commands
 {
-    using global::System.Text.RegularExpressions;
-    using global::GitTfs.Core;
+    using System.Text.RegularExpressions;
+    using GitTfs.Core;
 
     public static class Ext
     {

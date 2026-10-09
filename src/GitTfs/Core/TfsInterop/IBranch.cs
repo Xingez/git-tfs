@@ -1,43 +1,12 @@
 
 namespace GitTfs.Core.TfsInterop
 {
-    using global::GitTfs.Core.BranchVisitors;
+    using GitTfs.Core.BranchVisitors;
     public interface IBranchObject
     {
         string Path { get; }
         string ParentPath { get; }
         bool IsRoot { get; }
-    }
-
-    public class BranchTree
-    {
-        public BranchTree(IBranchObject branch)
-            : this(branch, new List<BranchTree>())
-        {
-        }
-
-        public BranchTree(IBranchObject branch, IEnumerable<BranchTree> childBranches)
-            : this(branch, childBranches.ToList())
-        {
-        }
-
-        public BranchTree(IBranchObject branch, List<BranchTree> childBranches)
-        {
-            if (childBranches == null)
-                throw new ArgumentNullException("childBranches");
-            Branch = branch;
-            ChildBranches = childBranches;
-        }
-
-        public IBranchObject Branch { get; private set; }
-
-        public List<BranchTree> ChildBranches { get; private set; }
-
-        public string Path => Branch.Path;
-        public string ParentPath => Branch.ParentPath;
-        public bool IsRoot => Branch.IsRoot;
-
-        public override string ToString() => $"{Path} [{ChildBranches.Count} children]";
     }
 
     public static class BranchExtensions

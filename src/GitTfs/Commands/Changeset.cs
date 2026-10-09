@@ -1,11 +1,12 @@
 namespace GitTfs.Commands
 {
-    using global::System.ComponentModel;
-    using global::System.Globalization;
-    using global::GitTfs;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.RestTfs;
-    using global::GitTfs.Util;
+    using System.ComponentModel;
+    using System.Globalization;
+    using GitTfs;
+    using GitTfs.Core;
+    using GitTfs.Core.RestTfs;
+    using GitTfs.Util;
+    using Microsoft.Extensions.Options;
 
     [Pluggable("changeset")]
     [Description("<tfs-subfolder> <output-path> <changeset-id>\n  Import exactly one changeset into an existing git-tfs clone. HEAD must be the state immediately before the requested changeset.\n  ex : git tfs changeset $/ProjectName/ProjectBranch C:\\repo 12345\n")]
@@ -16,9 +17,9 @@ namespace GitTfs.Commands
         private readonly IRestTfsCloneService cloneServiceField;
         private bool noFallbackField;
 
-        public Changeset(GitTfsSettings settings, Globals globals, IRestTfsCloneService cloneService)
+        public Changeset(IOptions<GitTfsSettings> settings, Globals globals, IRestTfsCloneService cloneService)
         {
-            settingsField = settings;
+            settingsField = settings.Value;
             globalsField = globals;
             cloneServiceField = cloneService;
         }

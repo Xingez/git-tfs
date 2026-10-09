@@ -1,12 +1,9 @@
 namespace GitTfs.LegacyHistory
 {
     using System;
-    using System.Net;
     using Microsoft.TeamFoundation.Client;
     using Microsoft.VisualStudio.Services.Client;
     using Microsoft.VisualStudio.Services.Common;
-
-    using VssWindowsCredential = Microsoft.VisualStudio.Services.Common.WindowsCredential;
 
     internal static class LegacyHistoryConnection
     {
@@ -27,21 +24,7 @@ namespace GitTfs.LegacyHistory
             if (!string.IsNullOrWhiteSpace(request.Pat))
                 return new VssBasicCredential(string.Empty, request.Pat);
 
-            if (!string.IsNullOrWhiteSpace(request.Username))
-            {
-                return new VssClientCredentials(
-                    new VssWindowsCredential(CreateNetworkCredential(request.Username, request.Password)));
-            }
-
             return new VssClientCredentials();
-        }
-
-        private static NetworkCredential CreateNetworkCredential(string username, string password)
-        {
-            var separator = username.IndexOf('\\');
-            if (separator > 0)
-                return new NetworkCredential(username.Substring(separator + 1), password, username.Substring(0, separator));
-            return new NetworkCredential(username, password);
         }
     }
 }

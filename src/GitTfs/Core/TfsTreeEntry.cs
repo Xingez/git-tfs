@@ -1,8 +1,8 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Util;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Util;
     public class TfsTreeEntry : ITreeEntry
     {
         private readonly string pathInGitRepoField;

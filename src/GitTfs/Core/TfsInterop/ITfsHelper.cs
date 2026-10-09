@@ -9,19 +9,11 @@ namespace GitTfs.Core.TfsInterop
         string Password { get; set; }
         IEnumerable<ITfsChangeset> GetChangesets(string path, int startVersion, IGitTfsRemote remote, int lastVersion = -1, bool byLots = false);
         void WithWorkspace(string directory, IGitTfsRemote remote, TfsChangesetInfo versionToFetch, Action<ITfsWorkspace> action);
-        IShelveset CreateShelveset(IWorkspace workspace, string shelvesetName);
-        IEnumerable<IWorkItemCheckinInfo> GetWorkItemInfos(IEnumerable<string> workItems, TfsWorkItemCheckinAction checkinAction);
-        IEnumerable<IWorkItemCheckedInfo> GetWorkItemCheckedInfos(IEnumerable<string> workItems, TfsWorkItemCheckinAction checkinAction);
-        ICheckinNote CreateCheckinNote(Dictionary<string, string> checkinNotes);
         IIdentity GetIdentity(string username);
         ITfsChangeset GetLatestChangeset(IGitTfsRemote remote);
         int GetLatestChangesetId(IGitTfsRemote remote);
         ITfsChangeset GetChangeset(int changesetId, IGitTfsRemote remote);
         IChangeset GetChangeset(int changesetId);
-        bool HasShelveset(string shelvesetName);
-        ITfsChangeset GetShelvesetData(IGitTfsRemote remote, string shelvesetOwner, string shelvesetName);
-        bool CanShowCheckinDialog { get; }
-        int ShowCheckinDialog(IWorkspace workspace, IPendingChange[] pendingChanges, IEnumerable<IWorkItemCheckedInfo> checkedInfos, string checkinComment);
         void CleanupWorkspaces(string workingDirectory);
         IList<RootBranch> GetRootChangesetForBranch(string tfsPathBranchToCreate, int lastChangesetIdToCheck = -1, string tfsPathParentBranch = null);
         IEnumerable<TfsLabel> GetLabels(string tfsPathBranch, string nameFilter = null);
@@ -42,7 +34,5 @@ namespace GitTfs.Core.TfsInterop
         /// <param name="versionToFetch">The TFS version to fetch from the server</param>
         /// <param name="action">The action to perform</param>
         void WithWorkspace(string localDirectory, IGitTfsRemote remote, IEnumerable<Tuple<string, string>> mappings, TfsChangesetInfo versionToFetch, Action<ITfsWorkspace> action);
-        int QueueGatedCheckinBuild(Uri value, string buildDefinitionName, string shelvesetName, string checkInTicket);
-        void DeleteShelveset(IWorkspace workspace, string shelvesetName);
     }
 }

@@ -1,8 +1,8 @@
 
 namespace GitTfs.Core
 {
-    using global::System.Collections.Specialized;
-    using global::System.Globalization;
+    using System.Collections.Specialized;
+    using System.Globalization;
     /// <summary>
     /// The rate-limit information returned by Azure DevOps.
     /// Azure DevOps communicates throttling through response headers rather than a
@@ -10,7 +10,7 @@ namespace GitTfs.Core
     /// transport-neutral and can be populated from either HttpWebResponse or a
     /// newer HTTP client response.
     /// </summary>
-    public sealed class AzureDevOpsRateLimit
+    public sealed record AzureDevOpsRateLimit
     {
         public int? StatusCode { get; private set; }
         public string RetryAfter { get; private set; }
@@ -65,28 +65,28 @@ namespace GitTfs.Core
         {
             source = null;
 
-            var retryAfter = ParseRetryAfter(RetryAfter, now);
+            var retryAfter = ParseRetryAfter(RetryAfter.AsSpan(), now);
             if (retryAfter.HasValue)
             {
                 source = "Retry-After";
                 return retryAfter.Value;
             }
 
-            var msRetryAfter = ParseMilliseconds(MsRetryAfter);
+            var msRetryAfter = ParseMilliseconds(MsRetryAfter.AsSpan());
             if (msRetryAfter.HasValue)
             {
                 source = "X-MS-Retry-After-MS";
                 return msRetryAfter.Value;
             }
 
-            var xAfter = ParseRetryAfter(XAfter, now);
+            var xAfter = ParseRetryAfter(XAfter.AsSpan(), now);
             if (xAfter.HasValue)
             {
                 source = "X-After";
                 return xAfter.Value;
             }
 
-            if (long.TryParse(Reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out var resetEpoch))
+            if (long.TryParse(Reset.AsSpan(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var resetEpoch))
             {
                 try
                 {
@@ -105,7 +105,7 @@ namespace GitTfs.Core
                 }
             }
 
-            if (double.TryParse(Delay, NumberStyles.Float, CultureInfo.InvariantCulture, out var delaySeconds)
+            if (double.TryParse(Delay.AsSpan(), NumberStyles.Float, CultureInfo.InvariantCulture, out var delaySeconds)
                 && delaySeconds >= 0)
             {
                 source = "X-RateLimit-Delay";
@@ -131,7 +131,7 @@ namespace GitTfs.Core
             return string.Join(", ", values);
         }
 
-        private static TimeSpan? ParseMilliseconds(string value)
+        private static TimeSpan? ParseMilliseconds(ReadOnlySpan<char> value)
         {
             if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var milliseconds)
                 || milliseconds < 0)
@@ -143,12 +143,17 @@ namespace GitTfs.Core
         private static string HeaderValue(Func<string, string> getHeader, string name)
         {
             var value = getHeader(name);
-            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            if (value == null)
+                return null;
+
+            var trimmed = value.AsSpan().Trim();
+            return trimmed.IsEmpty ? null : trimmed.Length == value.Length ? value : trimmed.ToString();
         }
 
-        private static TimeSpan? ParseRetryAfter(string value, DateTimeOffset now)
+        private static TimeSpan? ParseRetryAfter(ReadOnlySpan<char> value, DateTimeOffset now)
         {
-            if (string.IsNullOrWhiteSpace(value))
+            value = value.Trim();
+            if (value.IsEmpty)
                 return null;
 
             if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) && seconds >= 0)

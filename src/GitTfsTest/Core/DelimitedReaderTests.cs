@@ -3,10 +3,10 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::System.Text;
+    using Assert = GitTfs.Test.TestAssert;
+    using System.Text;
 
-    using global::GitTfs.Core;
+    using GitTfs.Core;
     [TestClass]
     public class DelimitedReaderTests : BaseTest
     {

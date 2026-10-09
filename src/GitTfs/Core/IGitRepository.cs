@@ -1,9 +1,9 @@
 
 namespace GitTfs.Core
 {
-    using global::LibGit2Sharp;
+    using LibGit2Sharp;
 
-    using Branch = global::LibGit2Sharp.Branch;
+    using Branch = LibGit2Sharp.Branch;
     public interface IGitRepository : IGitHelpers
     {
         string GitDir { get; }
@@ -33,7 +33,6 @@ namespace GitTfs.Core
         IDictionary<string, GitObject> GetObjects(string commit);
         IDictionary<string, GitObject> GetObjects(string commit, IDictionary<string, GitObject> initialTree);
         IGitTreeBuilder GetTreeBuilder(string commit);
-        IEnumerable<IGitChangedFile> GetChangedFiles(string from, string to);
         bool WorkingCopyHasUnstagedOrUncommitedChanges { get; }
         void CopyBlob(string sha, string outputFile);
         GitCommit GetCommit(string commitish);

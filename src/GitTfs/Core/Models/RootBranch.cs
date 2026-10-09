@@ -1,9 +1,9 @@
 
 namespace GitTfs.Core.TfsInterop
 {
-    using global::System.Diagnostics;
+    using System.Diagnostics;
     [DebuggerDisplay("{DebuggerDisplay}")]
-    public class RootBranch
+    public sealed record RootBranch
     {
         public RootBranch(int sourceBranchChangesetId, string tfsBranchPath)
             : this(sourceBranchChangesetId, -1, tfsBranchPath)

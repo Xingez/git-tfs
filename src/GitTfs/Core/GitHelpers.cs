@@ -2,10 +2,10 @@
 namespace GitTfs.Core
 {
     using Microsoft.Extensions.DependencyInjection;
-    using global::System.Diagnostics;
-    using global::System.Text.RegularExpressions;
-    using global::System.Text;
-    using global::GitTfs.Util;
+    using System.Diagnostics;
+    using System.Text.RegularExpressions;
+    using System.Text;
+    using GitTfs.Util;
     public class GitHelpers : IGitHelpers
     {
         private readonly IServiceProvider servicesField;

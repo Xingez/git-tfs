@@ -23,8 +23,6 @@ clone for focused troubleshooting.
    {
      "TargetServer": "https://dev.azure.com/your-organization",
      "api-version": "7.1",
-     "Username": "",
-     "Password": "",
      "pat": "",
      "debug": false,
      "proxy": null
@@ -74,8 +72,8 @@ changeset ID must be newer than its current `HEAD` changeset.
 
 Clones are always resumable. Settings can also be supplied through environment
 variables, which override matching values in `appsettings.json`:
-`GIT_TFS_TARGET_SERVER`, `GIT_TFS_API_VERSION`, `GIT_TFS_USERNAME`,
-`GIT_TFS_PASSWORD`, `GIT_TFS_PAT`, `GIT_TFS_BATCH_SIZE`, `GIT_TFS_DEBUG`, and
+`GIT_TFS_TARGET_SERVER`, `GIT_TFS_API_VERSION`, `GIT_TFS_PAT`,
+`GIT_TFS_BATCH_SIZE`, `GIT_TFS_DEBUG`, and
 `GIT_TFS_PROXY`. A null `proxy` disables proxies; set it to an absolute HTTP(S)
 proxy URL when your network requires one. The `--no-fallback` option stops on a
 REST download error instead of trying the legacy TFVC helper.

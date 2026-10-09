@@ -1,8 +1,8 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::LibGit2Sharp;
-    public class LogEntry
+    using LibGit2Sharp;
+    public sealed record LogEntry
     {
         public LogEntry()
         {

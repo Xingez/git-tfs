@@ -1,12 +1,12 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core.RestTfs;
-    using global::GitTfs.Core;
-    using global::System.Net;
-    using global::System.Net.Http;
-    using global::System.Text;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core.RestTfs;
+    using GitTfs.Core;
+    using System.Net;
+    using System.Net.Http;
+    using System.Text;
 
     [TestClass]
     public class RestTfsClientTests
@@ -19,6 +19,29 @@ namespace GitTfs.Test.Core
                 RestTfsClient.ConfigureHttpClient(httpClient, new GitTfsSettings());
 
                 Assert.Equal("application/json", httpClient.DefaultRequestHeaders.Accept.Single().MediaType);
+            }
+        }
+
+        [TestMethod]
+        public void UsesPatInsteadOfDefaultCredentialsWhenConfigured()
+        {
+            var settings = new GitTfsSettings { Pat = "test-pat" };
+            using (var handler = (HttpClientHandler)RestTfsClient.CreateHttpMessageHandler(settings))
+            using (var httpClient = new HttpClient(handler))
+            {
+                RestTfsClient.ConfigureHttpClient(httpClient, settings);
+
+                Assert.False(handler.UseDefaultCredentials);
+                Assert.Equal("Basic", httpClient.DefaultRequestHeaders.Authorization.Scheme);
+            }
+        }
+
+        [TestMethod]
+        public void UsesCurrentWindowsCredentialsWhenPatIsNotConfigured()
+        {
+            using (var handler = (HttpClientHandler)RestTfsClient.CreateHttpMessageHandler(new GitTfsSettings()))
+            {
+                Assert.True(handler.UseDefaultCredentials);
             }
         }
 

@@ -1,12 +1,12 @@
 
 namespace GitTfs.VsFake
 {
-    using global::GitTfs.Commands;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Util;
+    using GitTfs.Commands;
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Util;
 
-    using global::System.Diagnostics;
+    using System.Diagnostics;
     public class MockBranchObject : IBranchObject
     {
         public string Path { get; set; }
@@ -40,10 +40,6 @@ namespace GitTfs.VsFake
         public void EnsureAuthenticated() { }
 
         public void SetPathResolver() { }
-
-        public bool CanShowCheckinDialog => false;
-
-        public int ShowCheckinDialog(IWorkspace workspace, IPendingChange[] pendingChanges, IEnumerable<IWorkItemCheckedInfo> checkedInfos, string checkinComment) => throw new NotImplementedException();
 
         public IIdentity GetIdentity(string username)
         {
@@ -167,7 +163,7 @@ namespace GitTfs.VsFake
         {
             Trace.WriteLine("Setting up a TFS workspace at " + localDirectory);
             var fakeWorkspace = new FakeWorkspace(localDirectory, remote.TfsRepositoryPath);
-            var workspace = servicesField.CreateInstance<TfsWorkspace>(fakeWorkspace, localDirectory, versionToFetch, remote, this);
+            var workspace = servicesField.CreateInstance<TfsWorkspace>(fakeWorkspace, localDirectory, remote);
             action(workspace);
         }
 
@@ -175,7 +171,7 @@ namespace GitTfs.VsFake
         {
             Trace.WriteLine("Setting up a TFS workspace at " + directory);
             var fakeWorkspace = new FakeWorkspace(directory, remote.TfsRepositoryPath);
-            var workspace = servicesField.CreateInstance<TfsWorkspace>(fakeWorkspace, directory, versionToFetch, remote, this);
+            var workspace = servicesField.CreateInstance<TfsWorkspace>(fakeWorkspace, directory, remote);
             action(workspace);
         }
 
@@ -213,35 +209,7 @@ namespace GitTfs.VsFake
 
             #region unimplemented
 
-            public void Merge(string sourceTfsPath, string tfsRepositoryPath) => throw new NotImplementedException();
-
-            public IPendingChange[] GetPendingChanges() => throw new NotImplementedException();
-
-            public ICheckinEvaluationResult EvaluateCheckin(TfsCheckinEvaluationOptions options, IPendingChange[] allChanges, IPendingChange[] changes, string comment, ICheckinNote checkinNote, IEnumerable<IWorkItemCheckinInfo> workItemChanges) => throw new NotImplementedException();
-
-            public ICheckinEvaluationResult EvaluateCheckin(TfsCheckinEvaluationOptions options, IPendingChange[] allChanges, IPendingChange[] changes, string comment, string authors, ICheckinNote checkinNote, IEnumerable<IWorkItemCheckinInfo> workItemChanges) => throw new NotImplementedException();
-
-            public void Shelve(IShelveset shelveset, IPendingChange[] changes, TfsShelvingOptions options) => throw new NotImplementedException();
-
-            public int Checkin(IPendingChange[] changes, string comment, string author, ICheckinNote checkinNote, IEnumerable<IWorkItemCheckinInfo> workItemChanges, TfsPolicyOverrideInfo policyOverrideInfo, bool overrideGatedCheckIn) => throw new NotImplementedException();
-
-            public int PendAdd(string path) => throw new NotImplementedException();
-
-            public int PendEdit(string path) => throw new NotImplementedException();
-
-            public int PendDelete(string path) => throw new NotImplementedException();
-
-            public int PendRename(string pathFrom, string pathTo) => throw new NotImplementedException();
-
-            public void ForceGetFile(string path, int changeset) => throw new NotImplementedException();
-
             public void GetSpecificVersion(int changeset) => throw new NotImplementedException();
-
-            public string GetLocalItemForServerItem(string serverItem) => throw new NotImplementedException();
-
-            public string GetServerItemForLocalItem(string localItem) => throw new NotImplementedException();
-
-            public string OwnerName => throw new NotImplementedException();
 
             #endregion
         }
@@ -336,19 +304,7 @@ namespace GitTfs.VsFake
 
         #region unimplemented
 
-        public IShelveset CreateShelveset(IWorkspace workspace, string shelvesetName) => throw new NotImplementedException();
-
-        public IEnumerable<IWorkItemCheckinInfo> GetWorkItemInfos(IEnumerable<string> workItems, TfsWorkItemCheckinAction checkinAction) => throw new NotImplementedException();
-
-        public IEnumerable<IWorkItemCheckedInfo> GetWorkItemCheckedInfos(IEnumerable<string> workItems, TfsWorkItemCheckinAction checkinAction) => throw new NotImplementedException();
-
-        public ICheckinNote CreateCheckinNote(Dictionary<string, string> checkinNotes) => throw new NotImplementedException();
-
         public ITfsChangeset GetChangeset(int changesetId, IGitTfsRemote remote) => throw new NotImplementedException();
-        public bool HasShelveset(string shelvesetName) => throw new NotImplementedException();
-
-        public ITfsChangeset GetShelvesetData(IGitTfsRemote remote, string shelvesetOwner, string shelvesetName) => throw new NotImplementedException();
-
 
         public IEnumerable<string> GetAllTfsRootBranchesOrderedByCreation() => new List<string>();
 
@@ -358,9 +314,6 @@ namespace GitTfs.VsFake
 
         public void CreateTfsRootBranch(string projectName, string mainBranch, string gitRepositoryPath, bool createTeamProjectFolder) => throw new NotImplementedException();
 
-        public int QueueGatedCheckinBuild(Uri value, string buildDefinitionName, string shelvesetName, string checkInTicket) => throw new NotImplementedException();
-
-        public void DeleteShelveset(IWorkspace workspace, string shelvesetName) => throw new NotImplementedException();
 
         #endregion
 

@@ -1,12 +1,13 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::GitTfs.Util;
-    using global::GitTfs.Commands;
-    using global::LibGit2Sharp;
-    using global::System.Globalization;
-    using global::System.Security.Cryptography;
-    using global::Microsoft.Extensions.Http;
-    using global::Microsoft.Extensions.Logging;
+    using GitTfs.Util;
+    using GitTfs.Commands;
+    using LibGit2Sharp;
+    using System.Globalization;
+    using System.Security.Cryptography;
+    using Microsoft.Extensions.Http;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Options;
 
     /// <summary>
     /// Imports one TFVC folder into Git without creating or using a TFVC workspace.
@@ -20,7 +21,7 @@ namespace GitTfs.Core.RestTfs
         private readonly IGitHelpers gitHelpersField;
         private readonly IRestTfsChangesetImporter changesetImporterField;
 
-        public RestTfsCloneService(GitTfsSettings settings, AuthorsFile authorsFile,
+        public RestTfsCloneService(IOptions<GitTfsSettings> settings, AuthorsFile authorsFile,
             LegacyTfvcHistoryProvider legacyHistoryProvider = null,
             ILogger<RestTfsCloneService> logger = null,
             ILoggerFactory loggerFactory = null,
@@ -28,7 +29,7 @@ namespace GitTfs.Core.RestTfs
             IGitHelpers gitHelpers = null,
             IRestTfsChangesetImporter changesetImporter = null)
         {
-            settingsField = settings;
+            settingsField = settings.Value;
             loggerField = logger;
             loggerFactoryField = loggerFactory;
             httpClientFactoryField = httpClientFactory;

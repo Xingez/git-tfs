@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::LibGit2Sharp;
+    using LibGit2Sharp;
     public class GitTreeBuilder : IGitTreeBuilder
     {
         private readonly TreeDefinition treeDefinitionField;

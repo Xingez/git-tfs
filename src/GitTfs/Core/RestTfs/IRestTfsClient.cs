@@ -1,7 +1,7 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::System;
-    using global::System.Collections.Generic;
+    using System;
+    using System.Collections.Generic;
 
     public interface IRestTfsClient : IDisposable
     {

@@ -2,16 +2,16 @@
 namespace GitTfs.Core
 {
     using Microsoft.Extensions.DependencyInjection;
-    using global::GitTfs.Commands;
+    using GitTfs.Commands;
 
-    using global::GitTfs.Util;
+    using GitTfs.Util;
 
 
-    using global::System.Diagnostics;
-    using global::System.Text;
-    using global::System.Text.RegularExpressions;
-    using global::System.Collections.Concurrent;
-    using global::System.Threading;
+    using System.Diagnostics;
+    using System.Text;
+    using System.Text.RegularExpressions;
+    using System.Collections.Concurrent;
+    using System.Threading;
 
     public static class Ext
     {

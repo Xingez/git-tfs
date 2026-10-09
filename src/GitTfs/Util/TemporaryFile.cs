@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Util
 {
-    using global::System.Diagnostics;
+    using System.Diagnostics;
     public class TemporaryFile : IDisposable
     {
         public TemporaryFile() : this(System.IO.Path.GetTempFileName())

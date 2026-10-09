@@ -2,10 +2,10 @@
 namespace GitTfsTest.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Test;
-    using global::GitTfs.VsCommon;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Test;
+    using GitTfs.VsCommon;
     [TestClass]
     public class TfsApiBridgeTest : BaseTest
     {

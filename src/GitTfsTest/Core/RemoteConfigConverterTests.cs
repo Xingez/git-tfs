@@ -3,11 +3,11 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Commands;
-    using global::GitTfs.Core;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Commands;
+    using GitTfs.Core;
 
-    using global::LibGit2Sharp;
+    using LibGit2Sharp;
     [TestClass]
     public class RemoteConfigConverterTests : BaseTest
     {

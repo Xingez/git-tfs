@@ -3,13 +3,13 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
 
-    using global::Moq;
+    using Moq;
 
-    using global::GitTfs.Test;
+    using GitTfs.Test;
     [TestClass]
     public class GitTfsRemoteTests : BaseTest
     {

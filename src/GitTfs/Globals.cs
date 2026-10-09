@@ -1,9 +1,9 @@
 
 namespace GitTfs
 {
-    using global::System.Diagnostics;
-    using global::GitTfs.Util;
-    using global::GitTfs.Core;
+    using System.Diagnostics;
+    using GitTfs.Util;
+    using GitTfs.Core;
     [SingletonService]
     public class Globals
     {

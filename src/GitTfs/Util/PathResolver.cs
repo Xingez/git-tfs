@@ -1,9 +1,9 @@
 ﻿
 namespace GitTfs.Util
 {
-    using global::System.Text.RegularExpressions;
+    using System.Text.RegularExpressions;
 
-    using global::GitTfs.Core;
+    using GitTfs.Core;
     public class PathResolver
     {
         private readonly IGitTfsRemote remoteField;

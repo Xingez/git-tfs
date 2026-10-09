@@ -1,8 +1,8 @@
 
 namespace GitTfs.Core
 {
-    using global::GitTfs.Commands; // ToGitRefName() and RemoteOptions
-    using global::System.Diagnostics;
+    using GitTfs.Commands; // ToGitRefName() and RemoteOptions
+    using System.Diagnostics;
     public class Bootstrapper
     {
         private readonly Globals globalsField;
@@ -57,14 +57,15 @@ namespace GitTfs.Core
             }
 
             //Remove '$/'!
-            var expectedRemoteId = changeset.Remote.TfsRepositoryPath.Substring(2).Trim('/');
+            var expectedRemoteId = changeset.Remote.TfsRepositoryPath.AsSpan(2).Trim('/');
             var indexOfSlash = expectedRemoteId.IndexOf('/');
             if (indexOfSlash != 0)
-                expectedRemoteId = expectedRemoteId.Substring(indexOfSlash + 1);
-            var remoteId = expectedRemoteId.ToGitRefName();
+                expectedRemoteId = indexOfSlash < 0 ? expectedRemoteId : expectedRemoteId[(indexOfSlash + 1)..];
+            var expectedRemoteIdString = expectedRemoteId.ToString();
+            var remoteId = expectedRemoteIdString.ToGitRefName();
             var suffix = 0;
             while (!IsAvailable(remoteId))
-                remoteId = expectedRemoteId + "-" + (suffix++);
+                remoteId = expectedRemoteIdString + "-" + (suffix++);
             return remoteId;
         }
 

@@ -1,10 +1,10 @@
 ﻿
 namespace GitTfs.Util
 {
-    using global::System.Reflection;
+    using System.Reflection;
 
-    using global::GitTfs.Commands;
-    using global::GitTfs.Core;
+    using GitTfs.Commands;
+    using GitTfs.Core;
     public class GitTfsCommandRunner
     {
         private readonly IHelpHelper helpField;

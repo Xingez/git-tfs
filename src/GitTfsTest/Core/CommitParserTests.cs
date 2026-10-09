@@ -3,8 +3,8 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core;
     [TestClass]
     public class CommitParserTests : BaseTest
     {

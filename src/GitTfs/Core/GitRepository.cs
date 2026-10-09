@@ -2,12 +2,12 @@
 namespace GitTfs.Core
 {
     using Microsoft.Extensions.DependencyInjection;
-    using global::System.Diagnostics;
-    using global::System.Text.RegularExpressions;
-    using global::LibGit2Sharp;
-    using global::GitTfs.Commands;
-    using Branch = global::LibGit2Sharp.Branch;
-    using global::GitTfs.Util;
+    using System.Diagnostics;
+    using System.Text.RegularExpressions;
+    using LibGit2Sharp;
+    using GitTfs.Commands;
+    using Branch = LibGit2Sharp.Branch;
+    using GitTfs.Util;
     public class GitRepository : GitHelpers, IGitRepository
     {
         private readonly IServiceProvider servicesField;
@@ -441,20 +441,6 @@ namespace GitTfs.Core
                 }
             }
         }
-
-        public IEnumerable<IGitChangedFile> GetChangedFiles(string from, string to)
-        {
-            using (var diffOutput = CommandOutputPipe("diff-tree", "-r", "-M", "-z", from, to))
-            {
-                var changes = GitChangeInfo.GetChangedFiles(diffOutput);
-                foreach (var change in changes)
-                {
-                    yield return BuildGitChangedFile(change);
-                }
-            }
-        }
-
-        private IGitChangedFile BuildGitChangedFile(GitChangeInfo change) => change.ToGitChangedFile(servicesField, this);
 
         public bool WorkingCopyHasUnstagedOrUncommitedChanges
         {

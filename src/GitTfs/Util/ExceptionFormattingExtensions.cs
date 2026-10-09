@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Util
 {
-    using global::System.Text;
+    using System.Text;
     public static class ExceptionFormattingExtensions
     {
         public static string IndentExceptionMessage(this Exception e, string indent = "   ")

@@ -3,12 +3,12 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Util;
+    using Assert = GitTfs.Test.TestAssert;
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Util;
 
-    using global::Moq;
+    using Moq;
     [TestClass]
     public class ChangeSieveTests : BaseTest
     {

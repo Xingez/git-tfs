@@ -1,10 +1,10 @@
 
 namespace GitTfs.Core
 {
-    using global::System.Diagnostics;
+    using System.Diagnostics;
 
-    using global::GitTfs.Core.TfsInterop;
-    using global::GitTfs.Util;
+    using GitTfs.Core.TfsInterop;
+    using GitTfs.Util;
     public class TfsChangeset : ITfsChangeset
     {
         private readonly ITfsHelper tfsField;
@@ -44,17 +44,27 @@ namespace GitTfs.Core
             if (filesToDownload > 0)
                 Trace.TraceInformation("C{0}: downloaded {1}/{1} file(s) (100%).", changesetField.ChangesetId, filesToDownload);
 
-            foreach (var change in changesToApply)
+            foreach (ref readonly var change in changesToApply.AsSpan())
             {
-                ignorableErrorHandler.Catch(() =>
+                if (ignorableErrorHandler == null)
                 {
-                    Apply(change, treeBuilder, workspace, initialTree);
-                });
+                    Apply(in change, treeBuilder, workspace, initialTree);
+                    continue;
+                }
+
+                try
+                {
+                    Apply(in change, treeBuilder, workspace, initialTree);
+                }
+                catch (Exception exception)
+                {
+                    ignorableErrorHandler(exception);
+                }
             }
             return MakeNewLogEntry();
         }
 
-        private void Apply(ApplicableChange change, IGitTreeModifier treeBuilder, ITfsWorkspace workspace, IDictionary<string, GitObject> initialTree)
+        private void Apply(in ApplicableChange change, IGitTreeModifier treeBuilder, ITfsWorkspace workspace, IDictionary<string, GitObject> initialTree)
         {
             switch (change.Type)
             {
@@ -72,7 +82,7 @@ namespace GitTfs.Core
             }
         }
 
-        private void Update(ApplicableChange change, IGitTreeModifier treeBuilder, ITfsWorkspace workspace, IDictionary<string, GitObject> initialTree)
+        private void Update(in ApplicableChange change, IGitTreeModifier treeBuilder, ITfsWorkspace workspace, IDictionary<string, GitObject> initialTree)
         {
             var localPath = workspace.GetLocalPath(change.GitPath);
             if (File.Exists(localPath))
@@ -202,11 +212,12 @@ namespace GitTfs.Core
             }
             else if (!string.IsNullOrWhiteSpace(changesetToLog.Committer))
             {
-                string[] split = changesetToLog.Committer.Split('\\');
-                if (split.Length == 2)
+                var committer = changesetToLog.Committer.AsSpan();
+                var separator = committer.IndexOf('\\');
+                if (separator > 0 && committer[(separator + 1)..].IndexOf('\\') < 0)
                 {
-                    name = split[1].ToLower();
-                    email = $"{name}@{split[0].ToLower()}.tfs.local";
+                    name = committer[(separator + 1)..].ToString().ToLower();
+                    email = string.Concat(name, "@", committer[..separator].ToString().ToLower(), ".tfs.local");
                 }
             }
             // committer's & author's name and email MUST NOT be empty as otherwise they would be picked

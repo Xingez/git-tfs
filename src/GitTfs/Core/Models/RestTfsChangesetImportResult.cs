@@ -1,8 +1,8 @@
 namespace GitTfs.Core.RestTfs
 {
-    using global::LibGit2Sharp;
+    using LibGit2Sharp;
 
-    public sealed class RestTfsChangesetImportResult
+    public sealed record RestTfsChangesetImportResult
     {
         public RestTfsChangesetImportResult(bool skipped, int changesetId, Commit commit,
             int filesProcessed, int filesDownloaded, int filesReused, int filesDeleted,
@@ -18,13 +18,13 @@ namespace GitTfs.Core.RestTfs
             LegacyFallbackUsed = legacyFallbackUsed;
         }
 
-        public bool Skipped { get; }
-        public int ChangesetId { get; }
-        public Commit Commit { get; }
-        public int FilesProcessed { get; }
-        public int FilesDownloaded { get; }
-        public int FilesReused { get; }
-        public int FilesDeleted { get; }
-        public bool LegacyFallbackUsed { get; }
+        public bool Skipped { get; init; }
+        public int ChangesetId { get; init; }
+        public Commit Commit { get; init; }
+        public int FilesProcessed { get; init; }
+        public int FilesDownloaded { get; init; }
+        public int FilesReused { get; init; }
+        public int FilesDeleted { get; init; }
+        public bool LegacyFallbackUsed { get; init; }
     }
 }

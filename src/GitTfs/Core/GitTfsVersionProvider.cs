@@ -1,7 +1,7 @@
 ﻿
 namespace GitTfs.Core
 {
-    using global::System.Reflection;
+    using System.Reflection;
 
     public class GitTfsVersionProvider : IGitTfsVersionProvider
     {

@@ -1,30 +1,17 @@
 ﻿
 namespace GitTfs.Util
 {
-    using global::System.Diagnostics;
+    using System.Diagnostics;
 
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
 
-    using Mode = global::LibGit2Sharp.Mode;
+    using Mode = LibGit2Sharp.Mode;
     public enum ChangeType
     {
         Update,
         Delete,
         Ignore,
-    }
-
-    public class ApplicableChange
-    {
-        public ChangeType Type { get; set; }
-        public string GitPath { get; set; }
-        public Mode Mode { get; set; }
-
-        public static ApplicableChange Update(string path, Mode mode = Mode.NonExecutableFile) => new ApplicableChange { Type = ChangeType.Update, GitPath = path, Mode = mode };
-
-        public static ApplicableChange Delete(string path) => new ApplicableChange { Type = ChangeType.Delete, GitPath = path };
-
-        public static ApplicableChange Ignore(string path) => new ApplicableChange { Type = ChangeType.Ignore, GitPath = path };
     }
 
     public class ChangeSieve
@@ -36,11 +23,8 @@ namespace GitTfs.Util
         {
             resolverField = resolver;
 
-            namedChangesField = changeset.Changes.Select(c => new NamedChange
-            {
-                Info = resolverField.GetGitObject(c.Item.ServerItem),
-                Change = c,
-            });
+            namedChangesField = changeset.Changes.Select(change => new NamedChange(
+                resolverField.GetGitObject(change.Item.ServerItem), change));
         }
 
         private bool? renameBranchCommmitField;
@@ -143,10 +127,8 @@ namespace GitTfs.Util
             }
         }
 
-        private class NamedChange
+        private readonly record struct NamedChange(GitObject Info, IChange Change)
         {
-            public GitObject Info { get; set; }
-            public IChange Change { get; set; }
             public string GitPath => Info.Try(x => x.Path);
         }
 

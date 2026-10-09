@@ -3,12 +3,12 @@
 namespace GitTfs.Test.Core
 {
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Assert = global::GitTfs.Test.TestAssert;
-    using global::System.Collections;
-    using global::System.Diagnostics;
+    using Assert = GitTfs.Test.TestAssert;
+    using System.Collections;
+    using System.Diagnostics;
 
-    using global::GitTfs.Core;
-    using global::GitTfs.Core.TfsInterop;
+    using GitTfs.Core;
+    using GitTfs.Core.TfsInterop;
     [TestClass]
     public class ExtTests : BaseTest
     {
