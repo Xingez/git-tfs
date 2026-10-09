@@ -218,6 +218,10 @@ namespace GitTfs.Core.RestTfs
             for (var attempt = 1; attempt <= MaxRequestAttempts; attempt++)
             {
                 WaitForPendingServerDelay(logTarget);
+                using var requestMeasurement = GitTfsMetrics.MeasureRequest(
+                    uri.AbsolutePath.EndsWith("/changesets", StringComparison.OrdinalIgnoreCase) ? "History requests"
+                    : uri.AbsolutePath.Contains("/changesets/", StringComparison.OrdinalIgnoreCase) ? "Changeset requests"
+                    : binary ? "File downloads" : "Metadata requests");
                 var requestTimer = Stopwatch.StartNew();
                 using (var request = new HttpRequestMessage(HttpMethod.Get, uri))
                 {
@@ -232,6 +236,7 @@ namespace GitTfs.Core.RestTfs
                     }
                     catch (Exception ex) when (IsTransientException(ex) && attempt < MaxRequestAttempts)
                     {
+                        requestMeasurement.Dispose();
                         WaitBeforeRetry(uri, attempt, null, DefaultRetryDelay, "transport failure", ex.Message);
                         continue;
                     }
@@ -275,6 +280,7 @@ namespace GitTfs.Core.RestTfs
                                 + ". " + TrimBody(body), (int)response.StatusCode, uri, ReadServerErrorType(body));
                         }
 
+                        requestMeasurement.Dispose();
                         WaitBeforeRetry(uri, attempt, serverDelayForRetry, DefaultRetryDelay,
                             delaySourceForRetry ?? "default retry interval",
                             "HTTP " + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) + ": " + TrimBody(body));

@@ -52,7 +52,14 @@ clone for focused troubleshooting.
    git push --all origin
    ```
 
-Normal runs show a colored Spectre progress row for each imported changeset.
+Normal runs show live Spectre spinners, elapsed time, and an animated scan bar.
+Scanning reports the current page, changesets found, and the latest changeset comment.
+Each import shows its changeset comment and file progress; verification and Git cleanup
+show their current activity. Redirected output prints scan updates and completed rows.
+The live metrics table groups HTTP attempts into history, changeset, file download,
+and metadata requests, showing counts and average milliseconds. Retries count as
+requests; retry backoff is excluded from request timings. Import and file counters
+are also shown, and a final table is printed when output is redirected.
 With `debug` set to `false`, console logging is disabled and output uses Spectre.
 Help, version information, and command errors remain visible.
 Use `--debug` to disable the progress display and print full diagnostic logs;

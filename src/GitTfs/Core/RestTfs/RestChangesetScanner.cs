@@ -4,16 +4,23 @@ namespace GitTfs.Core.RestTfs
 
     internal sealed class RestChangesetScanner(IRestTfsClient client, ILogger logger)
     {
-        public IEnumerable<RestChangesetReference> Scan(string repositoryPath, int lastChangesetId, int batchSize)
+        public IEnumerable<RestChangesetReference> Scan(string repositoryPath, int lastChangesetId, int batchSize,
+            IChangesetProgressReporter progress = null)
         {
             var cursor = lastChangesetId;
             var lastSeen = lastChangesetId;
             var inclusive = false;
+            var pages = 0;
+            var found = 0;
             while (true)
             {
+                progress?.ReportScan(++pages, found, cursor);
                 var page = client.GetChangesets(repositoryPath, cursor, batchSize);
                 if (page.Count == 0)
+                {
+                    progress?.CompleteScan(found);
                     yield break;
+                }
 
                 var highest = page.Max(reference => reference.ChangesetId);
                 if (highest < cursor)
@@ -27,11 +34,15 @@ namespace GitTfs.Core.RestTfs
                     if (reference.ChangesetId <= lastSeen)
                         continue;
                     lastSeen = reference.ChangesetId;
+                    progress?.ReportScan(pages, ++found, cursor, reference);
                     yield return reference;
                 }
 
                 if (highest == int.MaxValue)
+                {
+                    progress?.CompleteScan(found);
                     yield break;
+                }
                 cursor = inclusive ? highest + 1 : highest;
             }
         }

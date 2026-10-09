@@ -5,6 +5,7 @@ namespace GitTfs.Test.Core
     using LibGit2Sharp;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using Moq;
+    using System.Diagnostics.Metrics;
     using System.Text;
     using Assert = global::GitTfs.Test.TestAssert;
 
@@ -60,6 +61,39 @@ namespace GitTfs.Test.Core
             Assert.True(result.Skipped);
             Assert.Equal(first.Commit.Sha, repository.Head.Tip.Sha);
             Assert.Equal("original", File.ReadAllText(Path.Combine(output, "a.txt")));
+        }
+
+        [TestMethod]
+        public void EmitsPerformanceMetricsForImportedChangesets()
+        {
+            var counters = new Dictionary<string, long>(StringComparer.Ordinal);
+            var durations = new List<double>();
+            using var listener = new MeterListener
+            {
+                InstrumentPublished = (instrument, meterListener) =>
+                {
+                    if (instrument.Meter.Name == "GitTfs")
+                        meterListener.EnableMeasurementEvents(instrument);
+                }
+            };
+            listener.SetMeasurementEventCallback<long>((instrument, measurement, _, _) =>
+            {
+                counters.TryGetValue(instrument.Name, out var current);
+                counters[instrument.Name] = current + measurement;
+            });
+            listener.SetMeasurementEventCallback<double>((instrument, measurement, _, _) =>
+                durations.Add(measurement));
+            listener.Start();
+
+            var result = Import(1, FileChange("add", Root + "/metrics.txt", "metrics"));
+
+            Assert.False(result.Skipped);
+            Assert.Equal(1L, counters["gittfs.changesets.imported"]);
+            Assert.Equal(1L, counters["gittfs.files.processed"]);
+            Assert.Equal(1L, counters["gittfs.files.downloaded"]);
+            Assert.Equal(Encoding.UTF8.GetByteCount("metrics"), counters["gittfs.file.bytes.downloaded"]);
+            Assert.Equal(1, durations.Count);
+            Assert.True(durations[0] >= 0);
         }
 
         [TestMethod]

@@ -96,7 +96,7 @@ namespace GitTfs.Core.RestTfs
                     loggerField?.LogDebug("Scanning changesets for {RepositoryPath}.", repositoryPath);
 
                     var scanner = new RestChangesetScanner(client, loggerField);
-                    foreach (var changesetReference in scanner.Scan(repositoryPath, lastChangesetId, batchSize))
+                    foreach (var changesetReference in scanner.Scan(repositoryPath, lastChangesetId, batchSize, progressReporter))
                     {
                         ImportChangeset(client, repository, changesetReference, targetServer, repositoryPath,
                             absoluteOutputPath, pathMap, ref newestCommit, ref lastChangesetId,
@@ -105,6 +105,7 @@ namespace GitTfs.Core.RestTfs
 
                     if (newestCommit != null)
                     {
+                        progressReporter?.ReportActivity("Writing Git working tree");
                         MaterializeTree(repository, newestCommit.Tree, absoluteOutputPath);
                         // Commits are created directly from the imported tree, so
                         // LibGit2Sharp does not update the index as part of the
@@ -115,6 +116,7 @@ namespace GitTfs.Core.RestTfs
                         summary.TrackedFiles = EnumerateFiles(newestCommit.Tree).Count();
                     }
 
+                    progressReporter?.ReportActivity("Verifying latest TFVC file checksums");
                     verification = newestCommit == null
                         ? null
                         : VerifyLatestFiles(client, repositoryPath, absoluteOutputPath, newestCommit.Tree, lastChangesetId);
@@ -123,6 +125,7 @@ namespace GitTfs.Core.RestTfs
                 }
 
                 // Release LibGit2Sharp's pack handles before external Git repacks or changes refs.
+                progressReporter?.ReportActivity("Running Git maintenance");
                 var maintenanceMode = RunGitMaintenance(absoluteOutputPath, commitSha != null);
                 if (!string.IsNullOrWhiteSpace(targetCloneUrl))
                 {
@@ -130,6 +133,7 @@ namespace GitTfs.Core.RestTfs
                         throw new GitTfsException("A target Git repository requires an imported changeset to merge.");
 
                     targetBranch = string.IsNullOrWhiteSpace(targetBranch) ? "main" : targetBranch.Trim();
+                    progressReporter?.ReportActivity("Merging and pushing target Git branch");
                     MergeIntoTargetRepository(absoluteOutputPath, targetCloneUrl, targetBranch,
                         sourceBranch, commitSha);
                     var targetMaintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
@@ -229,13 +233,16 @@ namespace GitTfs.Core.RestTfs
                     return GitTfsExitCodes.OK;
                 }
 
+                progressReporter?.ReportActivity("Writing Git working tree");
                 MaterializeTree(repository, result.Commit.Tree, absoluteOutputPath);
                 repository.Reset(ResetMode.Mixed, result.Commit);
+                progressReporter?.ReportActivity("Verifying latest TFVC file checksums");
                 verification = VerifyLatestFiles(client, repositoryPath, absoluteOutputPath,
                     result.Commit.Tree, changesetId);
                 commitSha = result.Commit.Sha;
             }
 
+            progressReporter?.ReportActivity("Running Git maintenance");
             var maintenanceMode = RunGitMaintenance(absoluteOutputPath, repairIndex: true);
             loggerField?.LogInformation("Single changeset import complete: C{ChangesetId} committed as {CommitSha}; "
                 + "{FilesProcessed} file change(s) ({FilesDownloaded} downloaded, {FilesReused} reused, "

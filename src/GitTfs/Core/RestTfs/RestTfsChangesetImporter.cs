@@ -33,7 +33,11 @@ namespace GitTfs.Core.RestTfs
             string outputPath, IDictionary<string, string> pathMap, Commit parent, bool noFallback,
             IChangesetProgressReporter progressReporter = null)
         {
+            using var importMeasurement = GitTfsMetrics.MeasureChangesetImport();
+            progressReporter?.DescribeChangeset(changesetReference.ChangesetId, changesetReference.Comment);
+            progressReporter?.ReportActivity("Loading C" + changesetReference.ChangesetId);
             var changeset = client.GetChangeset(changesetReference.ChangesetId);
+            progressReporter?.DescribeChangeset(changeset.ChangesetId, changeset.Comment ?? changesetReference.Comment);
             changeset.Changes ??= new List<RestChange>();
             if (!HasChangesWithinRepository(changeset, repositoryPath)
                 && !HasTrackedSourceRename(changeset, repositoryPath, parent?.Tree))
@@ -42,12 +46,14 @@ namespace GitTfs.Core.RestTfs
                 var skipReason = sourceRenameCount > 0
                     ? "source rename records contain no tracked old path"
                     : "no changes";
+                progressReporter?.ReportActivity("Skipped C" + changeset.ChangesetId + ": " + skipReason);
                 if (progressReporter == null)
                     loggerField?.LogInformation("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
                         changeset.ChangesetId, skipReason, repositoryPath);
                 else
                     loggerField?.LogDebug("C{ChangesetId}: skipped; {SkipReason} under {RepositoryPath}.",
                         changeset.ChangesetId, skipReason, repositoryPath);
+                GitTfsMetrics.RecordChangesetSkipped();
                 return new RestTfsChangesetImportResult(true, changeset.ChangesetId, null,
                     0, 0, 0, 0, legacyFallbackUsed: false);
             }
@@ -66,6 +72,8 @@ namespace GitTfs.Core.RestTfs
             var parents = parent == null ? Enumerable.Empty<Commit>() : new[] { parent };
             var commit = repository.ObjectDatabase.CreateCommit(signature, signature, message, tree, parents, false);
             UpdateRefs(repository, commit, changeset.ChangesetId);
+            GitTfsMetrics.RecordChangesetImported(summary.FilesProcessed, summary.FilesDownloaded,
+                summary.FilesReused, summary.FilesDeleted, summary.BytesDownloaded);
             progressReporter?.CompleteChangeset(changeset.ChangesetId, commit.Sha);
 
             return new RestTfsChangesetImportResult(false, changeset.ChangesetId, commit,
@@ -205,6 +213,7 @@ namespace GitTfs.Core.RestTfs
                     WriteWorkingFile(outputPath, relativePath, content);
                     downloaded++;
                     summary.FilesDownloaded++;
+                    summary.BytesDownloaded += content.LongLength;
                 }
                 else
                 {
@@ -530,6 +539,7 @@ namespace GitTfs.Core.RestTfs
             public int FilesDownloaded { get; set; }
             public int FilesReused { get; set; }
             public int FilesDeleted { get; set; }
+            public long BytesDownloaded { get; set; }
             public bool LegacyFallbackUsed { get; set; }
         }
 
