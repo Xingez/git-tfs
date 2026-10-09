@@ -102,9 +102,10 @@ namespace GitTfs.Test.Commands
                     return 0;
                 });
                 var text = System.Text.RegularExpressions.Regex.Replace(output.ToString(), @"\x1B\[[0-?]*[ -/]*[@-~]", "");
-                var finalFrame = text[text.LastIndexOf("Live metrics", StringComparison.Ordinal)..];
+                var finalFrame = text[text.LastIndexOf("│ Metric", StringComparison.Ordinal)..];
                 var header = finalFrame.Split('\n')[0];
-                Assert.IsTrue(header.IndexOf("Changesets", StringComparison.Ordinal) > 0,
+                var overallRow = finalFrame.Split('\n').Single(line => line.Contains("Overall"));
+                Assert.IsTrue(overallRow.IndexOf("Overall", StringComparison.Ordinal) > header.IndexOf("Avg ms", StringComparison.Ordinal),
                     "Metrics and changesets must appear side by side, with metrics on the left.");
                 for (var id = 1; id <= 3; id++)
                     Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, $@"\bC{id}\b"));

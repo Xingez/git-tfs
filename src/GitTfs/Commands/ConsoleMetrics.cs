@@ -160,7 +160,7 @@ namespace GitTfs.Commands
         public Table Render()
         {
             var api = ApiSnapshot();
-            var table = new Table().RoundedBorder().Title("[bold cyan]Live metrics[/]")
+            var table = new Table().RoundedBorder()
                 .AddColumn("Metric").AddColumn(new TableColumn("Count").RightAligned())
                 .AddColumn(new TableColumn("Avg ms").RightAligned());
             foreach (var row in Snapshot())
