@@ -25,6 +25,13 @@ namespace GitTfs.Commands
                 return result;
             }
 
+            var progressBar = new ProgressBarColumn
+            {
+                CompletedStyle = new Style(Color.Blue),
+                FinishedStyle = new Style(Color.Green),
+                RemainingStyle = new Style(Color.Grey),
+                IndeterminateStyle = new Style(Color.Cyan)
+            };
             var display = console.Progress()
                 .AutoRefresh(true)
                 .AutoClear(false)
@@ -32,16 +39,7 @@ namespace GitTfs.Commands
                 .Columns(
                     new TaskStatusColumn(console.Profile.Capabilities.Unicode),
                     new TaskDescriptionColumn { Wrap = true },
-                    new ProgressBarColumn
-                    {
-                        Width = Math.Clamp((folder != null && console.Profile.Width >= 80
-                            ? console.Profile.Width - FolderWidth(console.Profile.Width) - 2
-                            : console.Profile.Width) - 28, 14, 60),
-                        CompletedStyle = new Style(Color.Blue),
-                        FinishedStyle = new Style(Color.Green),
-                        RemainingStyle = new Style(Color.Grey),
-                        IndeterminateStyle = new Style(Color.Cyan)
-                    },
+                    progressBar,
                     new FilePercentageColumn(),
                     new SecondsColumn());
             display.RefreshRate = TimeSpan.FromMilliseconds(250);
@@ -50,12 +48,15 @@ namespace GitTfs.Commands
             string lastPhase = null;
             display.RenderHook = (progress, _) =>
             {
+                progressBar.Width = Math.Max(14, (folder != null && console.Profile.Width >= 80
+                    ? console.Profile.Width - FolderWidth(console.Profile.Width) - 2
+                    : console.Profile.Width) - 28);
                 var phase = reporter?.Phase ?? "Scanning";
                 var refresh = phase != lastPhase;
                 lastPhase = phase;
                 return Dashboard(console, metrics.RenderDisplay(live: !finished, refresh), progress, phase,
-                    folder?.Render(refresh || finished, maxNodes: Math.Clamp((console.Profile.Height - 10) / 2, 1, 20),
-                        maxDepth: Math.Max(1, ((console.Profile.Width >= 80 ? FolderWidth(console.Profile.Width) : console.Profile.Width) - 16) / 4)));
+                    folder?.Render(finished, maxNodes: Math.Clamp(console.Profile.Height - 6, 1, 20),
+                        maxDepth: Math.Max(1, ((console.Profile.Width >= 80 ? FolderWidth(console.Profile.Width) : console.Profile.Width) / 2 - 8) / 4)));
             };
             var exitCode = display.Start(context =>
                 {
@@ -86,7 +87,7 @@ namespace GitTfs.Commands
             return new Rows(dashboard, metrics);
         }
 
-        private static int FolderWidth(int width) => Math.Clamp(width / 3, 24, 40);
+        private static int FolderWidth(int width) => Math.Max(width / 3, 24);
 
         private sealed class TaskStatusColumn(bool unicode) : ProgressColumn
         {

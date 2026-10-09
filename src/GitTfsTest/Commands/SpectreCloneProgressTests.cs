@@ -10,6 +10,68 @@ namespace GitTfs.Test.Commands
     public class SpectreCloneProgressTests
     {
         [TestMethod]
+        public void LiveDashboardUsesNewWidthAfterResizingWithALongFilename()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "tree-" + Guid.NewGuid().ToString("N")[..8]);
+            const string filename = "Very long generated ChangesetImporterWithDownloadProgressAndRateLimit.cs";
+            using var output = new LockedStringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = 180;
+            console.Profile.Height = 40;
+            var original = AnsiConsole.Console;
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, "src", "Core"));
+                File.WriteAllBytes(Path.Combine(root, "src", "Core", filename), new byte[1024]);
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    progress.CompleteScan(1);
+                    progress.StartChangeset(1, 2);
+                    progress.ReportDownloadedFile("src/Core/" + filename);
+                    progress.ReportFiles(1, 1, 2);
+                    var narrow = WaitForFrame(frame => frame.Contains("> Very long") && frame.Contains("…"));
+                    var narrowBar = BarWidth(narrow);
+                    console.Profile.Width = 300;
+                    var wide = WaitForFrame(frame => frame.Contains("> " + filename) && BarWidth(frame) > narrowBar);
+                    Assert.IsTrue(BarWidth(wide) > narrowBar);
+                    console.Profile.Width = 80;
+                    var smaller = WaitForFrame(frame => frame.Contains("> Very") && !frame.Contains(filename)
+                        && BarWidth(frame) < narrowBar && frame.Split('\n').All(line => line.TrimEnd('\r').Length <= 80));
+                    Assert.AreEqual(narrow.Split('\n').Length, wide.Split('\n').Length,
+                        "Revealing a longer filename must not make the tree taller.");
+                    Assert.IsFalse(smaller.Contains(filename));
+                    progress.CompleteChangeset(1, "abcdef1234");
+                    return 0;
+                }, root);
+            }
+            finally
+            {
+                AnsiConsole.Console = original;
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+
+            string WaitForFrame(Func<string, bool> predicate)
+            {
+                string frame = null;
+                Assert.IsTrue(SpinWait.SpinUntil(() =>
+                {
+                    frame = LastImportFrame(output.ToString());
+                    return frame.Contains("Rate") && predicate(frame);
+                }, TimeSpan.FromSeconds(4)), "Both the tree and progress bar must follow terminal resizing.");
+                return frame;
+            }
+
+            static int BarWidth(string frame)
+                => System.Text.RegularExpressions.Regex.Match(frame, @"\bC1\b[^\r\n]*50%").Value.Count(character => character == '━');
+        }
+
+        [TestMethod]
         public void LiveTreeFollowsTheLatestDownload()
         {
             var root = Path.Combine(Path.GetTempPath(), "git-tfs-live-tree-" + Guid.NewGuid().ToString("N"));
@@ -36,7 +98,7 @@ namespace GitTfs.Test.Commands
                     Assert.IsTrue(SpinWait.SpinUntil(() =>
                     {
                         var frame = LastImportFrame(output.ToString());
-                        return frame.Contains("> first.cs") && frame.Contains("Latest · 5 B") && frame.Contains("Rate");
+                        return frame.Contains("> first.cs") && frame.Contains("Rate");
                     }, TimeSpan.FromSeconds(3)), "The live tree must show the successful download.");
                     File.WriteAllText(Path.Combine(root, "second.cs"), "second");
                     progress.ReportDownloadedFile("second.cs");

@@ -2,7 +2,6 @@ namespace GitTfs.Commands
 {
     using Spectre.Console;
     using Spectre.Console.Rendering;
-    using System.Globalization;
 
     internal sealed class WorkingDirectoryTree(string path, TimeProvider clock = null)
     {
@@ -18,7 +17,6 @@ namespace GitTfs.Commands
         private int cachedNodeLimit;
         private int cachedDepthLimit;
         private string latestDownload;
-        private string cachedDownload;
 
         public void ReportDownloadedFile(string relativePath)
         {
@@ -32,30 +30,30 @@ namespace GitTfs.Commands
         {
             maxNodes = Math.Clamp(maxNodes, 1, MaxNodes);
             maxDepth = Math.Clamp(maxDepth, 1, MaxNodes);
-            var download = Volatile.Read(ref latestDownload);
-            if (!refresh && cached != null && cachedDownload == download && cachedNodeLimit == maxNodes
+            if (!refresh && cached != null && cachedNodeLimit == maxNodes
                 && cachedDepthLimit == maxDepth && clock.GetElapsedTime(refreshed) < TimeSpan.FromSeconds(1))
                 return cached;
 
             var name = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar));
             var tree = new Tree(new Text(string.Empty));
             var remaining = maxNodes;
+            var omitted = false;
             var exists = Directory.Exists(root);
-            var activeFile = VisibleDownload(download);
+            var activeFile = VisibleDownload(Volatile.Read(ref latestDownload));
             if (exists)
-                AddChildren(tree.AddNode, root, activeFile, ref remaining, maxDepth);
+            {
+                if (activeFile != null && Path.GetDirectoryName(activeFile) == root)
+                    tree.AddNode(LatestFile(activeFile));
+                AddChildren(tree.AddNode, root, activeFile, ref remaining, maxDepth, ref omitted);
+                if (omitted) tree.AddNode(new Text("… more", new Style(Color.Grey)));
+            }
             else
                 tree.AddNode(new Text("Waiting for folder", new Style(Color.Grey)));
-            IRenderable contents = !exists ? new TreeContents(tree)
-                : activeFile != null && Path.GetDirectoryName(activeFile) == root
-                    ? new Rows(FileSummary(root), LatestFile(activeFile), new TreeContents(tree))
-                    : new Rows(FileSummary(root), new TreeContents(tree));
-            cached = new Panel(contents).RoundedBorder()
+            cached = new Panel(new TreeContents(tree)).RoundedBorder().Expand()
                 .Header(Markup.Escape(string.IsNullOrEmpty(name) ? root : name), Justify.Center);
             refreshed = clock.GetTimestamp();
             cachedNodeLimit = maxNodes;
             cachedDepthLimit = maxDepth;
-            cachedDownload = download;
             return cached;
         }
 
@@ -68,18 +66,28 @@ namespace GitTfs.Commands
                 => ((IRenderable)tree).Render(options, maxWidth).SkipWhile(segment => !segment.IsLineBreak).Skip(1);
         }
 
-        private static IRenderable LatestFile(string path)
+        // Text.Ellipsis still wraps at spaces; directory and file names must occupy exactly one line.
+        private sealed class SingleLine(string text, Style style) : IRenderable
         {
-            try
+            private readonly Segment segment = new(text, style);
+
+            public Measurement Measure(RenderOptions options, int maxWidth)
+                => new(0, Math.Min(maxWidth, segment.CellCount()));
+
+            public IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
             {
-                return new Rows(new Text("> " + Path.GetFileName(path), new Style(Color.Green, decoration: Decoration.Bold)).Ellipsis(),
-                    new Text("Latest · " + Size(new FileInfo(path).Length), new Style(Color.Green)).Ellipsis());
+                if (maxWidth <= 0) yield break;
+                if (segment.CellCount() <= maxWidth) { yield return segment; yield break; }
+                if (maxWidth > 1) yield return Segment.Truncate(segment, maxWidth - 1);
+                yield return new Segment("…", style);
             }
-            catch (IOException) { return new Text("Updating…", new Style(Color.Grey)); }
-            catch (UnauthorizedAccessException) { return new Text("Unavailable", new Style(Color.Grey)); }
         }
 
-        private static void AddChildren(Func<IRenderable, TreeNode> addNode, string directory, string activeFile, ref int remaining, int depth)
+        private static IRenderable LatestFile(string path)
+            => new SingleLine("> " + Path.GetFileName(path), new Style(Color.Green, decoration: Decoration.Bold));
+
+        private static void AddChildren(Func<IRenderable, TreeNode> addNode, string directory, string activeFile,
+            ref int remaining, int depth, ref bool omitted)
         {
             try
             {
@@ -94,20 +102,15 @@ namespace GitTfs.Commands
                 {
                     if (remaining == 0 || depth == 0)
                     {
-                        addNode(new Text("… more", new Style(Color.Grey)));
+                        omitted = true;
                         break;
                     }
                     var focused = string.Equals(entry, activeChild, StringComparison.OrdinalIgnoreCase);
                     var (folder, label) = CompactFolder(entry, focused ? activeFile : null, Math.Min(remaining, depth));
                     remaining--;
-                    var rows = new List<IRenderable>
-                    {
-                        new Text(label, new Style(Color.Cyan, decoration: focused ? Decoration.Bold : Decoration.None)).Ellipsis(),
-                        FileSummary(folder)
-                    };
-                    if (focused && Path.GetDirectoryName(activeFile) == folder) rows.Add(LatestFile(activeFile));
-                    var node = addNode(new Rows(rows));
-                    AddChildren(node.AddNode, folder, focused ? activeFile : null, ref remaining, depth - 1);
+                    var node = addNode(new SingleLine(label, new Style(Color.Cyan, decoration: focused ? Decoration.Bold : Decoration.None)));
+                    if (focused && Path.GetDirectoryName(activeFile) == folder) node.AddNode(LatestFile(activeFile));
+                    AddChildren(node.AddNode, folder, focused ? activeFile : null, ref remaining, depth - 1, ref omitted);
                 }
             }
             catch (IOException) { addNode(new Text("Updating…", new Style(Color.Grey))); }
@@ -163,32 +166,6 @@ namespace GitTfs.Commands
                 label += "/" + Path.GetFileName(directory);
             }
             return (directory, label);
-        }
-
-        private static Text FileSummary(string directory)
-        {
-            try
-            {
-                long count = 0, bytes = 0;
-                foreach (var file in new DirectoryInfo(directory).EnumerateFiles("*", Entries))
-                {
-                    if (string.Equals(file.Name, ".git", StringComparison.OrdinalIgnoreCase)) continue;
-                    try { bytes += file.Length; count++; }
-                    catch (IOException) { } // Files may move while the importer updates the folder.
-                }
-                return new Text($"{count} {(count == 1 ? "file" : "files")} · {Size(bytes)}", new Style(Color.Grey)).Ellipsis();
-            }
-            catch (IOException) { return new Text("Updating…", new Style(Color.Grey)); }
-            catch (UnauthorizedAccessException) { return new Text("Unavailable", new Style(Color.Grey)); }
-        }
-
-        private static string Size(long bytes)
-        {
-            double value = bytes;
-            string[] units = ["B", "KB", "MB", "GB", "TB"];
-            var unit = 0;
-            while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
-            return value.ToString("0.#", CultureInfo.InvariantCulture) + " " + units[unit];
         }
     }
 }

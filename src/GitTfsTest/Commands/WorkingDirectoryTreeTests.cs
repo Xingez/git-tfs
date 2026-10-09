@@ -21,26 +21,25 @@ namespace GitTfs.Test.Commands
                 File.WriteAllBytes(Path.Combine(root, "src", "nested", "child.txt"), new byte[100]);
                 var clock = new ManualTimeProvider();
                 var view = new WorkingDirectoryTree(root, clock);
+                view.ReportDownloadedFile("src/[old].txt");
                 var initial = view.Render();
                 var text = Render(initial);
                 StringAssert.Contains(text, "src");
-                Assert.IsTrue(text.Split('\n')[1].Contains("0 files · 0 B"));
-                StringAssert.Contains(text, "1 file · 6 B");
-                StringAssert.Contains(text, "1 file · 100 B");
-                Assert.IsFalse(text.Contains("[old].txt"));
+                StringAssert.Contains(text, "> [old].txt");
+                Assert.IsFalse(text.Contains("files ·"));
                 Assert.IsFalse(text.Contains("child.txt"));
                 Assert.IsFalse(text.Contains("hidden.txt"));
                 File.Move(Path.Combine(root, "src", "[old].txt"), Path.Combine(root, "new.txt"));
+                view.ReportDownloadedFile("new.txt");
                 clock.Advance(TimeSpan.FromMilliseconds(999));
                 Assert.AreSame(initial, view.Render());
                 clock.Advance(TimeSpan.FromMilliseconds(1));
                 text = Render(view.Render());
-                Assert.IsTrue(text.Split('\n')[1].Contains("1 file · 6 B"));
+                StringAssert.Contains(text, "> new.txt");
                 StringAssert.Contains(text, "src/nested");
-                Assert.IsFalse(text.Contains("new.txt"));
                 Assert.IsFalse(text.Contains("[old].txt"));
                 File.Delete(Path.Combine(root, "new.txt"));
-                Assert.IsTrue(Render(view.Render(refresh: true)).Split('\n')[1].Contains("0 files · 0 B"));
+                Assert.IsFalse(Render(view.Render(refresh: true)).Contains("new.txt"));
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
@@ -59,7 +58,6 @@ namespace GitTfs.Test.Commands
                 var view = new WorkingDirectoryTree(root);
                 var text = Render(view.Render());
                 StringAssert.Contains(text, "src/Core/Import");
-                StringAssert.Contains(text, "1 file · 16 B");
                 Assert.IsFalse(text.Contains("hidden.txt"));
                 Directory.CreateDirectory(Path.Combine(source, "Other"));
                 text = Render(view.Render(refresh: true));
@@ -69,14 +67,14 @@ namespace GitTfs.Test.Commands
                 File.WriteAllBytes(Path.Combine(core, "parent.txt"), new byte[3]);
                 text = Render(view.Render(refresh: true));
                 Assert.IsFalse(text.Contains("Core/Import"));
-                StringAssert.Contains(text, "1 file · 3 B");
-                StringAssert.Contains(text, "1 file · 16 B");
+                StringAssert.Contains(text, "Core");
+                StringAssert.Contains(text, "Import");
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
 
         [TestMethod]
-        public void LatestDownloadExpandsItsPathAndReplacesThePreviousHighlightImmediately()
+        public void LatestDownloadExpandsItsPathAndRefreshesAtMostOncePerSecond()
         {
             var root = Path.Combine(Path.GetTempPath(), "git-tfs-tree-" + Guid.NewGuid().ToString("N"));
             try
@@ -85,19 +83,25 @@ namespace GitTfs.Test.Commands
                 Directory.CreateDirectory(leaf);
                 File.WriteAllBytes(Path.Combine(leaf, "[latest].cs"), new byte[23]);
                 File.WriteAllBytes(Path.Combine(leaf, "hidden.cs"), new byte[100]);
-                var view = new WorkingDirectoryTree(root, new ManualTimeProvider());
+                var clock = new ManualTimeProvider();
+                var view = new WorkingDirectoryTree(root, clock);
                 var initial = view.Render();
                 StringAssert.Contains(Render(initial), "src/Core/Import");
                 view.ReportDownloadedFile("src/Core/Import/[latest].cs");
+                Assert.AreSame(initial, view.Render());
+                clock.Advance(TimeSpan.FromSeconds(1));
                 var expanded = Render(view.Render());
                 Assert.IsFalse(expanded.Contains("src/Core/Import"));
                 StringAssert.Contains(expanded, "> [latest].cs");
-                StringAssert.Contains(expanded, "Latest · 23 B");
-                StringAssert.Contains(expanded, "2 files · 123 B");
+                Assert.IsFalse(expanded.Contains("23 B"));
+                Assert.IsFalse(expanded.Contains("files ·"));
                 Assert.IsFalse(expanded.Contains("hidden.cs"));
 
                 File.WriteAllBytes(Path.Combine(root, "root.txt"), new byte[3]);
                 view.ReportDownloadedFile("root.txt");
+                clock.Advance(TimeSpan.FromMilliseconds(999));
+                StringAssert.Contains(Render(view.Render()), "> [latest].cs");
+                clock.Advance(TimeSpan.FromMilliseconds(1));
                 var next = Render(view.Render());
                 StringAssert.Contains(next, "> root.txt");
                 StringAssert.Contains(next, "src/Core/Import");
@@ -126,7 +130,6 @@ namespace GitTfs.Test.Commands
                 StringAssert.Contains(text, "z-source/Core");
                 StringAssert.Contains(text, "Import");
                 StringAssert.Contains(text, "> latest.cs");
-                StringAssert.Contains(text, "Latest · 1 KB");
                 Assert.IsFalse(text.Contains("dir-"));
                 var narrow = Render(view.Render(maxNodes: 20, maxDepth: 1));
                 StringAssert.Contains(narrow, "z-source/Core/Import");
@@ -152,12 +155,95 @@ namespace GitTfs.Test.Commands
                 var text = Render(view.Render(refresh: true));
                 Assert.AreEqual(20, System.Text.RegularExpressions.Regex.Matches(text, @"dir-\d+").Count);
                 Assert.IsFalse(text.Contains(".txt"));
-                StringAssert.Contains(text, "100 files · 100 KB");
                 StringAssert.Contains(text, "… more");
                 var smaller = Render(view.Render(maxNodes: 2));
                 Assert.AreEqual(2, System.Text.RegularExpressions.Regex.Matches(smaller, @"dir-\d+").Count);
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        [TestMethod]
+        [DataRow(80, 1)]
+        [DataRow(120, 3)]
+        [DataRow(240, 8)]
+        public void EightLevelRandomTreeKeepsLatestLongFilenameVisible(int width, int depth)
+        {
+            var root = Path.Combine(Path.GetTempPath(), "tree-" + Guid.NewGuid().ToString("N")[..8]);
+            const string filename = "Very long downloaded file with a descriptive name and generated source content.cs";
+            try
+            {
+                var random = new Random(7291);
+                var relative = "";
+                for (var level = 1; level <= 8; level++)
+                {
+                    relative = Path.Combine(relative, $"Level {level} source folder {random.Next(100, 999)}");
+                    var directory = Path.Combine(root, relative);
+                    Directory.CreateDirectory(directory);
+                    var files = random.Next(1, 12);
+                    for (var file = 0; file < files; file++)
+                        File.WriteAllText(Path.Combine(directory, $"Other generated file {file}.cs"), "sample");
+                    var siblings = random.Next(1, 5);
+                    for (var sibling = 0; sibling < siblings; sibling++)
+                        Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(directory), $"Sibling {level}-{sibling} with long names"));
+                }
+                File.WriteAllText(Path.Combine(root, relative, filename), "sample");
+                var view = new WorkingDirectoryTree(root);
+                view.ReportDownloadedFile(Path.Combine(relative, filename));
+                var text = Dashboard(view.Render(maxDepth: depth), width);
+                StringAssert.Contains(text, "> Very");
+                Assert.AreEqual(1, text.Split('\n').Count(line => line.Contains("> Very")));
+                Assert.IsTrue(text.Split('\n').All(line => line.TrimEnd('\r').Length <= width));
+                Assert.IsTrue(text.Split('\n').Length < 30, "Deep paths must stay within the visible tree budget.");
+                Assert.IsTrue(System.Text.RegularExpressions.Regex.Matches(text, "… more").Count <= 1);
+                Assert.IsFalse(text.Contains("Other generated file"));
+                Assert.IsFalse(text.Contains("files ·"));
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        [TestMethod]
+        [DataRow(70)]
+        [DataRow(80)]
+        [DataRow(120)]
+        [DataRow(240)]
+        public void LongNamesStayOnOneLineAndUseTheAvailablePanelWidth(int width)
+        {
+            var root = Path.Combine(Path.GetTempPath(), "tree-" + Guid.NewGuid().ToString("N")[..8]);
+            const string folder = "Source files with a very long directory name containing multiple words";
+            const string filename = "Very long [generated] changeset import file with spaces and a detailed description of the downloaded content.cs";
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, folder));
+                File.WriteAllBytes(Path.Combine(root, folder, "short.cs"), new byte[1024]);
+                File.WriteAllBytes(Path.Combine(root, folder, filename), new byte[1024]);
+                var clock = new ManualTimeProvider();
+                var view = new WorkingDirectoryTree(root, clock);
+                view.ReportDownloadedFile(folder + "/short.cs");
+                var shortName = Dashboard(view.Render(maxDepth: 1), width);
+                view.ReportDownloadedFile(folder + "/" + filename);
+                clock.Advance(TimeSpan.FromSeconds(1));
+                var longName = Dashboard(view.Render(maxDepth: 1), width);
+                Assert.AreEqual(shortName.Split('\n').Length, longName.Split('\n').Length,
+                    "Long names must not add wrapped lines to the tree.");
+                var fileLine = longName.Split('\n').Single(line => line.Contains("> Very"));
+                StringAssert.Contains(fileLine, "…");
+                Assert.IsTrue(fileLine.TrimEnd('\r').Length <= width);
+                var widerLine = Dashboard(view.Render(maxDepth: 1), width < 80 ? 79 : width * 2)
+                    .Split('\n').Single(line => line.Contains("> Very"));
+                Assert.IsTrue(widerLine[(widerLine.IndexOf("> Very", StringComparison.Ordinal))..].TrimEnd().Length
+                    > fileLine[(fileLine.IndexOf("> Very", StringComparison.Ordinal))..].TrimEnd().Length,
+                    "A wider terminal must reveal more of the filename even when the tree is cached.");
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        private static string Dashboard(IRenderable folder, int width)
+        {
+            using var output = new StringWriter();
+            var console = CreateConsole(output, width);
+            console.Write(SpectreCloneProgress.Dashboard(console,
+                new Text("metrics"), new Text("progress"), "Importing", folder));
+            return output.ToString();
         }
 
         [TestMethod]

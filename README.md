@@ -64,9 +64,10 @@ Changesets reach 100% after their Git commit is written; partial failures show a
 The compact footer shows HTTP attempts (`Req`) and file download attempts (`DL`), each
 with its count and latest duration in milliseconds, plus rate budget, throttle and
 retry counts. Counts and the folder tree refresh once per second; retry backoff is
-excluded from request timings. The tree shows directories with their direct file
-count and combined file size, omitting `.git` and linked folders. Each successful
-download expands its folder path and highlights only the latest filename and size.
+excluded from request timings. The tree shows directory names
+and the latest downloaded file as a highlighted leaf, omitting `.git` and linked folders.
+It refreshes once per second, with long names shortened to one line. The folder panel
+and progress bars grow with the terminal width and adapt when the terminal is resized.
 Other folders with no files and a single subfolder collapse into paths such as `src/Core/Import`.
 It shows up to 20 directories, fitting fewer in short terminals. Redirected output
 prints a final footer.
