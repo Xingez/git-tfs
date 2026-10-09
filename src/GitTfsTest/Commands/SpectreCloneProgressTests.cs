@@ -57,7 +57,7 @@ namespace GitTfs.Test.Commands
         }
 
         [TestMethod]
-        public void ActiveChangesetShowsElapsedSecondsAndNextFifteenWaitWithoutSpinners()
+        public void ActiveChangesetShowsElapsedSecondsAndNextSevenWaitWithoutSpinners()
         {
             using var output = new LockedStringWriter();
             var console = AnsiConsole.Create(new AnsiConsoleSettings
@@ -84,16 +84,16 @@ namespace GitTfs.Test.Commands
                     {
                         var frame = LastImportFrame(output.ToString());
                         if (!System.Text.RegularExpressions.Regex.IsMatch(frame, @"C1\b[^\r\n]*50%\s+[1-9]\d*s")
-                            || !System.Text.RegularExpressions.Regex.IsMatch(frame, @"\bC16\b[^\r\n]*0%\s+0s[\s\S]*Rate")) return false;
+                            || !System.Text.RegularExpressions.Regex.IsMatch(frame, @"\bC8\b[^\r\n]*0%\s+0s[\s\S]*Rate")) return false;
                         first = frame;
                         return true;
-                    }, TimeSpan.FromSeconds(3)), "The active timer and fifteen queued rows must be rendered.");
+                    }, TimeSpan.FromSeconds(3)), "The active timer and seven queued rows must be rendered.");
                     progress.CompleteChangeset(1, "abcdef1234");
                     progress.StartChangeset(2, 2);
                     Assert.IsTrue(SpinWait.SpinUntil(() =>
                     {
                         var frame = LastImportFrame(output.ToString());
-                        if (!System.Text.RegularExpressions.Regex.IsMatch(frame, @"\bC17\b[^\r\n]*0%\s+0s[\s\S]*Rate")) return false;
+                        if (!System.Text.RegularExpressions.Regex.IsMatch(frame, @"\bC9\b[^\r\n]*0%\s+0s[\s\S]*Rate")) return false;
                         second = frame;
                         return true;
                     }, TimeSpan.FromSeconds(3)), "The next queued changeset must enter the visible list.");
@@ -102,12 +102,12 @@ namespace GitTfs.Test.Commands
             }
             finally { AnsiConsole.Console = original; }
             Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(first, @"C1\b[^\r\n]*50%\s+[1-9]\d*s"));
-            for (var id = 2; id <= 16; id++)
+            for (var id = 2; id <= 8; id++)
                 Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(first, $@"│\s+C{id}\b[^\r\n]*0%\s+0s"),
                     "Queued changesets must remain at zero without an active spinner.");
-            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(first, @"\bC17\b"));
-            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(second, @"\bC1\b"));
-            for (var id = 3; id <= 17; id++)
+            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(first, @"\bC9\b"));
+            Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(second, @"\bC1\b[^\r\n]*100%"));
+            for (var id = 3; id <= 9; id++)
                 Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(second, $@"│\s+C{id}\b[^\r\n]*0%\s+0s"));
         }
 
@@ -116,6 +116,61 @@ namespace GitTfs.Test.Commands
             var text = System.Text.RegularExpressions.Regex.Replace(output, @"\x1B\[[0-?]*[ -/]*[@-~]", "");
             var start = text.LastIndexOf("Changesets · Importing", StringComparison.Ordinal);
             return start < 0 ? string.Empty : text[start..];
+        }
+
+        [TestMethod]
+        [DataRow(80)]
+        [DataRow(180)]
+        public void LiveWindowKeepsEightCompletedAndEightCurrentOrUpcomingChangesets(int width)
+        {
+            using var output = new LockedStringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Yes, Interactive = InteractionSupport.Yes,
+                Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+                Out = new AnsiConsoleOutput(output)
+            });
+            console.Profile.Width = width;
+            var original = AnsiConsole.Console;
+            try
+            {
+                AnsiConsole.Console = console;
+                SpectreCloneProgress.Run(progress =>
+                {
+                    for (var id = 1; id <= 32; id++)
+                        progress.ReportScan(1, id, 0, new RestChangesetReference { ChangesetId = id });
+                    progress.CompleteScan(32);
+                    for (var id = 1; id <= 8; id++) progress.SkipChangeset(id);
+                    progress.StartChangeset(9, 2);
+                    progress.ReportFiles(9, 1, 2);
+                    CheckFrame(1, 9, 16);
+                    progress.CompleteChangeset(9, "abcdef1234");
+                    progress.SkipChangeset(10);
+                    progress.StartChangeset(11, 2);
+                    progress.ReportFiles(11, 1, 2);
+                    CheckFrame(3, 11, 18);
+                    return 1;
+                });
+            }
+            finally { AnsiConsole.Console = original; }
+
+            void CheckFrame(int firstCompleted, int active, int lastQueued)
+            {
+                string frame = null;
+                Assert.IsTrue(SpinWait.SpinUntil(() =>
+                {
+                    frame = LastImportFrame(output.ToString());
+                    return System.Text.RegularExpressions.Regex.IsMatch(frame, $@"\bC{active}\b[^\r\n]*50%")
+                        && System.Text.RegularExpressions.Regex.IsMatch(frame, $@"\bC{lastQueued}\b[^\r\n]*0%\s+0s[\s\S]*Rate");
+                }, TimeSpan.FromSeconds(3)), "The completed and upcoming halves must roll forward together.");
+                Assert.AreEqual(16, System.Text.RegularExpressions.Regex.Matches(frame, @"\bC\d+\b").Count);
+                for (var id = firstCompleted; id < active; id++)
+                    Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(frame, $@"[✓v]\s+C{id}\b[^\r\n]*100%"));
+                for (var id = active + 1; id <= lastQueued; id++)
+                    Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(frame, $@"│\s+C{id}\b[^\r\n]*0%\s+0s"));
+                Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(frame, $@"\bC{firstCompleted - 1}\b"));
+                Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(frame, $@"\bC{lastQueued + 1}\b"));
+            }
         }
 
         private sealed class LockedStringWriter : StringWriter
@@ -194,7 +249,7 @@ namespace GitTfs.Test.Commands
         [TestMethod]
         [DataRow(80)]
         [DataRow(180)]
-        public void DashboardKeepsMetricsInTheFooterAndOnlySixteenRecentChangesets(int width)
+        public void DashboardKeepsMetricsInTheFooterAndLastEightCompletedChangesets(int width)
         {
             using var output = new StringWriter();
             var console = AnsiConsole.Create(new AnsiConsoleSettings
@@ -224,9 +279,9 @@ namespace GitTfs.Test.Commands
                 var finalFrame = text[text.LastIndexOf("Changesets · Complete", StringComparison.Ordinal)..];
                 Assert.IsTrue(finalFrame.IndexOf("Rate", StringComparison.Ordinal) > finalFrame.IndexOf("C19", StringComparison.Ordinal),
                     "Compact metrics belong below the changeset list.");
-                for (var id = 1; id <= 3; id++)
+                for (var id = 1; id <= 11; id++)
                     Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, $@"\bC{id}\b"));
-                for (var id = 4; id <= 19; id++)
+                for (var id = 12; id <= 19; id++)
                     Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, $@"\bC{id}\b"));
                 Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(finalFrame, @"Overall[^\r\n]*100%"));
             }

@@ -7,6 +7,7 @@ namespace GitTfs.Commands
     internal static class SpectreCloneProgress
     {
         private const int VisibleChangesets = 16;
+        private const int VisibleCompletedChangesets = VisibleChangesets / 2;
 
         public static int Run(Func<IChangesetProgressReporter, int> action, string workingDirectory = null)
         {
@@ -150,7 +151,7 @@ namespace GitTfs.Commands
             private readonly WorkingDirectoryTree folder;
             private readonly ProgressTask overall;
             private readonly Dictionary<int, ProgressTask> entries = new();
-            private readonly Queue<ProgressTask> recent = new();
+            private readonly Queue<ProgressTask> completedTasks = new();
             private readonly Queue<int> upcoming = new();
             private int completed;
             public string Phase { get; private set; } = "Scanning";
@@ -182,14 +183,12 @@ namespace GitTfs.Commands
             {
                 var task = context.AddTask($"[bold blue]C{changesetId}[/]", autoStart: false, maxValue: 1);
                 entries[changesetId] = task;
-                recent.Enqueue(task);
-                if (recent.Count > VisibleChangesets) recent.Dequeue().HideWhenCompleted = true;
                 return task;
             }
 
             private void FillUpcoming()
             {
-                while (upcoming.Count > 0 && (recent.Count < VisibleChangesets || recent.Peek().IsFinished))
+                while (upcoming.Count > 0 && entries.Count < VisibleChangesets - VisibleCompletedChangesets)
                     AddChangeset(upcoming.Dequeue());
             }
 
@@ -222,6 +221,9 @@ namespace GitTfs.Commands
                 if (!entries.Remove(changesetId, out var task)) return;
                 task.Value = task.MaxValue;
                 task.StopTask();
+                completedTasks.Enqueue(task);
+                if (completedTasks.Count > VisibleCompletedChangesets)
+                    completedTasks.Dequeue().HideWhenCompleted = true;
                 completed++;
                 UpdateOverall();
                 FillUpcoming();
