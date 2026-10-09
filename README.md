@@ -65,6 +65,7 @@ with its count and latest duration in milliseconds, plus rate budget, throttle a
 retry counts. Counts and the folder tree refresh once per second; retry backoff is
 excluded from request timings. The tree shows directories with their direct file
 count and combined file size, omitting individual files, `.git`, and linked folders.
+Folders with no files and a single subfolder collapse into paths such as `src/Core/Import`.
 It shows up to 20 directories, fitting fewer in short terminals. Redirected output
 prints a final footer.
 Retry and throttle counters, the next-attempt countdown, and the last server delay

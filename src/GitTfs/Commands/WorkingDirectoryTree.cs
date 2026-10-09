@@ -52,8 +52,7 @@ namespace GitTfs.Commands
         {
             try
             {
-                var entries = Directory.EnumerateDirectories(directory, "*", Entries)
-                    .Where(entry => !string.Equals(Path.GetFileName(entry), ".git", StringComparison.OrdinalIgnoreCase))
+                var entries = Subdirectories(directory)
                     .Take(remaining + 1).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase);
                 foreach (var entry in entries)
                 {
@@ -63,12 +62,31 @@ namespace GitTfs.Commands
                         break;
                     }
                     remaining--;
-                    var node = addNode(new Rows(new Text(Path.GetFileName(entry), new Style(Color.Cyan)).Ellipsis(), FileSummary(entry)));
-                    AddChildren(node.AddNode, entry, ref remaining);
+                    var (folder, label) = CompactFolder(entry);
+                    var node = addNode(new Rows(new Text(label, new Style(Color.Cyan)).Ellipsis(), FileSummary(folder)));
+                    AddChildren(node.AddNode, folder, ref remaining);
                 }
             }
             catch (IOException) { addNode(new Text("Updating…", new Style(Color.Grey))); }
             catch (UnauthorizedAccessException) { addNode(new Text("Unavailable", new Style(Color.Grey))); }
+        }
+
+        private static IEnumerable<string> Subdirectories(string directory)
+            => Directory.EnumerateDirectories(directory, "*", Entries)
+                .Where(entry => !string.Equals(Path.GetFileName(entry), ".git", StringComparison.OrdinalIgnoreCase));
+
+        private static (string Folder, string Label) CompactFolder(string directory)
+        {
+            var label = Path.GetFileName(directory);
+            while (!Directory.EnumerateFiles(directory, "*", Entries)
+                .Any(file => !string.Equals(Path.GetFileName(file), ".git", StringComparison.OrdinalIgnoreCase)))
+            {
+                var children = Subdirectories(directory).Take(2).ToArray();
+                if (children.Length != 1) break;
+                directory = children[0];
+                label += "/" + Path.GetFileName(directory);
+            }
+            return (directory, label);
         }
 
         private static Text FileSummary(string directory)

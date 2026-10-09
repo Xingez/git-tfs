@@ -36,11 +36,41 @@ namespace GitTfs.Test.Commands
                 clock.Advance(TimeSpan.FromMilliseconds(1));
                 text = Render(view.Render());
                 Assert.IsTrue(text.Split('\n')[1].Contains("1 file · 6 B"));
-                Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(text, @"src[^\n]*\n[^\n]*0 files · 0 B"));
+                StringAssert.Contains(text, "src/nested");
                 Assert.IsFalse(text.Contains("new.txt"));
                 Assert.IsFalse(text.Contains("[old].txt"));
                 File.Delete(Path.Combine(root, "new.txt"));
                 Assert.IsTrue(Render(view.Render(refresh: true)).Split('\n')[1].Contains("0 files · 0 B"));
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        [TestMethod]
+        public void CompactChainsExpandWhenFoldersBranchOrContainFiles()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "git-tfs-tree-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var source = Path.Combine(root, "src");
+                var core = Path.Combine(source, "Core");
+                var leaf = Path.Combine(core, "Import");
+                Directory.CreateDirectory(leaf);
+                File.WriteAllBytes(Path.Combine(leaf, "hidden.txt"), new byte[16]);
+                var view = new WorkingDirectoryTree(root);
+                var text = Render(view.Render());
+                StringAssert.Contains(text, "src/Core/Import");
+                StringAssert.Contains(text, "1 file · 16 B");
+                Assert.IsFalse(text.Contains("hidden.txt"));
+                Directory.CreateDirectory(Path.Combine(source, "Other"));
+                text = Render(view.Render(refresh: true));
+                Assert.IsFalse(text.Contains("src/Core/Import"));
+                StringAssert.Contains(text, "Core/Import");
+                StringAssert.Contains(text, "Other");
+                File.WriteAllBytes(Path.Combine(core, "parent.txt"), new byte[3]);
+                text = Render(view.Render(refresh: true));
+                Assert.IsFalse(text.Contains("Core/Import"));
+                StringAssert.Contains(text, "1 file · 3 B");
+                StringAssert.Contains(text, "1 file · 16 B");
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
