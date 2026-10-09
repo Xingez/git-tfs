@@ -16,16 +16,26 @@ namespace GitTfs.Commands
             if (!refresh && cached != null && clock.GetElapsedTime(refreshed) < TimeSpan.FromSeconds(1))
                 return cached;
 
-            var tree = new Tree(new Text(Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } name
-                ? name : root, new Style(Color.Cyan)).Ellipsis());
+            var name = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar));
+            var tree = new Tree(new Text(string.Empty));
             var remaining = MaxNodes;
             if (Directory.Exists(root))
                 AddChildren(tree.AddNode, root, ref remaining);
             else
                 tree.AddNode(new Text("Waiting for folder", new Style(Color.Grey)));
-            cached = new Panel(tree).RoundedBorder().Header("Folder", Justify.Center);
+            cached = new Panel(new TreeContents(tree)).RoundedBorder()
+                .Header(Markup.Escape(string.IsNullOrEmpty(name) ? root : name), Justify.Center);
             refreshed = clock.GetTimestamp();
             return cached;
+        }
+
+        private sealed class TreeContents(Tree tree) : IRenderable
+        {
+            public Measurement Measure(RenderOptions options, int maxWidth)
+                => ((IRenderable)tree).Measure(options, maxWidth);
+
+            public IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
+                => ((IRenderable)tree).Render(options, maxWidth).SkipWhile(segment => !segment.IsLineBreak).Skip(1);
         }
 
         private static void AddChildren(Func<IRenderable, TreeNode> addNode, string directory, ref int remaining)
